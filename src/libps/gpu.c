@@ -36,5 +36,21 @@ void libps_gpu_destroy(struct libps_gpu* gpu)
 void libps_gpu_reset(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
+
     gpu->gpustat = 0x14802000;
+    gpu->gpuread = 0x00000000;
+}
+
+// Processes a GP0 packet.
+void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
+{
+    assert(gpu != NULL);
+    __debugbreak();
+}
+
+// Processes a GP1 packet.
+void libps_gpu_process_gp1(struct libps_gpu* gpu, const uint32_t packet)
+{
+    assert(gpu != NULL);
+    __debugbreak();
 }

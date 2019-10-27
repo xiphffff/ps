@@ -23,6 +23,25 @@
 // needs to know or care.
 static uint8_t* bios;
 
+// Handles processing of DMA channel 2 - GPU (lists + image data) in linked
+// list mode.
+static void dma_gpu_linked_list_process(struct libps_bus* bus)
+{
+    assert(bus != NULL);
+}
+
+// Handles processing of DMA channel 6 - OTC (reverse clear OT).
+static void dma_otc_process(struct libps_bus* bus)
+{
+    assert(bus != NULL);
+
+    if (bus->dma_otc_channel.chcr != 0x11000002)
+    {
+        bus->dma_otc_channel.chcr &= ~(1 << 24);
+        return;
+    }
+}
+
 // Allocates memory for a `libps_bus` structure and returns a pointer to it if
 // memory allocation was successful, or `NULL` otherwise. This function should
 // not be called anywhere other than `libps_system_create()`.
@@ -47,6 +66,8 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
         bus->ram = malloc(sizeof(uint8_t) * 0x200000);
 
         bus->gpu = libps_gpu_create();
+
+        libps_bus_reset(bus);
         return bus;
     }
     return NULL;
@@ -61,6 +82,56 @@ void libps_bus_destroy(struct libps_bus* bus)
     libps_gpu_destroy(bus->gpu);
     free(bus->ram);
     free(bus);
+}
+
+// Resets the system bus, which resets the peripherals to their startup state.
+void libps_bus_reset(struct libps_bus* bus)
+{
+    assert(bus != NULL);
+
+    bus->dpcr = 0x00000000;
+    libps_gpu_reset(bus->gpu);
+}
+
+// Handles DMA requests.
+void libps_bus_step(struct libps_bus* bus)
+{
+    assert(bus != NULL);
+
+    // Thanks to Ravenslofty for this idea.
+    int dpcr = bus->dpcr & 0x08888888;
+
+    while (dpcr)
+    {
+        // Extract least significant bit.
+        const int dma_enable_bit = __builtin_ctzl(dpcr);
+
+        // Zero least significant bit.
+        dpcr &= dpcr - 1;
+
+        switch (dma_enable_bit)
+        {
+            // DMA channel 2 - GPU (lists + image data)
+            case 11:
+                switch (bus->dma_gpu_channel.chcr)
+                {
+                    // List
+                    case 0x01000401:
+                        dma_gpu_linked_list_process(bus);
+                        break;
+
+                    default:
+                        __debugbreak();
+                        break;
+                }
+                break;
+
+            // DMA channel 6 - OTC (reverse clear OT)
+            case 27:
+                dma_otc_process(bus);
+                break;
+        }
+    }
 }
 
 // Returns a word from memory referenced by physical address `paddr`.
@@ -86,6 +157,31 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
                     // But for now, the compiler remains smarter than me.
                     switch (paddr & 0x00000FFF)
                     {
+                        // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
+                        case 0x074:
+                            return bus->i_mask;
+
+                        // 0x1F8010A8 - DMA Channel 2 (GPU) control (R/W)
+                        case 0x0A8:
+                            return bus->dma_gpu_channel.chcr;
+
+                        // 0x1F8010E8 - DMA Channel 6 (OTC) control (R/W)
+                        case 0x0E8:
+                            return bus->dma_otc_channel.chcr;
+
+                        // 0x1F8010F0 - DMA Control Register (R/W)
+                        case 0x0F0:
+                            return bus->dpcr;
+
+                        // 0x1F8010F4 - DMA Interrupt Register (R/W)
+                        case 0x0F4:
+                            return bus->dicr;
+
+                        // 0x1F801810 - Read responses to GP0(C0h) and GP1(10h)
+                        // commands
+                        case 0x810:
+                            return bus->gpu->gpuread;
+
                         // 0x1F801814 - GPU Status Register (R)
                         case 0x814:
                             return bus->gpu->gpustat;
@@ -126,8 +222,8 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t paddr)
             return *(uint16_t *)(bus->ram + (paddr & 0x00FFFFFF));
 
         default:
-            printf("libps_bus_load_halfword(bus=%p,paddr=0x%08X): Unknown physical "
-                   "address!\n", (void*)&bus, paddr);
+           // printf("libps_bus_load_halfword(bus=%p,paddr=0x%08X): Unknown physical "
+            //       "address!\n", (void*)&bus, paddr);
             return 0x0000;
     }
 }
@@ -167,6 +263,89 @@ void libps_bus_store_word(struct libps_bus* bus,
             *(uint32_t *)(bus->ram + (paddr & 0x00FFFFFF)) = data;
             break;
 
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // I/O Ports
+                case 0x1:
+                    // XXX: I think perhaps this could be made into an array,
+                    // however there'd be a lot of unused addresses unless we
+                    // could compartmentalize it somehow; must investigate.
+                    //
+                    // But for now, the compiler remains smarter than me.
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801070 - I_STAT - Interrupt status register
+                        // (R=Status, W=Acknowledge)
+                        case 0x070:
+                            bus->i_stat = data;
+                            break;
+
+                        // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
+                        case 0x074:
+                            bus->i_mask = data;
+                            break;
+
+                        // 0x1F8010A0 - DMA Channel 2 (GPU) base address (R/W)
+                        case 0x0A0:
+                            bus->dma_gpu_channel.madr = data;
+                            break;
+
+                        // 0x1F8010A4 - DMA Channel 2 (GPU) block control (R/W)
+                        case 0x0A4:
+                            bus->dma_gpu_channel.bcr = data;
+                            break;
+
+                        // 0x1F8010A8 - DMA Channel 2 (GPU) control (R/W)
+                        case 0x0A8:
+                            bus->dma_gpu_channel.chcr = data;
+                            break;
+
+                        // 0x1F8010E0 - DMA Channel 6 (OTC) base address (R/W)
+                        case 0x0E0:
+                            bus->dma_otc_channel.madr = data;
+                            break;
+
+                        // 0x1F8010E4 - DMA Channel 6 (OTC) block control (R/W)
+                        case 0x0E4:
+                            bus->dma_otc_channel.bcr = data;
+                            break;
+
+                        // 0x1F8010E8 - DMA Channel 6 (OTC) control (R/W)
+                        case 0x0E8:
+                            bus->dma_otc_channel.chcr = data;
+                            break;
+
+                        // 0x1F8010F0 - DMA Control Register (R/W)
+                        case 0x0F0:
+                            bus->dpcr = data;
+                            break;
+
+                        // 0x1F8010F4 - DMA Interrupt Register (R/W)
+                        case 0x0F4:
+                            bus->dicr = data;
+                            break;
+
+                        // 0x1F801810 - GP0 Commands/Packets (Rendering and
+                        // VRAM Access)
+                        case 0x810:
+                            libps_gpu_process_gp0(bus->gpu, data);
+                            break;
+
+                        // 0x1F801814 - GP1 Commands (Display Control)
+                        case 0x814:
+                            libps_gpu_process_gp1(bus->gpu, data);
+                            break;
+
+                        default:
+                            printf("libps_bus_store_word(bus=%p,paddr=0x%08X,data=0x%08X): "
+                                "Unknown physical address!\n", (void*)&bus, paddr, data);
+                            break;
+                    }
+                    break;
+            }
+            break;
+
         default:
             printf("libps_bus_store_word(bus=%p,paddr=0x%08X,data=0x%08X): "
                    "Unknown physical address!\n", (void*)&bus, paddr, data);
@@ -189,8 +368,8 @@ void libps_bus_store_halfword(struct libps_bus* bus,
             break;
 
         default:
-            //printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
-             //      ": Unknown physical address!\n", (void*)&bus, paddr, data);
+           // printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
+           //        ": Unknown physical address!\n", (void*)&bus, paddr, data);
             break;
     }
 }

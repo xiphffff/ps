@@ -186,6 +186,8 @@ void libps_disassemble_instruction(const uint32_t instruction,
     // XXX: There might be a more compact way to do this, but this is likely
     // the most "efficient" way for however much one needs to care about
     // disassembler efficiency...
+    //
+    // Also, let's not forget that strings are awful to work with C.
     switch (LIBPS_CPU_DECODE_OP(instruction))
     {
         case LIBPS_CPU_OP_GROUP_SPECIAL:

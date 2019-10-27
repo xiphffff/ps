@@ -30,6 +30,8 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
     // have fewer blocks, more memory will be used, but file I/O will become
     // more frequent.
     //
+    // Another alternative is HLEing the BIOS.
+    //
     // This is important for systems with extremely scarce amounts of RAM.
     struct libps_system* ps = malloc(sizeof(struct libps_system));
 
@@ -78,5 +80,6 @@ void libps_system_step(struct libps_system* ps)
 {
     assert(ps != NULL);
 
+    libps_bus_step(ps->bus);
     libps_cpu_step(ps->cpu);
 }

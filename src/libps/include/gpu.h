@@ -23,6 +23,9 @@ extern "C"
 
 struct libps_gpu
 {
+    // 0x1F801810 - Read responses to GP0(C0h) and GP1(10h) commands
+    uint32_t gpuread;
+
     // 0x1F801814 - GPU Status Register (R)
     uint32_t gpustat;
 };
@@ -37,6 +40,12 @@ void libps_gpu_destroy(struct libps_gpu* gpu);
 
 // Resets the GPU to the initial state.
 void libps_gpu_reset(struct libps_gpu* gpu);
+
+// Processes a GP0 packet.
+void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet);
+
+// Processes a GP1 packet.
+void libps_gpu_process_gp1(struct libps_gpu* gpu, const uint32_t packet);
 
 #ifdef __cplusplus
 }

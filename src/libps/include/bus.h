@@ -23,13 +23,44 @@ extern "C"
 
 struct libps_gpu;
 
+struct libps_dma_channel
+{
+    // Base address
+    uint32_t madr;
+
+    // Block Control
+    uint32_t bcr;
+
+    // Channel Control
+    uint32_t chcr;
+};
+
 struct libps_bus
 {
     // Main RAM (first 64K reserved for BIOS)
     uint8_t* ram;
 
+    // 0x1F801070 - I_STAT - Interrupt status register
+    // (R=Status, W=Acknowledge)
+    uint32_t i_stat;
+
+    // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
+    uint32_t i_mask;
+
+    // 0x1F8010F0 - DMA Control Register (R/W)
+    uint32_t dpcr;
+
+    // 0x1F8010F4 - DMA Interrupt Register (R/W)
+    uint32_t dicr;
+
     // GPU instance
     struct libps_gpu* gpu;
+
+    // DMA channel 2 - GPU (lists + image data)
+    struct libps_dma_channel dma_gpu_channel;
+
+    // DMA channel 6 - OTC (reverse clear OT)
+    struct libps_dma_channel dma_otc_channel;
 };
 
 // Allocates memory for a `libps_bus` structure and returns a pointer to it if
@@ -43,6 +74,12 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr);
 // Deallocates memory held by `bus`. This function should not be called
 // anywhere other than `libps_system_destroy()`.
 void libps_bus_destroy(struct libps_bus* bus);
+
+// Resets the system bus, which resets the peripherals to their startup state.
+void libps_bus_reset(struct libps_bus* bus);
+
+// Handles DMA requests.
+void libps_bus_step(struct libps_bus* bus);
 
 // Returns a word from memory referenced by physical address `paddr`.
 uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr);

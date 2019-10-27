@@ -37,6 +37,7 @@ int main(int argc, char* argv[])
     fclose(bios_file);
 
     FILE* output = fopen("output.txt", "w+");
+    FILE* tty_output = fopen("tty.txt", "w+");
 
     struct libps_system* ps = libps_system_create(bios_data);
 
@@ -47,8 +48,15 @@ int main(int argc, char* argv[])
         char disasm[LIBPS_DISASM_MAX_LENGTH];
         libps_disassemble_instruction(ps->cpu->instruction, ps->cpu->pc, disasm);
 
-        printf("0x%08X: %s\n", ps->cpu->pc, disasm);
-        fprintf(output, "0x%08X: %s\n", ps->cpu->pc, disasm);
+        //printf("0x%08X: %s\n", ps->cpu->pc, disasm);
+        //fprintf(output, "0x%08X: %s\n", ps->cpu->pc, disasm);
+
+        if ((ps->cpu->pc == 0x000000B0 && ps->cpu->gpr[9] == 0x0000003D) ||
+            (ps->cpu->pc == 0x000000A0 && ps->cpu->gpr[9] == 0x0000003C))
+        {
+            fputc((char)ps->cpu->gpr[4], tty_output);
+            fflush(tty_output);
+        }
 
         libps_system_step(ps);
 
@@ -61,6 +69,7 @@ int main(int argc, char* argv[])
 
     fflush(output);
     fclose(output);
+    fclose(tty_output);
     libps_system_destroy(ps);
 
     return 0;

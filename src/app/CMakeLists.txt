@@ -12,13 +12,4 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set(SRCS main.cpp)
-
-add_executable(psds ${SRCS})
-
-set_target_properties(psds PROPERTIES
-                      CXX_STANDARD 17
-                      CXX_STANDARD_REQUIRED YES
-                      CXX_EXTENSIONS ON)
-
-target_link_libraries(psds ps)
+add_subdirectory(win64)

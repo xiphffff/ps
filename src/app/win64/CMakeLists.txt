@@ -12,24 +12,19 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set(SRCS bus.c cpu.c disasm.c gpu.c ps.c)
+find_package(SDL2 CONFIG REQUIRED)
 
-set(HDRS include/bus.h
-         include/cpu.h
-         include/cpu_defs.h
-         include/disasm.h
-         include/gpu.h
-         include/ps.h)
+set(SRCS main.c)
 
-add_library(ps STATIC ${SRCS} ${HDRS})
+add_executable(psds main.c)
 
-set_target_properties(ps PROPERTIES
+set_target_properties(psds PROPERTIES
                       C_STANDARD 17
                       C_STANDARD_REQUIRED YES
                       C_EXTENSIONS ON)
 
-target_include_directories(ps PRIVATE include)
-
 target_compile_options(ps PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
                        -Og -pipe -Wall -Wextra>)
+
+target_link_libraries(psds ps SDL2::SDL2 SDL2::SDL2main)

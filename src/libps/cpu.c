@@ -662,38 +662,36 @@ void libps_cpu_step(struct libps_cpu* cpu)
             // with some bitwise trickery.
             const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr & !3);
 
-            const uint32_t data = libps_bus_load_word(bus, paddr);
+            uint32_t data = libps_bus_load_word(bus, paddr);
 
             switch (vaddr & 3)
             {
                 case 0:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 24) |
-                    (data & 0xFFFFFF00);
+                    data =
+                    (data & 0xFFFFFF00) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 24);
 
                     break;
 
                 case 1:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 16) |
-                    (data & 0xFFFF0000);
+                    data =
+                    (data & 0xFFFF0000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 16);
 
                     break;
 
                 case 2:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 8) |
-                    (data & 0xFF000000);
+                    data =
+                    (data & 0xFF000000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 8);
 
                     break;
 
                 case 3:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 0) |
-                    (data & 0x00000000);
+                    data =
+                    (data & 0x00000000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 0);
 
                     break;
             }
+
+            libps_bus_store_word(bus, paddr, data);
             break;
         }
 
@@ -724,38 +722,36 @@ void libps_cpu_step(struct libps_cpu* cpu)
             // with some bitwise trickery.
             const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr & !3);
 
-            const uint32_t data = libps_bus_load_word(bus, paddr);
+            uint32_t data = libps_bus_load_word(bus, paddr);
 
             switch (vaddr & 3)
             {
                 case 0:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x00000000) |
-                    (data << 0);
+                    data =
+                    (data & 0x00000000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 0);
 
                     break;
 
                 case 1:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x000000FF) |
-                    (data << 8);
+                    data =
+                    (data & 0x000000FF) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 8);
 
                     break;
 
                 case 2:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x0000FFFF) |
-                    (data << 16);
+                    data =
+                    (data & 0x0000FFFF) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 16);
 
                     break;
 
                 case 3:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x00FFFFFF) |
-                    (data << 24);
+                    data =
+                    (data & 0x00FFFFFF) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 24);
 
                     break;
             }
+
+            libps_bus_store_word(bus, paddr, data);
             break;
         }
 

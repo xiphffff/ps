@@ -21,6 +21,8 @@ extern "C"
 
 #include "bus.h"
 #include "cpu.h"
+#include "cpu_defs.h"
+#include "gpu.h"
 
 struct libps_system
 {

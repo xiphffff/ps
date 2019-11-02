@@ -481,3 +481,5 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+debug_build/

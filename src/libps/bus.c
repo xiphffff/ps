@@ -23,11 +23,60 @@
 // needs to know or care.
 static uint8_t* bios;
 
+// Handles processing of DMA channel 2 - GPU (lists + image data) in VRAM write
+// mode.
+static void dma_gpu_vram_write_process(struct libps_bus* bus)
+{
+    const uint16_t ba = bus->dma_gpu_channel.bcr >> 16;
+    const uint16_t bs = bus->dma_gpu_channel.bcr & 0x0000FFFF;
+
+    for (uint32_t count = 0; count != (ba * bs); ++count)
+    {
+        const uint32_t data =
+        *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x00FFFFFF));
+
+        libps_gpu_process_gp0(bus->gpu, data);
+        bus->dma_gpu_channel.madr += 4;
+    }
+}
+
 // Handles processing of DMA channel 2 - GPU (lists + image data) in linked
 // list mode.
 static void dma_gpu_linked_list_process(struct libps_bus* bus)
 {
     assert(bus != NULL);
+
+    // * SyncMode=0 (bits 9-10), transfer cannot be interrupted
+    // * Transfer direction is from main RAM (bit 0)
+    for (;;)
+    {
+        // Grab the header word first.
+        const uint32_t header =
+        *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x00FFFFFF));
+
+        // Upper 8 bits tell us the number of words in this packet, not
+        // counting the header word.
+        uint32_t packet_size = (header >> 24);
+
+        while (packet_size != 0)
+        {
+            bus->dma_gpu_channel.madr =
+            (bus->dma_gpu_channel.madr + 4) & 0x001FFFFC;
+
+            const uint32_t entry =
+            *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x00FFFFFF));
+
+            libps_gpu_process_gp0(bus->gpu, entry);
+            packet_size--;
+        }
+
+        // Break the loop if the end of list marker has been reached
+        if (header & 0x00800000)
+        {
+            break;
+        }
+        bus->dma_gpu_channel.madr = header & 0x001FFFFC;
+    }
 }
 
 // Handles processing of DMA channel 6 - OTC (reverse clear OT).
@@ -35,11 +84,35 @@ static void dma_otc_process(struct libps_bus* bus)
 {
     assert(bus != NULL);
 
+    // Apparently, DMA6's CHCR is always 0x11000002. The most important things
+    // about this value:
+    //
+    // * SyncMode=0 (bits 9-10), transfer cannot be interrupted
+    // * Memory address step is forward +4 (bit 1)
+    // * Memory transfer direction is to main RAM (bit 0)
+
     if (bus->dma_otc_channel.chcr != 0x11000002)
     {
+        // XXX: Should never happen and should be logged.
         bus->dma_otc_channel.chcr &= ~(1 << 24);
         return;
     }
+
+    uint32_t count   = bus->dma_otc_channel.bcr;
+    uint32_t address = bus->dma_otc_channel.madr;
+
+    while (count--)
+    {
+        *(uint32_t *)(bus->ram + (address & 0x00FFFFFF)) =
+        (address - 4) & 0x00FFFFFF;
+
+        address -= 4;
+    }
+
+    *(uint32_t *)(bus->ram + ((address + 4) & 0x00FFFFFF)) = 0x00FFFFFF;
+
+    // Transfer complete.
+    bus->dma_otc_channel.chcr &= ~(1 << 24);
 }
 
 // Allocates memory for a `libps_bus` structure and returns a pointer to it if
@@ -66,8 +139,6 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
         bus->ram = malloc(sizeof(uint8_t) * 0x200000);
 
         bus->gpu = libps_gpu_create();
-
-        libps_bus_reset(bus);
         return bus;
     }
     return NULL;
@@ -89,7 +160,7 @@ void libps_bus_reset(struct libps_bus* bus)
 {
     assert(bus != NULL);
 
-    bus->dpcr = 0x00000000;
+    bus->dpcr = 0x07654321;
     libps_gpu_reset(bus->gpu);
 }
 
@@ -115,15 +186,19 @@ void libps_bus_step(struct libps_bus* bus)
             case 11:
                 switch (bus->dma_gpu_channel.chcr)
                 {
+                    // VramWrite (unimplemented)
+                    case 0x01000201:
+                        dma_gpu_vram_write_process(bus);
+                        break;
+
                     // List
                     case 0x01000401:
                         dma_gpu_linked_list_process(bus);
                         break;
-
-                    default:
-                        __debugbreak();
-                        break;
                 }
+
+                // Transfer complete.
+                bus->dma_gpu_channel.chcr &= ~(1 << 24);
                 break;
 
             // DMA channel 6 - OTC (reverse clear OT)
@@ -184,7 +259,7 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
 
                         // 0x1F801814 - GPU Status Register (R)
                         case 0x814:
-                            return bus->gpu->gpustat;
+                            return 0x1FF00000;
 
                         default:
                             printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "

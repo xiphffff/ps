@@ -21,6 +21,35 @@ extern "C"
 
 #include <stdint.h>
 
+// Drawing flags
+#define DRAW_FLAG_MONOCHROME (1 << 0)
+#define DRAW_FLAG_SHADED (1 << 1)
+#define DRAW_FLAG_TEXTURED (1 << 2)
+#define DRAW_FLAG_QUAD (1 << 3)
+#define DRAW_FLAG_OPAQUE (1 << 4)
+#define DRAW_FLAG_TEXTURE_BLENDING (1 << 5)
+
+#define LIBPS_GPU_VRAM_WIDTH 1024
+#define LIBPS_GPU_VRAM_HEIGHT 512
+
+enum libps_gpu_state
+{
+    LIBPS_GPU_AWAITING_COMMAND,
+    LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS,
+    LIBPS_GPU_RECEIVING_COMMAND_DATA
+};
+
+struct libps_gpu_vertex
+{
+    // (-1024..+1023)
+    int16_t x;
+
+    // (-1024..+1023)
+    int16_t y;
+
+    uint32_t color;
+};
+
 struct libps_gpu
 {
     // 0x1F801810 - Read responses to GP0(C0h) and GP1(10h) commands
@@ -28,6 +57,39 @@ struct libps_gpu
 
     // 0x1F801814 - GPU Status Register (R)
     uint32_t gpustat;
+
+    // The 1MByte VRAM is organized as 512 lines of 2048 bytes.
+    uint8_t* vram;
+
+    // State of the GP0 port.
+    enum libps_gpu_state state;
+
+    struct
+    {
+        uint32_t params[32];
+        unsigned int remaining_words;
+        unsigned int flags;
+		uint32_t raw;
+    } cmd_packet;
+
+    struct
+    {
+        // (0..1023)
+        uint16_t x1;
+        uint16_t x2;
+
+        // (0..511)
+        uint16_t y1;
+        uint16_t y2;
+    } drawing_area;
+
+    // (-1024..+1023)
+    int16_t drawing_offset_x;
+
+    // (-1024..+1023)
+    int16_t drawing_offset_y;
+
+    uint32_t received_data;
 };
 
 // Allocates memory for a `libps_gpu` structure and returns a pointer to it if

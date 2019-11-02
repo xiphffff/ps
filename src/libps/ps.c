@@ -72,6 +72,7 @@ void libps_system_reset(struct libps_system* ps)
 {
     assert(ps != NULL);
 
+    libps_bus_reset(ps->bus);
     libps_cpu_reset(ps->cpu);
 }
 

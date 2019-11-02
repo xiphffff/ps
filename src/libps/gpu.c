@@ -179,48 +179,48 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         return;
     }
 
-	if (gpu->cmd_packet.flags & DRAW_FLAG_TEXTURED)
-	{
-		const struct libps_gpu_vertex v0 =
-		{
-			.x = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
-			.y = (int16_t)(gpu->cmd_packet.params[1] >> 16),
-			.color = gpu->cmd_packet.params[0]
-		};
+    if (gpu->cmd_packet.flags & DRAW_FLAG_TEXTURED)
+    {
+        const struct libps_gpu_vertex v0 =
+        {
+            .x = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
+            .y = (int16_t)(gpu->cmd_packet.params[1] >> 16),
+            .color = gpu->cmd_packet.params[0]
+        };
 
-		const struct libps_gpu_vertex v1 =
-		{
-			.x = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
-			.y = (int16_t)(gpu->cmd_packet.params[3] >> 16),
-			.color = gpu->cmd_packet.params[0]
-		};
+        const struct libps_gpu_vertex v1 =
+        {
+            .x = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
+            .y = (int16_t)(gpu->cmd_packet.params[3] >> 16),
+            .color = gpu->cmd_packet.params[0]
+        };
 
-		const struct libps_gpu_vertex v2 =
-		{
-			.x = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
-			.y = (int16_t)(gpu->cmd_packet.params[5] >> 16),
-			.color = gpu->cmd_packet.params[0]
-		};
+        const struct libps_gpu_vertex v2 =
+        {
+            .x = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
+            .y = (int16_t)(gpu->cmd_packet.params[5] >> 16),
+            .color = gpu->cmd_packet.params[0]
+        };
 
-		draw_polygon(gpu, &v0, &v1, &v2);
+        draw_polygon(gpu, &v0, &v1, &v2);
 
-		if (gpu->cmd_packet.flags & DRAW_FLAG_QUAD)
-		{
-			const struct libps_gpu_vertex v3 =
-			{
-				.x = (int16_t)(gpu->cmd_packet.params[7] & 0x0000FFFF),
-				.y = (int16_t)(gpu->cmd_packet.params[7] >> 16),
-				.color = gpu->cmd_packet.params[0]
-			};
-			draw_polygon(gpu, &v1, &v2, &v3);
-		}
+        if (gpu->cmd_packet.flags & DRAW_FLAG_QUAD)
+        {
+            const struct libps_gpu_vertex v3 =
+            {
+                .x = (int16_t)(gpu->cmd_packet.params[7] & 0x0000FFFF),
+                .y = (int16_t)(gpu->cmd_packet.params[7] >> 16),
+                .color = gpu->cmd_packet.params[0]
+            };
+            draw_polygon(gpu, &v1, &v2, &v3);
+        }
 
-		memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
-		params_pos = 0;
+        memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
+        params_pos = 0;
 
-		gpu->state = LIBPS_GPU_AWAITING_COMMAND;
-		return;
-	}
+        gpu->state = LIBPS_GPU_AWAITING_COMMAND;
+        return;
+    }
 
     if (gpu->cmd_packet.flags & DRAW_FLAG_SHADED)
     {
@@ -259,10 +259,10 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         }
     }
 
-	memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
-	params_pos = 0;
+    memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
+    params_pos = 0;
 
-	gpu->state = LIBPS_GPU_AWAITING_COMMAND;
+    gpu->state = LIBPS_GPU_AWAITING_COMMAND;
 }
 
 // Allocates memory for a `libps_gpu` structure and returns a pointer to it if
@@ -338,31 +338,31 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                     cmd_func = &draw_polygon_helper;
                     break;
 
-				// GP0(2Ch) - Textured four-point polygon, opaque, texture-blending
-				case 0x2C:
-					gpu->cmd_packet.params[params_pos++] =
-					packet & 0x00FFFFFF;
+                // GP0(2Ch) - Textured four-point polygon, opaque, texture-blending
+                case 0x2C:
+                    gpu->cmd_packet.params[params_pos++] =
+                    packet & 0x00FFFFFF;
 
-					gpu->cmd_packet.remaining_words = 8;
+                    gpu->cmd_packet.remaining_words = 8;
 
-					gpu->cmd_packet.flags |= DRAW_FLAG_TEXTURED;
-					gpu->cmd_packet.flags |= DRAW_FLAG_QUAD;
-					gpu->cmd_packet.flags |= DRAW_FLAG_OPAQUE;
-					gpu->cmd_packet.flags |= DRAW_FLAG_TEXTURE_BLENDING;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_TEXTURED;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_QUAD;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_OPAQUE;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_TEXTURE_BLENDING;
 
-					gpu->cmd_packet.raw = packet;
+                    gpu->cmd_packet.raw = packet;
 
-					gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
+                    gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
 
-					cmd_func = &draw_polygon_helper;
-					break;
+                    cmd_func = &draw_polygon_helper;
+                    break;
 
                 // GP0(30h) - Shaded three-point polygon, opaque
                 case 0x30:
                     gpu->cmd_packet.params[params_pos++] =
                     packet & 0x00FFFFFF;
 
-					// Bug, should be 7. I have no idea why this works yet.
+                    // Bug, should be 7. I have no idea why this works yet.
                     gpu->cmd_packet.remaining_words = 10;
 
                     gpu->cmd_packet.flags |= DRAW_FLAG_SHADED;
@@ -482,13 +482,13 @@ void libps_gpu_process_gp1(struct libps_gpu* gpu, const uint32_t packet)
             gpu->gpustat = 0x14802000;
             break;
 
-		// GP1(01h) - Reset Command Buffer
-		case 0x01:
-			break;
+        // GP1(01h) - Reset Command Buffer
+        case 0x01:
+            break;
 
-		// GP1(02h) - Acknowledge GPU Interrupt (IRQ1)
-		case 0x02:
-			break;
+        // GP1(02h) - Acknowledge GPU Interrupt (IRQ1)
+        case 0x02:
+            break;
 
         // GP1(03h) - Display Enable
         case 0x03:

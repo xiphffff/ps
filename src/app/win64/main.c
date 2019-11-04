@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
         SDL_UpdateTexture(texture,
                           NULL,
                           ps->bus->gpu->vram,
-                          sizeof(uint8_t) * LIBPS_GPU_VRAM_WIDTH * 2);
+                          sizeof(uint16_t) * LIBPS_GPU_VRAM_WIDTH);
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
     }

@@ -48,6 +48,9 @@ struct libps_gpu_vertex
     int16_t y;
 
     uint32_t color;
+    uint32_t texcoord;
+    uint32_t texpage;
+    uint32_t palette;
 };
 
 struct libps_gpu
@@ -59,7 +62,7 @@ struct libps_gpu
     uint32_t gpustat;
 
     // The 1MByte VRAM is organized as 512 lines of 2048 bytes.
-    uint8_t* vram;
+    uint16_t* vram;
 
     // State of the GP0 port.
     enum libps_gpu_state state;

@@ -33,14 +33,31 @@ static void copy_rect_from_cpu(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
 
-    const uint16_t height =
-    (((gpu->cmd_packet.params[1] >> 16) - 1) & 0x000001FF) + 1;
+    // Current X position
+    static unsigned int vram_x_pos;
 
-    const uint16_t width =
-    (((gpu->cmd_packet.params[1] & 0x0000FFFF) - 1) & 0x000003FF) + 1;
+    // Current Y position
+    static unsigned int vram_y_pos;
+
+    // Maximum length of a line (should be Xxxx+Xsiz)
+    static unsigned int vram_x_pos_max;
 
     if (gpu->state == LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS)
     {
+        const uint16_t width =
+        (((gpu->cmd_packet.params[1] & 0x0000FFFF) - 1) & 0x000003FF) + 1;
+
+        const uint16_t height =
+        (((gpu->cmd_packet.params[1] >> 16) - 1) & 0x000001FF) + 1;
+
+        vram_x_pos =
+        ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF);
+
+        vram_y_pos =
+        ((gpu->cmd_packet.params[0] >> 16) & 0x000001FF);
+
+        vram_x_pos_max = vram_x_pos + width;
+
         gpu->cmd_packet.remaining_words = (width * height) / 2;
 
         // Lock the GP0 state to this function.
@@ -55,6 +72,21 @@ static void copy_rect_from_cpu(struct libps_gpu* gpu)
     {
         if (gpu->cmd_packet.remaining_words != 0)
         {
+            gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 0] =
+            gpu->received_data >> 16;
+
+            gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 1] =
+            gpu->received_data & 0x0000FFFF;
+
+            if (vram_x_pos == vram_x_pos_max)
+            {
+                vram_y_pos++;
+                vram_x_pos = ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF) + 1;
+            }
+            else
+            {
+                vram_x_pos++;
+            }
             gpu->cmd_packet.remaining_words--;
         }
         else
@@ -116,17 +148,14 @@ static void draw_polygon(struct libps_gpu* gpu,
 
             if (w0 >= 0 && w1 >= 0 && w2 >= 0)
             {
+                // Color interpolation not supported (yet)
                 const uint8_t red   = (v0->color >> 3) & 0x1F;
                 const uint8_t green = (v0->color >> 11) & 0x1F;
                 const uint8_t blue  = (v0->color >> 19) & 0x1F;
 
-                // G3R5
-                gpu->vram[2 * (p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)) + 0] =
-                ((green & 0x07) << 5) | red;
-
-                // A1B5G2
-                gpu->vram[2 * (p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)) + 1] =
-                (blue << 2 | (green >> 3));
+                // A1G5B5R5
+                gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] =
+                (green << 5) | (blue << 10) | red;
             }
         }
     }
@@ -183,22 +212,22 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
     {
         const struct libps_gpu_vertex v0 =
         {
-            .x = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
-            .y = (int16_t)(gpu->cmd_packet.params[1] >> 16),
+            .x     = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
+            .y     = (int16_t)(gpu->cmd_packet.params[1] >> 16),
             .color = gpu->cmd_packet.params[0]
         };
 
         const struct libps_gpu_vertex v1 =
         {
-            .x = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
-            .y = (int16_t)(gpu->cmd_packet.params[3] >> 16),
+            .x     = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
+            .y     = (int16_t)(gpu->cmd_packet.params[3] >> 16),
             .color = gpu->cmd_packet.params[0]
         };
 
         const struct libps_gpu_vertex v2 =
         {
-            .x = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
-            .y = (int16_t)(gpu->cmd_packet.params[5] >> 16),
+            .x     = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
+            .y     = (int16_t)(gpu->cmd_packet.params[5] >> 16),
             .color = gpu->cmd_packet.params[0]
         };
 
@@ -208,8 +237,8 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         {
             const struct libps_gpu_vertex v3 =
             {
-                .x = (int16_t)(gpu->cmd_packet.params[7] & 0x0000FFFF),
-                .y = (int16_t)(gpu->cmd_packet.params[7] >> 16),
+                .x     = (int16_t)(gpu->cmd_packet.params[7] & 0x0000FFFF),
+                .y     = (int16_t)(gpu->cmd_packet.params[7] >> 16),
                 .color = gpu->cmd_packet.params[0]
             };
             draw_polygon(gpu, &v1, &v2, &v3);
@@ -228,21 +257,21 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         {
             .x     = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
             .y     = (int16_t)(gpu->cmd_packet.params[1] >> 16),
-            .color = gpu->cmd_packet.params[0]
+            .color = gpu->cmd_packet.params[0] & 0x00FFFFFF
         };
 
         const struct libps_gpu_vertex v1 =
         {
             .x     = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
             .y     = (int16_t)(gpu->cmd_packet.params[3] >> 16),
-            .color = gpu->cmd_packet.params[2]
+            .color = gpu->cmd_packet.params[2] & 0x00FFFFFF
         };
 
         const struct libps_gpu_vertex v2 =
         {
             .x     = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
             .y     = (int16_t)(gpu->cmd_packet.params[5] >> 16),
-            .color = gpu->cmd_packet.params[4]
+            .color = gpu->cmd_packet.params[4] & 0x00FFFFFF
         };
 
         draw_polygon(gpu, &v0, &v1, &v2);
@@ -253,7 +282,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
             {
                 .x     = (int16_t)(gpu->cmd_packet.params[7] & 0x0000FFFF),
                 .y     = (int16_t)(gpu->cmd_packet.params[7] >> 16),
-                .color = gpu->cmd_packet.params[5]
+                .color = gpu->cmd_packet.params[6] & 0x00FFFFFF
             };
             draw_polygon(gpu, &v1, &v2, &v3);
         }
@@ -272,7 +301,7 @@ struct libps_gpu* libps_gpu_create(void)
 {
     struct libps_gpu* gpu = malloc(sizeof(struct libps_gpu));
 
-    gpu->vram = calloc(sizeof(uint8_t) * LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT * 2, sizeof(uint8_t));
+    gpu->vram = calloc(sizeof(uint16_t) * LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT, sizeof(uint16_t));
     return gpu;
 }
 

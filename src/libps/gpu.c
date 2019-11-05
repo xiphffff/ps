@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "gpu.h"
 
 static void (*cmd_func)(struct libps_gpu*);
@@ -73,19 +74,17 @@ static void copy_rect_from_cpu(struct libps_gpu* gpu)
         if (gpu->cmd_packet.remaining_words != 0)
         {
             gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 0] =
-            gpu->received_data >> 16;
-
-            gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 1] =
             gpu->received_data & 0x0000FFFF;
 
-            if (vram_x_pos == vram_x_pos_max)
+            gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 1] =
+            gpu->received_data >> 16;
+
+            vram_x_pos += 2;
+
+            if (vram_x_pos >= vram_x_pos_max)
             {
                 vram_y_pos++;
-                vram_x_pos = ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF) + 1;
-            }
-            else
-            {
-                vram_x_pos++;
+                vram_x_pos = ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF);
             }
             gpu->cmd_packet.remaining_words--;
         }
@@ -149,9 +148,9 @@ static void draw_polygon(struct libps_gpu* gpu,
             if (w0 >= 0 && w1 >= 0 && w2 >= 0)
             {
                 // Color interpolation not supported (yet)
-                const uint8_t red   = (v0->color >> 3) & 0x1F;
-                const uint8_t green = (v0->color >> 11) & 0x1F;
-                const uint8_t blue  = (v0->color >> 19) & 0x1F;
+                const unsigned int red   = (v0->color >> 3) & 0x1F;
+                const unsigned int green = (v0->color >> 11) & 0x1F;
+                const unsigned int blue  = (v0->color >> 19) & 0x1F;
 
                 // A1G5B5R5
                 gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] =
@@ -301,7 +300,7 @@ struct libps_gpu* libps_gpu_create(void)
 {
     struct libps_gpu* gpu = malloc(sizeof(struct libps_gpu));
 
-    gpu->vram = calloc(sizeof(uint16_t) * LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT, sizeof(uint16_t));
+    gpu->vram = calloc(LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT, sizeof(uint16_t));
     return gpu;
 }
 

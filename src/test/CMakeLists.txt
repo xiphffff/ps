@@ -14,17 +14,11 @@
 
 find_package(SDL2 CONFIG REQUIRED)
 
-set(SRCS main.c)
+add_executable(pstest main.cpp)
 
-add_executable(psds main.c)
+set_target_properties(pstest PROPERTIES
+                      CXX_STANDARD 17
+                      CXX_STANDARD_REQUIRED YES
+                      CXX_EXTENSIONS ON)
 
-set_target_properties(psds PROPERTIES
-                      C_STANDARD 17
-                      C_STANDARD_REQUIRED YES
-                      C_EXTENSIONS ON)
-
-target_compile_options(ps PRIVATE
-                       $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
-                       -Og -pipe -Wall -Wextra>)
-
-target_link_libraries(psds ps SDL2::SDL2 SDL2::SDL2main)
+target_link_libraries(pstest ps SDL2::SDL2 SDL2::SDL2main)

@@ -262,15 +262,15 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
                             return 0x1FF00000;
 
                         default:
-                            printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-                                   "physical address!\n", (void*)&bus, paddr);
+                            //printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+                            //       "physical address!\n", (void*)&bus, paddr);
                             return 0x00000000;
                     }
                     break;
 
                 default:
-                    printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-                           "physical address!\n", (void*)&bus, paddr);
+                   // printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+                    //       "physical address!\n", (void*)&bus, paddr);
                     return 0x00000000;
             }
             break;
@@ -279,8 +279,8 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
             return *(uint32_t *)(bios + (paddr & 0x000FFFFF));
 
         default:
-            printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-                   "physical address!\n", (void*)&bus, paddr);
+            //printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+            //       "physical address!\n", (void*)&bus, paddr);
             return 0x00000000;
     }
 }
@@ -298,7 +298,7 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t paddr)
 
         default:
            // printf("libps_bus_load_halfword(bus=%p,paddr=0x%08X): Unknown physical "
-            //       "address!\n", (void*)&bus, paddr);
+             //      "address!\n", (void*)&bus, paddr);
             return 0x0000;
     }
 }
@@ -318,8 +318,8 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t paddr)
             return *(uint8_t *)(bios + (paddr & 0x000FFFFF));
 
         default:
-            printf("libps_bus_load_byte(bus=%p,paddr=0x%08X): Unknown "
-                   "physical address!\n", (void*)&bus, paddr);
+            //printf("libps_bus_load_byte(bus=%p,paddr=0x%08X): Unknown "
+             //      "physical address!\n", (void*)&bus, paddr);
             return 0x00;
     }
 }
@@ -414,7 +414,7 @@ void libps_bus_store_word(struct libps_bus* bus,
 
                         default:
                             //printf("libps_bus_store_word(bus=%p,paddr=0x%08X,data=0x%08X): "
-                               // "Unknown physical address!\n", (void*)&bus, paddr, data);
+                            //       "Unknown physical address!\n", (void*)&bus, paddr, data);
                             break;
                     }
                     break;
@@ -443,8 +443,8 @@ void libps_bus_store_halfword(struct libps_bus* bus,
             break;
 
         default:
-            printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
-                   ": Unknown physical address!\n", (void*)&bus, paddr, data);
+            //printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
+            //       ": Unknown physical address!\n", (void*)&bus, paddr, data);
             break;
     }
 }
@@ -464,8 +464,8 @@ void libps_bus_store_byte(struct libps_bus* bus,
             break;
 
         default:
-            printf("libps_bus_store_byte(bus=%p,paddr=0x%08X,data=0x%02X): Unknown "
-                   "physical address!\n", (void*)&bus, paddr, data);
+            //printf("libps_bus_store_byte(bus=%p,paddr=0x%08X,data=0x%02X): Unknown "
+            //       "physical address!\n", (void*)&bus, paddr, data);
             break;
     }
 }

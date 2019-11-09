@@ -73,6 +73,7 @@ static void copy_rect_from_cpu(struct libps_gpu* gpu)
     {
         if (gpu->cmd_packet.remaining_words != 0)
         {
+            // XXX: This won't work for odd widths!
             gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 0] =
             gpu->received_data & 0x0000FFFF;
 
@@ -211,23 +212,28 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
     {
         const struct libps_gpu_vertex v0 =
         {
-            .x     = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
-            .y     = (int16_t)(gpu->cmd_packet.params[1] >> 16),
-            .color = gpu->cmd_packet.params[0]
+            .x        = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
+            .y        = (int16_t)(gpu->cmd_packet.params[1] >> 16),
+            .texcoord = gpu->cmd_packet.params[2] >> 16,
+            .palette  = gpu->cmd_packet.params[2] & 0x0000FFFF,
+            .color    = gpu->cmd_packet.params[0]
         };
 
         const struct libps_gpu_vertex v1 =
         {
-            .x     = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
-            .y     = (int16_t)(gpu->cmd_packet.params[3] >> 16),
-            .color = gpu->cmd_packet.params[0]
+            .x        = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
+            .y        = (int16_t)(gpu->cmd_packet.params[3] >> 16),
+            .texpage  = gpu->cmd_packet.params[4] >> 16,
+            .texcoord = gpu->cmd_packet.params[4] & 0x0000FFFF,
+            .color    = gpu->cmd_packet.params[0]
         };
 
         const struct libps_gpu_vertex v2 =
         {
-            .x     = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
-            .y     = (int16_t)(gpu->cmd_packet.params[5] >> 16),
-            .color = gpu->cmd_packet.params[0]
+            .x        = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
+            .y        = (int16_t)(gpu->cmd_packet.params[5] >> 16),
+            .texcoord = gpu->cmd_packet.params[6] & 0x0000FFFF,
+            .color    = gpu->cmd_packet.params[0]
         };
 
         draw_polygon(gpu, &v0, &v1, &v2);
@@ -236,9 +242,10 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         {
             const struct libps_gpu_vertex v3 =
             {
-                .x     = (int16_t)(gpu->cmd_packet.params[7] & 0x0000FFFF),
-                .y     = (int16_t)(gpu->cmd_packet.params[7] >> 16),
-                .color = gpu->cmd_packet.params[0]
+                .x        = (int16_t)(gpu->cmd_packet.params[7] & 0x0000FFFF),
+                .y        = (int16_t)(gpu->cmd_packet.params[7] >> 16),
+                .texcoord = gpu->cmd_packet.params[8] & 0x0000FFFF,
+                .color    = gpu->cmd_packet.params[0]
             };
             draw_polygon(gpu, &v1, &v2, &v3);
         }
@@ -318,7 +325,7 @@ void libps_gpu_reset(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
 
-    gpu->gpustat = 0x14802000;
+    gpu->gpustat.raw = 0x14802000;
     gpu->gpuread = 0x00000000;
 
     memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
@@ -507,7 +514,7 @@ void libps_gpu_process_gp1(struct libps_gpu* gpu, const uint32_t packet)
     {
         // GP1(00h) - Reset GPU
         case 0x00:
-            gpu->gpustat = 0x14802000;
+            gpu->gpustat.raw = 0x14802000;
             break;
 
         // GP1(01h) - Reset Command Buffer

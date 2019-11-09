@@ -13,4 +13,4 @@
 # PERFORMANCE OF THIS SOFTWARE.
 
 add_subdirectory(libps)
-add_subdirectory(app)
+add_subdirectory(test)

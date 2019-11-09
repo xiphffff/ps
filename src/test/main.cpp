@@ -12,24 +12,26 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <thread>
+#include <cstdio>
+#include <chrono>
 #include <SDL.h>
-#include "../../libps/include/ps.h"
-#include "../../libps/include/disasm.h"
+#include "../libps/include/ps.h"
+#include "../libps/include/disasm.h"
 
 int main(int argc, char* argv[])
 {
     if (argc < 2)
     {
-        fprintf(stderr, "%s: Missing required argument.\n", argv[0]);
-        fprintf(stderr, "Syntax: %s biosfile\n", argv[0]);
+        std::cerr << argv[0] << ": Missing required argument." << std::endl;
+        std::cerr << "Syntax: " << argv[0] << " biosfile" << std::endl;
 
         return EXIT_FAILURE;
     }
 
     FILE* bios_file = fopen(argv[1], "rb");
-    uint8_t* bios_data = malloc(sizeof(uint8_t) * 0x80000);
+    uint8_t* bios_data = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 0x80000));
     fread(bios_data, 1, 0x80000, bios_file);
     fclose(bios_file);
 
@@ -44,7 +46,7 @@ int main(int argc, char* argv[])
                                           SDL_WINDOWPOS_CENTERED,
                                           LIBPS_GPU_VRAM_WIDTH,
                                           LIBPS_GPU_VRAM_HEIGHT,
-                                          SDL_WINDOW_SHOWN);
+                                          SDL_WINDOW_ALLOW_HIGHDPI);
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window,
                                                 -1,
@@ -61,16 +63,27 @@ int main(int argc, char* argv[])
         SDL_Event event;
         SDL_PollEvent(&event);
 
-        for (unsigned int i = 0; i < LIBPS_CPU_CLOCK_RATE / 60; ++i)
+        const auto start_time = std::chrono::steady_clock::now();
+            for (unsigned int cycle = 0; cycle < (LIBPS_CPU_CLOCK_RATE / 60); ++cycle)
+            {
+                libps_system_step(ps);
+            }
+
+            SDL_UpdateTexture(texture,
+                              NULL,
+                              ps->bus->gpu->vram,
+                              sizeof(uint16_t) * LIBPS_GPU_VRAM_WIDTH);
+
+            SDL_RenderCopy(renderer, texture, NULL, NULL);
+            SDL_RenderPresent(renderer);
+        const auto end_time = std::chrono::steady_clock::now();
+
+        const auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+        if (diff.count() < (1000 / 60))
         {
-            libps_system_step(ps);
+            std::this_thread::sleep_for(diff);
         }
-        SDL_UpdateTexture(texture,
-                          NULL,
-                          ps->bus->gpu->vram,
-                          sizeof(uint16_t) * LIBPS_GPU_VRAM_WIDTH);
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
-        SDL_RenderPresent(renderer);
     }
     return 0;
 }

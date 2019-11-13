@@ -21,8 +21,16 @@ set_target_properties(pstest PROPERTIES
                       CXX_STANDARD_REQUIRED YES
                       CXX_EXTENSIONS ON)
 
+# For some reason this is required to get SDL w/ vcpkg to play nice using the
+# RelWithDebugInfo build type.
+set_target_properties(SDL2::SDL2 SDL2::SDL2main PROPERTIES
+	MAP_IMPORTED_CONFIG_MINSIZEREL Release
+	MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
+    )
+
 target_compile_options(pstest PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
                        -Wall -Wextra>)
 
 target_link_libraries(pstest ps SDL2::SDL2 SDL2::SDL2main)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pstest)

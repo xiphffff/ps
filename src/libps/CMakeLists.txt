@@ -32,4 +32,4 @@ target_include_directories(ps PRIVATE include)
 
 target_compile_options(ps PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
-                       -Og -pipe -Wall -Wextra>)
+                       -Wall -Wextra>)

@@ -21,4 +21,8 @@ set_target_properties(pstest PROPERTIES
                       CXX_STANDARD_REQUIRED YES
                       CXX_EXTENSIONS ON)
 
+target_compile_options(pstest PRIVATE
+                       $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
+                       -Wall -Wextra>)
+
 target_link_libraries(pstest ps SDL2::SDL2 SDL2::SDL2main)

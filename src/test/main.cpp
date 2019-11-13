@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
     }
 
     FILE* bios_file = fopen(argv[1], "rb");
-    uint8_t* bios_data = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 0x80000));
+    uint8_t* bios_data = static_cast<uint8_t*>(malloc(0x80000));
     fread(bios_data, 1, 0x80000, bios_file);
     fclose(bios_file);
 
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
         SDL_PollEvent(&event);
 
         const auto start_time = std::chrono::steady_clock::now();
-            for (unsigned int cycle = 0; cycle < (LIBPS_CPU_CLOCK_RATE / 60); ++cycle)
+            for (unsigned int cycle = 0; cycle != (LIBPS_CPU_CLOCK_RATE / 60); ++cycle)
             {
                 libps_system_step(ps);
             }

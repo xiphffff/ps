@@ -266,14 +266,12 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
                             //       "physical address!\n", (void*)&bus, paddr);
                             return 0x00000000;
                     }
-                    break;
 
                 default:
                    // printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
                     //       "physical address!\n", (void*)&bus, paddr);
                     return 0x00000000;
             }
-            break;
 
         case 0x1FC0 ... 0x1FC7:
             return *(uint32_t *)(bios + (paddr & 0x000FFFFF));

@@ -325,7 +325,7 @@ void libps_gpu_reset(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
 
-    gpu->gpustat.raw = 0x14802000;
+    gpu->gpustat = 0x14802000;
     gpu->gpuread = 0x00000000;
 
     memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
@@ -514,7 +514,7 @@ void libps_gpu_process_gp1(struct libps_gpu* gpu, const uint32_t packet)
     {
         // GP1(00h) - Reset GPU
         case 0x00:
-            gpu->gpustat.raw = 0x14802000;
+            gpu->gpustat = 0x14802000;
             break;
 
         // GP1(01h) - Reset Command Buffer

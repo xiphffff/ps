@@ -25,10 +25,11 @@
 //
 // * There is no support for caches, or breakpoint registers (e.g. BDA).
 //
-// * An illegal instruction would normally raise a Reserved Instruction (RI)
+// * An illegal instruction would normally raise a Reserved Instruction. (RI)
 //   exception, but we simply set `good` in `libps_cpu` to `false` to specify
 //   this. This is for debugging purposes; we want to preserve the state of the
-//   fault as much as possible; raising an emulated RI won't tell us anything.
+//   fault as much as possible; raising an emulated RI won't tell us anything and
+//   would skew the data.
 //
 // * The PlayStation is fixed to little endian, therefore there is no support
 //   for changing to big endian or even supporting it whatsoever.

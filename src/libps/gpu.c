@@ -21,9 +21,9 @@
 static void (*cmd_func)(struct libps_gpu*);
 static unsigned int params_pos;
 
-static int edge_function(const struct libps_gpu_vertex* const v0,
-                         const struct libps_gpu_vertex* const v1,
-                         const struct libps_gpu_vertex* const v2)
+static float edge_function(const struct libps_gpu_vertex* const v0,
+                           const struct libps_gpu_vertex* const v1,
+                           const struct libps_gpu_vertex* const v2)
 {
     return ((v1->x - v0->x) * (v2->y - v0->y)) -
            ((v1->y - v0->y) * (v2->x - v0->x));
@@ -138,24 +138,41 @@ static void draw_polygon(struct libps_gpu* gpu,
         v2_real = v2;
     }
 
+    const float area = edge_function(v0, v1_real, v2_real);
+
     for (p.y = gpu->drawing_area.y1; p.y <= gpu->drawing_area.y2; p.y++)
     {
         for (p.x = gpu->drawing_area.x1; p.x <= gpu->drawing_area.x2; p.x++)
         {
-            const int w0 = edge_function(v1_real, v2_real, &p);
-            const int w1 = edge_function(v2_real, v0, &p);
-            const int w2 = edge_function(v0, v1_real, &p);
+            float w0 = edge_function(v1_real, v2_real, &p);
+            float w1 = edge_function(v2_real, v0, &p);
+            float w2 = edge_function(v0, v1_real, &p);
 
             if (w0 >= 0 && w1 >= 0 && w2 >= 0)
             {
-                // Color interpolation not supported (yet)
-                const unsigned int red   = (v0->color >> 3) & 0x1F;
-                const unsigned int green = (v0->color >> 11) & 0x1F;
-                const unsigned int blue  = (v0->color >> 19) & 0x1F;
+                w0 /= area;
+                w1 /= area;
+                w2 /= area;
+
+                const int red = ((w0 * (v0->color & 0x000000FF)) +
+                                 (w1 * (v1_real->color & 0x000000FF)) +
+                                 (w2 * (v2_real->color & 0x000000FF)));
+
+                const int green = ((w0 * ((v0->color >> 8) & 0xFF)) +
+                                   (w1 * ((v1_real->color >> 8) & 0xFF)) +
+                                   (w2 * ((v2_real->color >> 8) & 0xFF)));
+
+                const int blue = ((w0 * ((v0->color >> 16) & 0xFF)) +
+                                  (w1 * ((v1_real->color >> 16) & 0xFF)) +
+                                  (w2 * ((v2_real->color >> 16) & 0xFF)));
+
+                const unsigned int pixel_r = (unsigned int)(red) / 8;
+                const unsigned int pixel_g = (unsigned int)(green) / 8;
+                const unsigned int pixel_b = (unsigned int)(blue) / 8;
 
                 // A1G5B5R5
                 gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] =
-                (green << 5) | (blue << 10) | red;
+                (pixel_g << 5) | (pixel_b << 10) | pixel_r;
             }
         }
     }
@@ -397,8 +414,7 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                     gpu->cmd_packet.params[params_pos++] =
                     packet & 0x00FFFFFF;
 
-                    // Bug, should be 7. I have no idea why this works yet.
-                    gpu->cmd_packet.remaining_words = 10;
+                    gpu->cmd_packet.remaining_words = 5;
 
                     gpu->cmd_packet.flags |= DRAW_FLAG_SHADED;
                     gpu->cmd_packet.flags |= DRAW_FLAG_OPAQUE;

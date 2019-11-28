@@ -150,27 +150,41 @@ static void draw_polygon(struct libps_gpu* gpu,
 
             if (w0 >= 0 && w1 >= 0 && w2 >= 0)
             {
-                w0 /= area;
-                w1 /= area;
-                w2 /= area;
+                unsigned int pixel_r;
+                unsigned int pixel_g;
+                unsigned int pixel_b;
 
-                const int red = ((w0 * (v0->color & 0x000000FF)) +
-                                 (w1 * (v1_real->color & 0x000000FF)) +
-                                 (w2 * (v2_real->color & 0x000000FF)));
+                if (gpu->cmd_packet.flags & DRAW_FLAG_TEXTURED)
+                {
+                    const uint16_t texcoord_x = ((w0 * (v0->texcoord & 0x00FF)) +
+                                                 (w1 * (v1_real->texcoord & 0x00FF)) +
+                                                 (w2 * (v2_real->texcoord & 0x00FF))) / area;
 
-                const int green = ((w0 * ((v0->color >> 8) & 0xFF)) +
-                                   (w1 * ((v1_real->color >> 8) & 0xFF)) +
-                                   (w2 * ((v2_real->color >> 8) & 0xFF)));
+                    const uint16_t texcoord_y = ((w0 * (v0->texcoord >> 8)) +
+                                                 (w1 * (v1_real->texcoord >> 8)) +
+                                                 (w2 * (v2_real->texcoord >> 8))) / area;
 
-                const int blue = ((w0 * ((v0->color >> 16) & 0xFF)) +
-                                  (w1 * ((v1_real->color >> 16) & 0xFF)) +
-                                  (w2 * ((v2_real->color >> 16) & 0xFF)));
+                    const unsigned int texpage_x_base = v1->texpage & 0x0F;
+                    const unsigned int texpage_y_base = (v1->texpage & (1 << 4)) ? 256 : 0;
 
-                const unsigned int pixel_r = (unsigned int)(red) / 8;
-                const unsigned int pixel_g = (unsigned int)(green) / 8;
-                const unsigned int pixel_b = (unsigned int)(blue) / 8;
+                    const unsigned int texpage_color_depth = (v1->texpage >> 7) & 0x03;
+                }
+                else
+                {
+                    pixel_r = ((w0 * (v0->color & 0x000000FF)) +
+                               (w1 * (v1_real->color & 0x000000FF)) +
+                               (w2 * (v2_real->color & 0x000000FF))) / area / 8;
 
-                // A1G5B5R5
+                    pixel_g = ((w0 * ((v0->color >> 8) & 0xFF)) +
+                               (w1 * ((v1_real->color >> 8) & 0xFF)) +
+                               (w2 * ((v2_real->color >> 8) & 0xFF))) / area / 8;
+
+                    pixel_b = ((w0 * ((v0->color >> 16) & 0xFF)) +
+                               (w1 * ((v1_real->color >> 16) & 0xFF)) +
+                               (w2 * ((v2_real->color >> 16) & 0xFF))) / area / 8;
+                }
+
+                // G5B5R5A1
                 gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] =
                 (pixel_g << 5) | (pixel_b << 10) | pixel_r;
             }
@@ -231,8 +245,8 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         {
             .x        = (int16_t)(gpu->cmd_packet.params[1] & 0x0000FFFF),
             .y        = (int16_t)(gpu->cmd_packet.params[1] >> 16),
-            .texcoord = gpu->cmd_packet.params[2] >> 16,
-            .palette  = gpu->cmd_packet.params[2] & 0x0000FFFF,
+            .palette  = gpu->cmd_packet.params[2] >> 16,
+            .texcoord = gpu->cmd_packet.params[2] & 0x0000FFFF,
             .color    = gpu->cmd_packet.params[0]
         };
 
@@ -317,6 +331,40 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
 }
 
+static void draw_rect(struct libps_gpu* gpu, const struct libps_gpu_vertex* const vertex)
+{
+    assert(gpu != NULL);
+    assert(vertex != NULL);
+
+    const unsigned int pixel_r = (vertex->color & 0x000000FF) / 8;
+    const unsigned int pixel_g = ((vertex->color >> 8) & 0xFF) / 8;
+    const unsigned int pixel_b = ((vertex->color >> 16) & 0xFF) / 8;
+
+    gpu->vram[vertex->x + (LIBPS_GPU_VRAM_WIDTH * vertex->y)] =
+    (pixel_g << 5) | (pixel_b << 10) | pixel_r;
+}
+
+static void draw_rect_helper(struct libps_gpu* gpu)
+{
+    assert(gpu != NULL);
+
+    if (gpu->cmd_packet.flags & DRAW_FLAG_MONOCHROME)
+    {
+        const struct libps_gpu_vertex vertex =
+        {
+            .color = gpu->cmd_packet.params[0],
+            .x     = gpu->cmd_packet.params[1] & 0x0000FFFF,
+            .y     = gpu->cmd_packet.params[1] >> 16
+        };
+        draw_rect(gpu, &vertex);
+    }
+
+    memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
+    params_pos = 0;
+
+    gpu->state = LIBPS_GPU_AWAITING_COMMAND;
+}
+
 // Allocates memory for a `libps_gpu` structure and returns a pointer to it if
 // memory allocation was successful, `NULL` otherwise. This function does not
 // automatically initialize initial state.
@@ -324,7 +372,7 @@ struct libps_gpu* libps_gpu_create(void)
 {
     struct libps_gpu* gpu = malloc(sizeof(struct libps_gpu));
 
-    gpu->vram = calloc(LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT, sizeof(uint16_t));
+    gpu->vram = malloc(LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT * sizeof(uint16_t));
     return gpu;
 }
 
@@ -345,7 +393,14 @@ void libps_gpu_reset(struct libps_gpu* gpu)
     gpu->gpustat = 0x14802000;
     gpu->gpuread = 0x00000000;
 
+    gpu->drawing_offset_x = 0x00000000;
+    gpu->drawing_offset_y = 0x00000000;
+
+    gpu->received_data = 0x00000000;
+
     memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
+    memset(&gpu->drawing_area, 0, sizeof(gpu->drawing_area));
+    memset(gpu->vram, 0, (LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT) * sizeof(uint16_t));
 
     params_pos = 0;
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
@@ -371,8 +426,7 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
 
                 // GP0(28h) - Monochrome four-point polygon, opaque
                 //
-                // XXX: I have no idea why nocash says this is monochrome, is
-                // the color saturated in some way?
+                // XXX: monochrome means "uses constant color"
                 case 0x28:
                     gpu->cmd_packet.params[params_pos++] =
                     packet & 0x00FFFFFF;
@@ -442,6 +496,23 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                     gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
 
                     cmd_func = &draw_polygon_helper;
+                    break;
+
+                // GP0(68h) - Monochrome Rectangle (1x1) (Dot) (opaque)
+                case 0x68:
+                    gpu->cmd_packet.params[params_pos++] =
+                    packet & 0x00FFFFFF;
+
+                    gpu->cmd_packet.remaining_words = 1;
+
+                    gpu->cmd_packet.flags |= DRAW_FLAG_MONOCHROME;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_OPAQUE;
+
+                    gpu->cmd_packet.raw = packet;
+
+                    gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
+
+                    cmd_func = &draw_rect_helper;
                     break;
 
                 // GP0(A0h) - Copy Rectangle (CPU to VRAM)
@@ -563,6 +634,21 @@ void libps_gpu_process_gp1(struct libps_gpu* gpu, const uint32_t packet)
 
         // GP1(08h) - Display mode
         case 0x08:
+            break;
+
+        // GP1(10h) - Get GPU Info
+        case 0x10:
+            switch (packet & 0x00FFFFFF)
+            {
+                // Returns Nothing (old value in GPUREAD remains unchanged)
+                case 0x07:
+                    gpu->gpuread = 2;
+                    break;
+
+                default:
+                    __debugbreak();
+                    break;
+            }
             break;
 
         default:

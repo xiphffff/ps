@@ -47,10 +47,11 @@ struct libps_gpu_vertex
     // (-1024..+1023)
     int16_t y;
 
+    uint16_t palette;
+    uint16_t texcoord;
+    uint16_t texpage;
+
     uint32_t color;
-    uint32_t texcoord;
-    uint32_t texpage;
-    uint32_t palette;
 };
 
 struct libps_gpu

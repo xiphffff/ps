@@ -12,9 +12,10 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "bus.h"
 #include "gpu.h"
 
@@ -136,7 +137,7 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
         // amount" will have to be tested with relation to standard memory
         // sizes on certain systems and how much RAM most PlayStation games use
         // on average.
-        bus->ram = malloc(sizeof(uint8_t) * 0x200000);
+        bus->ram = malloc(0x200000);
 
         bus->gpu = libps_gpu_create();
         return bus;
@@ -161,6 +162,12 @@ void libps_bus_reset(struct libps_bus* bus)
     assert(bus != NULL);
 
     bus->dpcr = 0x07654321;
+    bus->dicr = 0x00000000;
+
+    memset(bus->ram, 0, sizeof(uint8_t) * 0x200000);
+    memset(&bus->dma_gpu_channel, 0, sizeof(bus->dma_gpu_channel));
+    memset(&bus->dma_otc_channel, 0, sizeof(bus->dma_otc_channel));
+
     libps_gpu_reset(bus->gpu);
 }
 
@@ -217,8 +224,8 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
     {
-        case 0x0000 ... 0x0020:
-            return *(uint32_t *)(bus->ram + (paddr & 0x00FFFFFF));
+        case 0x0000 ... 0x001F:
+            return *(uint32_t *)(bus->ram + (paddr & 0x1FFFFFFF));
 
         case 0x1F80:
             switch ((paddr & 0x0000F000) >> 12)
@@ -262,14 +269,14 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
                             return 0x1FF00000;
 
                         default:
-                            //printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-                            //       "physical address!\n", (void*)&bus, paddr);
+                            printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+                                   "physical address!\n", (void*)&bus, paddr);
                             return 0x00000000;
                     }
 
                 default:
-                   // printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-                    //       "physical address!\n", (void*)&bus, paddr);
+                    printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+                           "physical address!\n", (void*)&bus, paddr);
                     return 0x00000000;
             }
 
@@ -277,8 +284,8 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
             return *(uint32_t *)(bios + (paddr & 0x000FFFFF));
 
         default:
-            //printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-            //       "physical address!\n", (void*)&bus, paddr);
+            printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+                   "physical address!\n", (void*)&bus, paddr);
             return 0x00000000;
     }
 }
@@ -291,12 +298,12 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t paddr)
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
     {
-        case 0x0000 ... 0x0020:
-            return *(uint16_t *)(bus->ram + (paddr & 0x00FFFFFF));
+        case 0x0000 ... 0x001F:
+            return *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF));
 
         default:
-           // printf("libps_bus_load_halfword(bus=%p,paddr=0x%08X): Unknown physical "
-             //      "address!\n", (void*)&bus, paddr);
+            printf("libps_bus_load_halfword(bus=%p,paddr=0x%08X): Unknown physical "
+                   "address!\n", (void*)&bus, paddr);
             return 0x0000;
     }
 }
@@ -309,15 +316,15 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t paddr)
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
     {
-        case 0x0000 ... 0x0020:
-            return *(uint8_t *)(bus->ram + (paddr & 0x00FFFFFF));
+        case 0x0000 ... 0x001F:
+            return *(uint8_t *)(bus->ram + (paddr & 0x1FFFFFFF));
 
         case 0x1FC0 ... 0x1FC7:
             return *(uint8_t *)(bios + (paddr & 0x000FFFFF));
 
         default:
-            //printf("libps_bus_load_byte(bus=%p,paddr=0x%08X): Unknown "
-             //      "physical address!\n", (void*)&bus, paddr);
+            printf("libps_bus_load_byte(bus=%p,paddr=0x%08X): Unknown "
+                   "physical address!\n", (void*)&bus, paddr);
             return 0x00;
     }
 }
@@ -332,8 +339,8 @@ void libps_bus_store_word(struct libps_bus* bus,
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
     {
-        case 0x0000 ... 0x0020:
-            *(uint32_t *)(bus->ram + (paddr & 0x00FFFFFF)) = data;
+        case 0x0000 ... 0x001F:
+            *(uint32_t *)(bus->ram + (paddr & 0x1FFFFFFF)) = data;
             break;
 
         case 0x1F80:
@@ -411,8 +418,8 @@ void libps_bus_store_word(struct libps_bus* bus,
                             break;
 
                         default:
-                            //printf("libps_bus_store_word(bus=%p,paddr=0x%08X,data=0x%08X): "
-                            //       "Unknown physical address!\n", (void*)&bus, paddr, data);
+                            printf("libps_bus_store_word(bus=%p,paddr=0x%08X,data=0x%08X): "
+                                   "Unknown physical address!\n", (void*)&bus, paddr, data);
                             break;
                     }
                     break;
@@ -420,8 +427,8 @@ void libps_bus_store_word(struct libps_bus* bus,
             break;
 
         default:
-           // printf("libps_bus_store_word(bus=%p,paddr=0x%08X,data=0x%08X): "
-             //      "Unknown physical address!\n", (void*)&bus, paddr, data);
+            printf("libps_bus_store_word(bus=%p,paddr=0x%08X,data=0x%08X): "
+                   "Unknown physical address!\n", (void*)&bus, paddr, data);
             break;
     }
 }
@@ -436,13 +443,13 @@ void libps_bus_store_halfword(struct libps_bus* bus,
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
     {
-        case 0x0000 ... 0x0020:
-            *(uint16_t *)(bus->ram + (paddr & 0x00FFFFFF)) = data;
+        case 0x0000 ... 0x001F:
+            *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF)) = data;
             break;
 
         default:
-            //printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
-            //       ": Unknown physical address!\n", (void*)&bus, paddr, data);
+            printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
+                   ": Unknown physical address!\n", (void*)&bus, paddr, data);
             break;
     }
 }
@@ -457,13 +464,13 @@ void libps_bus_store_byte(struct libps_bus* bus,
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
     {
-        case 0x0000 ... 0x0020:
-            *(uint8_t *)(bus->ram + (paddr & 0x00FFFFFF)) = data;
+        case 0x0000 ... 0x001F:
+            *(uint8_t *)(bus->ram + (paddr & 0x1FFFFFFF)) = data;
             break;
 
         default:
-            //printf("libps_bus_store_byte(bus=%p,paddr=0x%08X,data=0x%02X): Unknown "
-            //       "physical address!\n", (void*)&bus, paddr, data);
+            printf("libps_bus_store_byte(bus=%p,paddr=0x%08X,data=0x%02X): Unknown "
+                   "physical address!\n", (void*)&bus, paddr, data);
             break;
     }
 }

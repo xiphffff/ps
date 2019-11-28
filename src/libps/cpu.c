@@ -43,6 +43,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "bus.h"
 #include "cpu.h"
 #include "cpu_defs.h"
@@ -100,7 +101,8 @@ void libps_cpu_reset(struct libps_cpu* cpu)
     // affect anything as we don't handle what those memory addresses represent
     // ("RAM Size" and "Expansion 3 Delay/Size" respectively) but of course, we
     // should still clear these anyway.
-    memset(cpu->gpr, 0, sizeof(cpu->gpr));
+    memset(cpu->gpr,         0, sizeof(cpu->gpr));
+    memset(cpu->cop0_cpr,    0, sizeof(cpu->cop0_cpr));
 
     cpu->pc      = 0xBFC00000;
     cpu->next_pc = 0xBFC00000;
@@ -142,8 +144,8 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                 case LIBPS_CPU_OP_SRA:
                     cpu->gpr[LIBPS_CPU_DECODE_RD(cpu->instruction)] =
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >>
-                    (int32_t)LIBPS_CPU_DECODE_SHAMT(cpu->instruction);
+                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >>
+                    LIBPS_CPU_DECODE_SHAMT(cpu->instruction);
 
                     break;
 
@@ -165,29 +167,48 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                 case LIBPS_CPU_OP_SRAV:
                     cpu->gpr[LIBPS_CPU_DECODE_RD(cpu->instruction)] =
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >>
-                    (int32_t)(cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] &
+                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >>
+                    (cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] &
                               0x0000001F);
 
                     break;
 
                 case LIBPS_CPU_OP_JR:
-                    cpu->next_pc =
-                    cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] - 4;
+                {
+                    const uint32_t target = cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] - 4;
 
+                    if ((target & 0x00000003) != 0)
+                    {
+                        raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                        break;
+                    }
+                    cpu->next_pc = target;
                     break;
+                }
 
                 case LIBPS_CPU_OP_JALR:
+                {
+                    const uint32_t target = cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] - 4;
+
+                    if ((target & 0x00000003) != 0)
+                    {
+                        raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                        break;
+                    }
+
                     cpu->gpr[LIBPS_CPU_DECODE_RD(cpu->instruction)] =
                     cpu->pc + 8;
 
-                    cpu->next_pc =
-                    cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] - 4;
-
+                    cpu->next_pc = target;
                     break;
+                }
 
                 case LIBPS_CPU_OP_SYSCALL:
                     raise_exception(cpu, LIBPS_CPU_EXCCODE_Sys);
+                    break;
+
+                case LIBPS_CPU_OP_BREAK:
+                    raise_exception(cpu, LIBPS_CPU_EXCCODE_Bp);
                     break;
 
                 case LIBPS_CPU_OP_MFHI:
@@ -214,6 +235,18 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     break;
 
+                case LIBPS_CPU_OP_MULT:
+                {
+                    const uint64_t result =
+                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] *
+                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+
+                    cpu->reg_lo = result & 0x00000000FFFFFFFF;
+                    cpu->reg_hi = result >> 32;
+
+                    break;
+                }
+
                 case LIBPS_CPU_OP_MULTU:
                 {
                     const uint64_t result =
@@ -227,28 +260,44 @@ void libps_cpu_step(struct libps_cpu* cpu)
                 }
 
                 case LIBPS_CPU_OP_DIV:
-                    cpu->reg_lo =
-                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] /
-                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                {
+                    const int32_t dividend = (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                    const int32_t divisor  = (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)];
 
-                    cpu->reg_hi =
-                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] %
-                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
-
+                    if ((dividend == 0) || ((divisor == LONG_MIN) && (dividend == -1)))
+                    {
+                        cpu->reg_lo = 1;
+                        cpu->reg_hi = dividend;
+                    }
+                    else
+                    {
+                        cpu->reg_lo = (uint32_t)divisor / (uint32_t)dividend;
+                        cpu->reg_hi = (uint32_t)divisor % (uint32_t)dividend;
+                    }
                     break;
+                }
 
                 case LIBPS_CPU_OP_DIVU:
-                    cpu->reg_lo =
-                    cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] /
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                {
+                    if (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] == 0)
+                    {
+                        cpu->reg_lo = 0xFFFFFFFF;
+                        cpu->reg_hi = cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                    }
+                    else
+                    {
+                        cpu->reg_lo =
+                        cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] /
+                        cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
 
-                    cpu->reg_hi =
-                    cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] %
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
-
+                        cpu->reg_hi =
+                        cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] %
+                        cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                    }
                     break;
+                }
 
-                case LIBPS_CPU_OP_ADD: // Temporary, overflow check is required
+                case LIBPS_CPU_OP_ADD: // overflow
                 case LIBPS_CPU_OP_ADDU:
                     cpu->gpr[LIBPS_CPU_DECODE_RD(cpu->instruction)] =
                     cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] +
@@ -256,6 +305,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     break;
 
+                case LIBPS_CPU_OP_SUB:
                 case LIBPS_CPU_OP_SUBU:
                     cpu->gpr[LIBPS_CPU_DECODE_RD(cpu->instruction)] =
                     cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] -
@@ -312,31 +362,22 @@ void libps_cpu_step(struct libps_cpu* cpu)
             break;
 
         case LIBPS_CPU_OP_GROUP_BCOND:
-            switch (LIBPS_CPU_DECODE_RT(cpu->instruction))
+        {
+            unsigned int op = LIBPS_CPU_DECODE_RT(cpu->instruction);
+
+            bool should_link = (op & 0x1E) == 0x10;
+            bool should_branch = (int32_t)(cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] ^ (op << 31)) < 0;
+
+            if (should_link) cpu->gpr[31] = cpu->pc + 8;
+
+            if (should_branch)
             {
-                case LIBPS_CPU_OP_BLTZ:
-                    if ((int32_t)(cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)]) < 0)
-                    {
-                        cpu->next_pc =
-                        (int16_t)(LIBPS_CPU_DECODE_OFFSET(cpu->instruction) << 2) +
-                        cpu->pc;
-                    }
-                    break;
-
-                case LIBPS_CPU_OP_BGEZ:
-                    if ((int32_t)(cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)]) >= 0)
-                    {
-                        cpu->next_pc =
-                        (int16_t)(LIBPS_CPU_DECODE_OFFSET(cpu->instruction) << 2) +
-                        cpu->pc;
-                    }
-                    break;
-
-                default:
-                    cpu->good = false;
-                    break;
+                cpu->next_pc =
+                (int16_t)(LIBPS_CPU_DECODE_OFFSET(cpu->instruction) << 2) +
+                cpu->pc;
             }
             break;
+        }
 
         case LIBPS_CPU_OP_J:
             cpu->next_pc = ((LIBPS_CPU_DECODE_TARGET(cpu->instruction) << 2) |
@@ -424,6 +465,13 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             break;
 
+        case LIBPS_CPU_OP_XORI:
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
+            cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] ^
+            LIBPS_CPU_DECODE_IMMEDIATE(cpu->instruction);
+
+            break;
+
         case LIBPS_CPU_OP_LUI:
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
             LIBPS_CPU_DECODE_IMMEDIATE(cpu->instruction) << 16;
@@ -470,9 +518,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
 
-            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-            (int8_t)libps_bus_load_byte(bus, paddr);
+            const int8_t data = (int8_t)libps_bus_load_byte(bus, paddr);
 
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
         }
 
@@ -484,9 +532,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
 
-            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-            (int16_t)libps_bus_load_halfword(bus, paddr);
+            const int16_t data = (int16_t)libps_bus_load_halfword(bus, paddr);
 
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
         }
 
@@ -502,36 +550,40 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             const uint32_t data = libps_bus_load_word(bus, paddr);
 
+            uint32_t result;
+
             switch (vaddr & 3)
             {
                 case 0:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
+                    result =
                     (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x00FFFFFF) |
                     (data << 24);
 
                     break;
 
                 case 1:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
+                    result =
                     (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x0000FFFF) |
                     (data << 16);
 
                     break;
 
                 case 2:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
+                    result =
                     (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x000000FF) |
                     (data << 8);
 
                     break;
 
                 case 3:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
+                    result =
                     (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x00000000) |
                     (data << 0);
 
                     break;
             }
+
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = result;
             break;
         }
 
@@ -546,9 +598,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
 
-            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-            libps_bus_load_word(bus, paddr);
+            const uint32_t data = libps_bus_load_word(bus, paddr);
 
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
         }
 
@@ -560,9 +612,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
 
-            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-            libps_bus_load_byte(bus, paddr);
+            const uint8_t data = libps_bus_load_byte(bus, paddr);
 
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
         }
 
@@ -574,9 +626,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
 
-            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
-            libps_bus_load_halfword(bus, paddr);
+            const uint16_t data = libps_bus_load_halfword(bus, paddr);
 
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
         }
 
@@ -592,17 +644,19 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             const uint32_t data = libps_bus_load_word(bus, paddr);
 
+            uint32_t result;
+
             switch (vaddr & 3)
             {
                 case 0:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
+                    result =
                     (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x00000000) |
                     (data >> 0);
 
                     break;
 
                 case 1:
-                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] =
+                    result =
                     (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0xFF000000) |
                     (data >> 8);
 
@@ -622,6 +676,8 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     break;
             }
+
+            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = result;
             break;
         }
 

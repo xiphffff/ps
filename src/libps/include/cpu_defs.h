@@ -166,7 +166,9 @@ LIBPS_CPU_DECODE_IMMEDIATE(instruction)
 #define LIBPS_CPU_SR_IsC (1 << 16)
 
 // Exception codes (ExcCode)
+#define LIBPS_CPU_EXCCODE_AdEL 4
 #define LIBPS_CPU_EXCCODE_Sys 8
+#define LIBPS_CPU_EXCCODE_Bp 9
 
 #ifdef __cplusplus
 }

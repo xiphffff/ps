@@ -30,7 +30,9 @@ set_target_properties(SDL2::SDL2 SDL2::SDL2main PROPERTIES
 
 target_compile_options(pstest PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
-                       -Wall -Wextra>)
+                       -Wall -Wextra -Wno-gnu-case-range -Wno-old-style-cast -Wno-c++98-compat -Wno-c++98-compat-pedantic>)
+
+target_compile_definitions(pstest PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 target_link_libraries(pstest ps SDL2::SDL2 SDL2::SDL2main)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pstest)

@@ -480,7 +480,7 @@ void libps_disassemble_instruction(const uint32_t instruction,
                     "beq %s,%s,0x%08X",
                     gpr[LIBPS_CPU_DECODE_RS(instruction)],
                     gpr[LIBPS_CPU_DECODE_RT(instruction)],
-                    offset + pc);
+                    offset + pc + 4);
             break;
         }
 
@@ -505,7 +505,7 @@ void libps_disassemble_instruction(const uint32_t instruction,
             sprintf(result,
                     "blez %s,0x%08X",
                     gpr[LIBPS_CPU_DECODE_RS(instruction)],
-                    offset + pc);
+                    offset + pc + 4);
             break;
         }
 
@@ -517,7 +517,7 @@ void libps_disassemble_instruction(const uint32_t instruction,
             sprintf(result,
                     "bgtz %s,0x%08X",
                     gpr[LIBPS_CPU_DECODE_RS(instruction)],
-                    offset + pc);
+                    offset + pc + 4);
             break;
         }
 

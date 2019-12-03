@@ -230,6 +230,10 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
         case 0x1F80:
             switch ((paddr & 0x0000F000) >> 12)
             {
+                // Scratchpad
+                case 0x0:
+                    return *(uint32_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
+
                 // I/O Ports
                 case 0x1:
                     // XXX: I think perhaps this could be made into an array,
@@ -269,14 +273,14 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
                             return 0x1FF00000;
 
                         default:
-                            printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-                                   "physical address!\n", (void*)&bus, paddr);
+                           // printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+                            //       "physical address!\n", (void*)&bus, paddr);
                             return 0x00000000;
                     }
 
                 default:
-                    printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
-                           "physical address!\n", (void*)&bus, paddr);
+                    //printf("libps_bus_load_word(bus=%p,paddr=0x%08X): Unknown "
+                    //       "physical address!\n", (void*)&bus, paddr);
                     return 0x00000000;
             }
 
@@ -301,6 +305,20 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t paddr)
         case 0x0000 ... 0x001F:
             return *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF));
 
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // Scratchpad
+                case 0x0:
+                    return *(uint16_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
+
+                default:
+                    //printf("libps_bus_load_halfword(bus=%p,paddr=0x%08X): Unknown physical "
+                     //      "address!\n", (void*)&bus, paddr);
+                    return 0x0000;
+            }
+            break;
+
         default:
             printf("libps_bus_load_halfword(bus=%p,paddr=0x%08X): Unknown physical "
                    "address!\n", (void*)&bus, paddr);
@@ -318,6 +336,20 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t paddr)
     {
         case 0x0000 ... 0x001F:
             return *(uint8_t *)(bus->ram + (paddr & 0x1FFFFFFF));
+
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // Scratchpad
+                case 0x0:
+                    return *(uint8_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
+
+                default:
+                    printf("libps_bus_load_byte(bus=%p,paddr=0x%08X): Unknown "
+                            "physical address!\n", (void*)&bus, paddr);
+                    return 0x00;
+            }
+            break;
 
         case 0x1FC0 ... 0x1FC7:
             return *(uint8_t *)(bios + (paddr & 0x000FFFFF));
@@ -346,6 +378,11 @@ void libps_bus_store_word(struct libps_bus* bus,
         case 0x1F80:
             switch ((paddr & 0x0000F000) >> 12)
             {
+                // Scratchpad
+                case 0x0:
+                    *(uint32_t *)(bus->scratch_pad + (paddr & 0x00000FFF)) = data;
+                    break;
+
                 // I/O Ports
                 case 0x1:
                     // XXX: I think perhaps this could be made into an array,
@@ -447,9 +484,24 @@ void libps_bus_store_halfword(struct libps_bus* bus,
             *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF)) = data;
             break;
 
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // Scratchpad
+                case 0x0:
+                    *(uint16_t *)(bus->scratch_pad + (paddr & 0x00000FFF)) = data;
+                    break;
+
+                default:
+                    //printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
+                    //       ": Unknown physical address!\n", (void*)&bus, paddr, data);
+                    break;
+            }
+            break;
+
         default:
             printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
-                   ": Unknown physical address!\n", (void*)&bus, paddr, data);
+                ": Unknown physical address!\n", (void*)&bus, paddr, data);
             break;
     }
 }
@@ -466,6 +518,21 @@ void libps_bus_store_byte(struct libps_bus* bus,
     {
         case 0x0000 ... 0x001F:
             *(uint8_t *)(bus->ram + (paddr & 0x1FFFFFFF)) = data;
+            break;
+
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // Scratchpad
+                case 0x0:
+                    *(uint8_t *)(bus->scratch_pad + (paddr & 0x00000FFF)) = data;
+                    break;
+
+                default:
+                    printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
+                           ": Unknown physical address!\n", (void*)&bus, paddr, data);
+                    break;
+            }
             break;
 
         default:

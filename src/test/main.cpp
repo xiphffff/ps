@@ -113,6 +113,14 @@ int main(int argc, char* argv[])
         SDL_Event event;
         SDL_PollEvent(&event);
 
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+
+        char buf[40];
+        sprintf(buf, "libps debugging station (%d,%d)", x, y);
+
+        SDL_SetWindowTitle(window, buf);
+
         const auto start_time = std::chrono::steady_clock::now();
             for (unsigned int cycle = 0; cycle != (LIBPS_CPU_CLOCK_RATE / 60); ++cycle)
             {
@@ -121,7 +129,7 @@ int main(int argc, char* argv[])
                     fflush(disasm_file);
                     __debugbreak();
                 }
-
+#if 0
                 if (((ps->cpu->pc == 0x000000A0) && ps->cpu->gpr[9] == 0x3C) ||
                     ((ps->cpu->pc == 0x000000B0) && ps->cpu->gpr[9] == 0x3D))
                 {
@@ -136,7 +144,9 @@ int main(int argc, char* argv[])
                     }
                     tty_str += ps->cpu->gpr[4];
                 }
+#endif
 
+#if 0
                 if (ps->cpu->pc == 0x80030000)
                 {
                     uint32_t dest = *(uint32_t *)(test_data + 0x10);
@@ -151,7 +161,7 @@ int main(int argc, char* argv[])
 
                     ps->cpu->instruction = libps_bus_load_word(ps->bus, LIBPS_CPU_TRANSLATE_ADDRESS(ps->cpu->pc));
                 }
-
+#endif
                 if (tracing)
                 {
                     char disasm[LIBPS_DISASM_MAX_LENGTH];

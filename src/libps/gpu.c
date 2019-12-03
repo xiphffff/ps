@@ -29,6 +29,30 @@ static float edge_function(const struct libps_gpu_vertex* const v0,
            ((v1->y - v0->y) * (v2->x - v0->x));
 }
 
+static uint16_t process_pixel_through_clut(struct libps_gpu* gpu,
+                                           const unsigned int x,
+                                           const uint16_t texel,
+                                           const unsigned int texpage_color_depth,
+                                           const uint16_t clut)
+{
+    assert(gpu != NULL);
+
+    const unsigned int clut_x = (clut & 0x3F) * 16;
+    const unsigned int clut_y = (clut >> 6) & 0x1FF;
+
+    switch (texpage_color_depth)
+    {
+        case 4:
+        {
+            const unsigned int offset = (texel >> (x & 3) * 4) & 0xF;
+            return gpu->vram[(clut_x + offset) + (LIBPS_GPU_VRAM_WIDTH * clut_y)];
+        }
+
+        default:
+            return 0xFFFF;
+    }
+}
+
 // Handles the GP0(A0h) command - Copy Rectangle (CPU to VRAM)
 static void copy_rect_from_cpu(struct libps_gpu* gpu)
 {
@@ -167,7 +191,41 @@ static void draw_polygon(struct libps_gpu* gpu,
                     const unsigned int texpage_x_base = v1->texpage & 0x0F;
                     const unsigned int texpage_y_base = (v1->texpage & (1 << 4)) ? 256 : 0;
 
-                    const unsigned int texpage_color_depth = (v1->texpage >> 7) & 0x03;
+                    unsigned int texpage_color_depth;
+
+                    switch ((v1->texpage >> 7) & 0x03)
+                    {
+                        case 0:
+                            texpage_color_depth = 4;
+                            break;
+
+                        case 1:
+                            texpage_color_depth = 8;
+                            break;
+
+                        case 2:
+                            texpage_color_depth = 16;
+                            break;
+
+                        default:
+                            break;
+                    }
+
+                    const uint16_t final_texcoord_x = (texpage_x_base * 64) + (texcoord_x / texpage_color_depth);
+                    const uint16_t final_texcoord_y = texpage_y_base + texcoord_y;
+
+                    const uint16_t texel = gpu->vram[final_texcoord_x +
+                                           (LIBPS_GPU_VRAM_WIDTH * final_texcoord_y)];
+
+                    const uint16_t color = process_pixel_through_clut(gpu, texcoord_x, texel, texpage_color_depth, v0->palette);
+
+                    if (color == 0x0000)
+                    {
+                        continue;
+                    }
+
+                    // G5B5R5A1
+                    gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] = color;
                 }
                 else
                 {
@@ -182,11 +240,11 @@ static void draw_polygon(struct libps_gpu* gpu,
                     pixel_b = ((w0 * ((v0->color >> 16) & 0xFF)) +
                                (w1 * ((v1_real->color >> 16) & 0xFF)) +
                                (w2 * ((v2_real->color >> 16) & 0xFF))) / area / 8;
-                }
 
-                // G5B5R5A1
-                gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] =
-                (pixel_g << 5) | (pixel_b << 10) | pixel_r;
+                    // G5B5R5A1
+                    gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] =
+                    (pixel_g << 5) | (pixel_b << 10) | pixel_r;
+                }
             }
         }
     }
@@ -254,6 +312,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         {
             .x        = (int16_t)(gpu->cmd_packet.params[3] & 0x0000FFFF),
             .y        = (int16_t)(gpu->cmd_packet.params[3] >> 16),
+            .palette  = gpu->cmd_packet.params[2] >> 16, // Hack
             .texpage  = gpu->cmd_packet.params[4] >> 16,
             .texcoord = gpu->cmd_packet.params[4] & 0x0000FFFF,
             .color    = gpu->cmd_packet.params[0]
@@ -263,6 +322,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
         {
             .x        = (int16_t)(gpu->cmd_packet.params[5] & 0x0000FFFF),
             .y        = (int16_t)(gpu->cmd_packet.params[5] >> 16),
+            .texpage  = gpu->cmd_packet.params[4] >> 16, // Hack
             .texcoord = gpu->cmd_packet.params[6] & 0x0000FFFF,
             .color    = gpu->cmd_packet.params[0]
         };
@@ -515,8 +575,8 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                     cmd_func = &draw_rect_helper;
                     break;
 
-                // GP0(A0h) - Copy Rectangle (CPU to VRAM)
-                case 0xA0:
+                // GP0(A0h...BFh) - Copy Rectangle (CPU to VRAM)
+                case 0xA0 ... 0xBF:
                     gpu->cmd_packet.remaining_words = 2;
 
                     gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;

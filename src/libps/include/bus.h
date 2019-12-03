@@ -40,6 +40,8 @@ struct libps_bus
     // Main RAM (first 64K reserved for BIOS)
     uint8_t* ram;
 
+    uint8_t scratch_pad[4096];
+
     // 0x1F801070 - I_STAT - Interrupt status register
     // (R=Status, W=Acknowledge)
     uint32_t i_stat;

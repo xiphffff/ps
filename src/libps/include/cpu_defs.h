@@ -158,6 +158,7 @@ extern "C"
 LIBPS_CPU_DECODE_IMMEDIATE(instruction)
 
 // System control co-processor (COP0) registers
+#define LIBPS_CPU_COP0_REG_BADVADDR 8
 #define LIBPS_CPU_COP0_REG_SR 12
 #define LIBPS_CPU_COP0_REG_CAUSE 13
 #define LIBPS_CPU_COP0_REG_EPC 14
@@ -167,8 +168,10 @@ LIBPS_CPU_DECODE_IMMEDIATE(instruction)
 
 // Exception codes (ExcCode)
 #define LIBPS_CPU_EXCCODE_AdEL 4
+#define LIBPS_CPU_EXCCODE_AdES 5
 #define LIBPS_CPU_EXCCODE_Sys 8
 #define LIBPS_CPU_EXCCODE_Bp 9
+#define LIBPS_CPU_EXCCODE_Ov 12
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bus.h"
+#include "cd.h"
 #include "gpu.h"
 
 // `libps_bus` doesn't need to know about this, since the operator of the
@@ -140,6 +141,8 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
         bus->ram = malloc(0x200000);
 
         bus->gpu = libps_gpu_create();
+        bus->cdrom = libps_cdrom_create();
+
         return bus;
     }
     return NULL;
@@ -152,6 +155,8 @@ void libps_bus_destroy(struct libps_bus* bus)
     assert(bus != NULL);
 
     libps_gpu_destroy(bus->gpu);
+    libps_cdrom_destroy(bus->cdrom);
+
     free(bus->ram);
     free(bus);
 }
@@ -169,6 +174,7 @@ void libps_bus_reset(struct libps_bus* bus)
     memset(&bus->dma_otc_channel, 0, sizeof(bus->dma_otc_channel));
 
     libps_gpu_reset(bus->gpu);
+    libps_cdrom_reset(bus->cdrom);
 }
 
 // Handles DMA requests.
@@ -343,6 +349,21 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t paddr)
                 // Scratchpad
                 case 0x0:
                     return *(uint8_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
+
+                // I/O Ports
+                case 0x1:
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
+                        case 0x800:
+                            return bus->cdrom->status;
+
+                        default:
+                            printf("libps_bus_load_byte(bus=%p,paddr=0x%08X): Unknown "
+                                "physical address!\n", (void*)&bus, paddr);
+                            return 0x00;
+                    }
+                    break;
 
                 default:
                     printf("libps_bus_load_byte(bus=%p,paddr=0x%08X): Unknown "
@@ -528,8 +549,39 @@ void libps_bus_store_byte(struct libps_bus* bus,
                     *(uint8_t *)(bus->scratch_pad + (paddr & 0x00000FFF)) = data;
                     break;
 
+                // I/O Ports
+                case 0x1:
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
+                        case 0x800:
+                            bus->cdrom->status = (bus->cdrom->status & ~0x03) | (data & 0x03);
+                            break;
+
+                        // 0x1F801801 - Indexed CD-ROM register store
+                        case 0x801:
+                            libps_cdrom_indexed_register_store(bus->cdrom, 1, data);
+                            break;
+
+                        // 0x1F801802 - Indexed CD-ROM register store
+                        case 0x802:
+                            libps_cdrom_indexed_register_store(bus->cdrom, 2, data);
+                            break;
+
+                        // 0x1F801803 - Indexed CD-ROM register store
+                        case 0x803:
+                            libps_cdrom_indexed_register_store(bus->cdrom, 3, data);
+                            break;
+
+                        default:
+                            printf("libps_bus_store_byte(bus=%p,paddr=0x%08X,data=0x%02X) "
+                                ": Unknown physical address!\n", (void*)&bus, paddr, data);
+                            break;
+                    }
+                    break;
+
                 default:
-                    printf("libps_bus_store_halfword(bus=%p,paddr=0x%08X,data=0x%02X) "
+                    printf("libps_bus_store_byte(bus=%p,paddr=0x%08X,data=0x%02X) "
                            ": Unknown physical address!\n", (void*)&bus, paddr, data);
                     break;
             }

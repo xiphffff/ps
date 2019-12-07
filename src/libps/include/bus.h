@@ -22,6 +22,7 @@ extern "C"
 #include <stdint.h>
 
 struct libps_gpu;
+struct libps_cdrom;
 
 struct libps_dma_channel
 {
@@ -57,6 +58,9 @@ struct libps_bus
 
     // GPU instance
     struct libps_gpu* gpu;
+
+    // CD-ROM instance
+    struct libps_cdrom* cdrom;
 
     // DMA channel 2 - GPU (lists + image data)
     struct libps_dma_channel dma_gpu_channel;

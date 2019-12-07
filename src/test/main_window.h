@@ -12,10 +12,19 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#include "framework/menu.h"
+#include "framework/menu_item.h"
+#include "framework/window.h"
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+class MainWindow : public Window
 {
-    return PSTest().run();
-}
+public:
+    MainWindow();
+    ~MainWindow();
+
+private:
+    Menu file_menu;
+    Menu debug_menu;
+
+    MenuItem open_game_image;
+};

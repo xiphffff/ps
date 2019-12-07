@@ -12,10 +12,4 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
-
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
-{
-    return PSTest().run();
-}
+#pragma once

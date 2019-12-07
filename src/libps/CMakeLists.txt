@@ -12,9 +12,10 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set(SRCS bus.c cpu.c disasm.c gpu.c ps.c)
+set(SRCS bus.c cd.c cpu.c disasm.c gpu.c ps.c)
 
 set(HDRS include/bus.h
+         include/cd.h
          include/cpu.h
          include/cpu_defs.h
          include/disasm.h

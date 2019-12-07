@@ -12,10 +12,25 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#include "menu_item.h"
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+MenuItem::MenuItem()
+{ }
+
+MenuItem::MenuItem(const std::wstring& name)
+{ }
+
+MenuItem::~MenuItem()
+{ }
+
+// Sets the name of the item to `name`.
+void MenuItem::set_name(const std::wstring& name)
 {
-    return PSTest().run();
+
+}
+
+// Calls function `f` when the user clicks on the item.
+void MenuItem::clicked(const std::function<void()>& f)
+{
+    clicked_cb = f;
 }

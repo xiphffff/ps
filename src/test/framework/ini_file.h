@@ -12,10 +12,19 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#pragma once
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+#include <string>
+
+class INIFile
 {
-    return PSTest().run();
-}
+public:
+    INIFile(const std::wstring& file_name);
+    ~INIFile();
+
+    std::wstring read_string(const std::wstring& section,
+                             const std::wstring& key) const noexcept;
+
+private:
+    std::wstring file_name;
+};

@@ -54,7 +54,7 @@ static struct libps_bus* bus;
 static uint32_t bad_vaddr;
 
 // Throws exception `exccode`.
-static void raise_exception(struct libps_cpu* cpu, const unsigned int exccode)
+void libps_cpu_raise_exception(struct libps_cpu* cpu, const unsigned int exccode)
 {
     assert(cpu != NULL);
 
@@ -186,7 +186,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if ((target & 0x00000003) != 0)
                     {
-                        raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
                         break;
                     }
                     cpu->next_pc = target;
@@ -199,7 +199,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if ((target & 0x00000003) != 0)
                     {
-                        raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
                         break;
                     }
 
@@ -211,11 +211,11 @@ void libps_cpu_step(struct libps_cpu* cpu)
                 }
 
                 case LIBPS_CPU_OP_SYSCALL:
-                    raise_exception(cpu, LIBPS_CPU_EXCCODE_Sys);
+                    libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Sys);
                     break;
 
                 case LIBPS_CPU_OP_BREAK:
-                    raise_exception(cpu, LIBPS_CPU_EXCCODE_Bp);
+                    libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Bp);
                     break;
 
                 case LIBPS_CPU_OP_MFHI:
@@ -332,7 +332,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if (!((rs ^ rt) & 0x80000000) && ((result ^ rs) & 0x80000000))
                     {
-                        raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
+                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
                         break;
                     }
 
@@ -356,7 +356,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if (((rs ^ rt) & 0x80000000) && ((result ^ rs) & 0x80000000))
                     {
-                        raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
+                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
                         break;
                     }
 
@@ -498,7 +498,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             if (!((rs ^ imm) & 0x80000000) && ((result ^ rs) & 0x80000000))
             {
-                raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
+                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
                 break;
             }
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = result;
@@ -610,7 +610,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
             {
                 bad_vaddr = vaddr;
 
-                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
                 break;
             }
 
@@ -684,7 +684,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
             {
                 bad_vaddr = vaddr;
 
-                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
                 break;
             }
 
@@ -720,7 +720,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
             {
                 bad_vaddr = vaddr;
 
-                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
                 break;
             }
 
@@ -800,7 +800,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             if ((vaddr & 1) != 0)
             {
-                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES);
+                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES);
                 break;
             }
 
@@ -863,7 +863,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                 if ((vaddr & 0x00000003) != 0)
                 {
-                    raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES);
+                    libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES);
                     break;
                 }
 

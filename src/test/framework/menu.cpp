@@ -12,10 +12,38 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#include "menu.h"
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+Menu::Menu()
+{ }
+
+Menu::Menu(const Window& parent)
 {
-    return PSTest().run();
+
+}
+
+Menu::Menu(const Window& parent, const std::wstring& name)
+{
+    set_name(name);
+}
+
+Menu::~Menu()
+{ }
+
+// Sets the name of the menu to `name`.
+void Menu::set_name(const std::wstring& name) noexcept
+{
+
+}
+
+// Sets the parent of the menu to window `parent`.
+void Menu::set_parent(const Window& parent) noexcept
+{
+
+}
+
+// Adds menu item `item` to the menu.
+void Menu::add_item(const MenuItem& item) noexcept
+{
+
 }

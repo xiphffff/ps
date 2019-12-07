@@ -12,10 +12,16 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#include "ini_file.h"
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+INIFile::INIFile(const std::wstring& file_name)
+{ }
+
+INIFile::~INIFile()
+{ }
+
+std::wstring INIFile::read_string(const std::wstring& section,
+                                  const std::wstring& key) const noexcept
 {
-    return PSTest().run();
+    return L"DOPA";
 }

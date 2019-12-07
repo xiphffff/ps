@@ -12,10 +12,37 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#pragma once
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+#ifdef __cplusplus
+extern "C"
 {
-    return PSTest().run();
+#endif // __cplusplus
+
+#include <stdint.h>
+
+struct libps_cdrom_fifo
+{
+    uint8_t data[16];
+    unsigned int pos;
+};
+
+struct libps_cdrom
+{
+    // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
+    uint8_t status;
+
+    // Parameter FIFO
+    struct libps_cdrom_fifo parameter_fifo;
+};
+
+struct libps_cdrom* libps_cdrom_create(void);
+void libps_cdrom_destroy(struct libps_cdrom* cdrom);
+
+void libps_cdrom_reset(struct libps_cdrom* cdrom);
+
+void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom, const unsigned int reg, const uint8_t data);
+
+#ifdef __cplusplus
 }
+#endif // __cplusplus

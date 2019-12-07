@@ -12,10 +12,27 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#include "main_window.h"
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+MainWindow::MainWindow()
 {
-    return PSTest().run();
+    file_menu.set_parent(*this);
+    open_game_image.set_name(L"Open game image...");
+
+    open_game_image.clicked([&]
+    {
+        const std::wstring file_name = FileDialog::open(this,
+                                                        L"Select game image",
+                                                        L"Game images (*.bin");
+
+        if (file_name.empty())
+        {
+            return;
+        }
+    });
+
+    file_menu.add_item(open_game_image);
 }
+
+MainWindow::~MainWindow()
+{ }

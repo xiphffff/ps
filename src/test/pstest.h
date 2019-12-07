@@ -12,10 +12,19 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#pragma once
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+#include "main_window.h"
+
+class PSTest
 {
-    return PSTest().run();
-}
+public:
+    PSTest() noexcept;
+    ~PSTest() noexcept;
+
+    int run() const noexcept;
+
+private:
+    struct libps_system* ps;
+    MainWindow main_window;
+};

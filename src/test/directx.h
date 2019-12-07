@@ -12,10 +12,13 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <Windows.h>
-#include "pstest.h"
+#pragma once
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+#include "framework/window.h"
+
+class DX11Context
 {
-    return PSTest().run();
-}
+public:
+    DX11Context(const Window& parent);
+    ~DX11Context();
+};

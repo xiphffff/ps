@@ -81,6 +81,7 @@ void libps_system_step(struct libps_system* ps)
 {
     assert(ps != NULL);
 
+    // Check for DMAs first before involving the CPU in any way.
     libps_bus_step(ps->bus);
     libps_cpu_step(ps->cpu);
 }

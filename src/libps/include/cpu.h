@@ -66,6 +66,9 @@ void libps_cpu_reset(struct libps_cpu* cpu);
 // Executes one instruction.
 void libps_cpu_step(struct libps_cpu* cpu);
 
+// Throws exception `exccode`.
+void libps_cpu_raise_exception(struct libps_cpu* cpu, const unsigned int exccode);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

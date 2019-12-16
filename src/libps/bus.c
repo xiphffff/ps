@@ -169,6 +169,9 @@ void libps_bus_reset(struct libps_bus* bus)
     bus->dpcr = 0x07654321;
     bus->dicr = 0x00000000;
 
+    bus->i_stat = 0x00000000;
+    bus->i_mask = 0x00000000;
+
     memset(bus->ram, 0, sizeof(uint8_t) * 0x200000);
     memset(&bus->dma_gpu_channel, 0, sizeof(bus->dma_gpu_channel));
     memset(&bus->dma_otc_channel, 0, sizeof(bus->dma_otc_channel));
@@ -199,7 +202,7 @@ void libps_bus_step(struct libps_bus* bus)
             case 11:
                 switch (bus->dma_gpu_channel.chcr)
                 {
-                    // VramWrite (unimplemented)
+                    // VramWrite
                     case 0x01000201:
                         dma_gpu_vram_write_process(bus);
                         break;
@@ -220,6 +223,14 @@ void libps_bus_step(struct libps_bus* bus)
                 break;
         }
     }
+
+    if (bus->cdrom->fire_interrupt)
+    {
+        bus->cdrom->fire_interrupt = false;
+        bus->i_stat |= (1 << 2);
+    }
+
+    libps_cdrom_step(bus->cdrom);
 }
 
 // Returns a word from memory referenced by physical address `paddr`.

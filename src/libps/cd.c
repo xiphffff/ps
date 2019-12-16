@@ -15,28 +15,88 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "cd.h"
 
+// Queues an interrupt `interrupt`, delaying its firing by `delay_cycles`.
+static void queue_interrupt(struct libps_cdrom* cdrom,
+                            const enum libps_cdrom_interrupt_type interrupt,
+                            const unsigned int delay_cycles,
+                            const unsigned int num_args,
+                            ...)
+{
+    assert(cdrom != NULL);
+
+    static unsigned int queue_pos = 0;
+
+    va_list args;
+    va_start(args, num_args);
+
+    int arg;
+
+    for (unsigned int i = 0; i < num_args; ++i)
+    {
+        arg = va_arg(args, int);
+        cdrom->response_fifo.data[cdrom->response_fifo.pos++] = (uint8_t)arg;
+    }
+    va_end(args);
+
+    cdrom->interrupts[queue_pos].pending = true;
+    cdrom->interrupts[queue_pos].cycles  = delay_cycles;
+    cdrom->interrupts[queue_pos++].type  = interrupt;
+}
+
+// Allocates memory for a `libps_cdrom` structure and returns a pointer to it
+// if memory allocation was successful, or `NULL` otherwise.
 struct libps_cdrom* libps_cdrom_create(void)
 {
     struct libps_cdrom* cdrom = malloc(sizeof(struct libps_cdrom));
     return cdrom != NULL ? cdrom : NULL;
 }
 
+// Deallocates the memory held by `cdrom`.
 void libps_cdrom_destroy(struct libps_cdrom* cdrom)
 {
     assert(cdrom != NULL);
     free(cdrom);
 }
 
+// Resets the CD-ROM drive to its initial state.
 void libps_cdrom_reset(struct libps_cdrom* cdrom)
 {
     assert(cdrom != NULL);
 
     memset(&cdrom->parameter_fifo, 0, sizeof(cdrom->parameter_fifo));
+    memset(&cdrom->response_fifo,  0, sizeof(cdrom->response_fifo));
+    memset(cdrom->interrupts,      0, sizeof(cdrom->interrupts));
+
+    cdrom->fire_interrupt = false;
     cdrom->status = 0x18;
 }
 
+// Checks to see if interrupts needs to be fired.
+void libps_cdrom_step(struct libps_cdrom* cdrom)
+{
+    assert(cdrom != NULL);
+
+    for (unsigned int i = 0; i < 2; ++i)
+    {
+        if (cdrom->interrupts[i].pending)
+        {
+            if (cdrom->interrupts[i].cycles != 0)
+            {
+                cdrom->interrupts[i].cycles--;
+            }
+            else
+            {
+                cdrom->interrupts[i].pending = false;
+                cdrom->fire_interrupt = true;
+            }
+        }
+    }
+}
+
+// Stores `data` into indexed CD-ROM register `reg`.
 void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom, const unsigned int reg, const uint8_t data)
 {
     assert(cdrom != NULL);
@@ -56,7 +116,8 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom, const unsigne
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
-                                    //queue_interrupt(cdrom, INT3, 0x94, 0x09, 0x19, 0xC0, SOME_UNDETERMINED_VALUE_HELP);
+                                    queue_interrupt(cdrom, INT3, 800000, 4,
+                                                    0x94, 0x09, 0x19, 0xC0);
                                     break;
 
                                 default:

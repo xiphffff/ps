@@ -49,6 +49,8 @@ struct libps_cpu
 
     // Is the CPU still in a valid state?
     bool good;
+
+    bool fuck;
 };
 
 // Allocates memory for a `libps_cpu` structure and returns a pointer to it if

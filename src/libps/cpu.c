@@ -58,9 +58,9 @@ void libps_cpu_raise_exception(struct libps_cpu* cpu, const unsigned int exccode
 {
     assert(cpu != NULL);
 
-    // Believe it or not, this is enough to get the BIOS to play nice.
     cpu->cop0_cpr[LIBPS_CPU_COP0_REG_EPC]   = cpu->pc;
     cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] = exccode << 2;
+    cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR]   &= ~1;
 
     if (exccode == LIBPS_CPU_EXCCODE_AdEL)
     {
@@ -115,6 +115,7 @@ void libps_cpu_reset(struct libps_cpu* cpu)
     cpu->next_pc = 0xBFC00000;
 
     cpu->good = true;
+    cpu->fuck = false;
 
     cpu->instruction = libps_bus_load_word(bus,
                        LIBPS_CPU_TRANSLATE_ADDRESS(cpu->pc));
@@ -124,6 +125,24 @@ void libps_cpu_reset(struct libps_cpu* cpu)
 void libps_cpu_step(struct libps_cpu* cpu)
 {
     assert(cpu != NULL);
+
+    if ((bus->i_mask & bus->i_stat) != 0)
+    {
+        cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] |= (1 << 10);
+    }
+
+    if (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] & (1 << 10) &&
+        (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & (1 << 10)) &&
+        cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 1)
+    {
+        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Int);
+
+        cpu->instruction = libps_bus_load_word(bus,
+        LIBPS_CPU_TRANSLATE_ADDRESS(cpu->pc += 4));
+
+        cpu->fuck = true;
+        return;
+    }
 
     cpu->pc = cpu->next_pc;
     cpu->next_pc += 4;
@@ -570,10 +589,12 @@ void libps_cpu_step(struct libps_cpu* cpu)
                 default:
                     switch (LIBPS_CPU_DECODE_FUNCT(cpu->instruction))
                     {
-                        // In the context of the PlayStation, `rfe` is pretty
-                        // much going to function as a `nop` since everything
-                        // operates in kernel mode.
                         case LIBPS_CPU_OP_RFE:
+                            cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] =
+                            (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0xFFFFFFF0) |
+                            ((cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0x3C) >> 2);
+
+                            cpu->fuck = false;
                             break;
 
                         default:

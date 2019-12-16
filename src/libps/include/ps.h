@@ -20,6 +20,7 @@ extern "C"
 #endif // __cplusplus
 
 #include "bus.h"
+#include "cd.h"
 #include "cpu.h"
 #include "cpu_defs.h"
 #include "gpu.h"

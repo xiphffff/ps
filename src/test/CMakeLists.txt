@@ -12,38 +12,27 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set(SRCS directx.cpp main.cpp main_window.cpp pstest.cpp)
-set(HDRS directx.h main_window.h pstest.h)
+find_package(SDL2 CONFIG REQUIRED)
 
-set(FRAMEWORK_SRCS framework/file_dialog.cpp
-                   framework/hex_editor.cpp
-                   framework/ini_file.cpp
-                   framework/menu.cpp
-                   framework/menu_item.cpp
-                   framework/window.cpp)
-
-set(FRAMEWORK_HDRS framework/file_dialog.h
-                   framework/hex_editor.h
-                   framework/ini_file.h
-                   framework/menu.h
-                   framework/menu_item.h
-                   framework/window.h)
-
-source_group("Source Files\\framework" FILES ${FRAMEWORK_SRCS})
-source_group("Header Files\\framework" FILES ${FRAMEWORK_HDRS})
-
-add_executable(pstest WIN32 ${SRCS} ${HDRS} ${FRAMEWORK_SRCS} ${FRAMEWORK_HDRS})
+add_executable(pstest main.cpp)
 
 set_target_properties(pstest PROPERTIES
                       CXX_STANDARD 17
                       CXX_STANDARD_REQUIRED YES
                       CXX_EXTENSIONS ON)
 
+# For some reason this is required to get SDL w/ vcpkg to play nice using the
+# RelWithDebugInfo build type.
+set_target_properties(SDL2::SDL2 SDL2::SDL2main PROPERTIES
+	MAP_IMPORTED_CONFIG_MINSIZEREL Release
+	MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
+    )
+
 target_compile_options(pstest PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
                        -Wall -Wextra -Wno-gnu-case-range -Wno-old-style-cast -Wno-c++98-compat -Wno-c++98-compat-pedantic>)
 
-target_compile_definitions(pstest PRIVATE _CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN UNICODE OEMRESOURCE)
-target_link_libraries(pstest ps)
+target_compile_definitions(pstest PRIVATE _CRT_SECURE_NO_WARNINGS)
 
+target_link_libraries(pstest ps SDL2::SDL2 SDL2::SDL2main)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pstest)

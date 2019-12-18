@@ -23,6 +23,7 @@ extern "C"
 
 struct libps_gpu;
 struct libps_cdrom;
+struct libps_timer;
 
 struct libps_dma_channel
 {
@@ -56,11 +57,17 @@ struct libps_bus
     // 0x1F8010F4 - DMA Interrupt Register (R/W)
     uint32_t dicr;
 
+    // 0x1F802041 - POST - External 7 - segment Display (W)
+    uint32_t post_status;
+
     // GPU instance
     struct libps_gpu* gpu;
 
     // CD-ROM instance
     struct libps_cdrom* cdrom;
+
+    // Timer instance
+    struct libps_timer* timer;
 
     // DMA channel 2 - GPU (lists + image data)
     struct libps_dma_channel dma_gpu_channel;

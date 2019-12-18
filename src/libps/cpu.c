@@ -58,15 +58,31 @@ void libps_cpu_raise_exception(struct libps_cpu* cpu, const unsigned int exccode
 {
     assert(cpu != NULL);
 
-    cpu->cop0_cpr[LIBPS_CPU_COP0_REG_EPC]   = cpu->pc;
-    cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] = exccode << 2;
-    cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR]   &= ~1;
+    // So on an exception, the CPU:
 
+    // 1) sets up EPC to point to the restart location.
+    cpu->cop0_cpr[LIBPS_CPU_COP0_REG_EPC] = cpu->pc;
+
+    // 2) The pre-existing user-mode and interrupt-enable flags in SR are saved
+    //    by pushing the 3 - entry stack inside SR, and changing to kernel mode
+    //    with interrupts disabled.
+    cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] =
+    (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0xFFFFFFC0) |
+    ((cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0xF) << 2);
+
+    // 3a) Cause is setup so that software can see the reason for the
+    //     exception.
+    cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] =
+    (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] & ~0x0000007C) |
+    (exccode << 2);
+
+    // 3b) On address exceptions BadVaddr is also set.
     if (exccode == LIBPS_CPU_EXCCODE_AdEL)
     {
         cpu->cop0_cpr[LIBPS_CPU_COP0_REG_BADVADDR] = bad_vaddr;
     }
 
+    // 4) Transfers control to the exception entry point.
     cpu->next_pc = 0x80000080;
     cpu->pc      = 0x80000080 - 4;
 }
@@ -126,21 +142,17 @@ void libps_cpu_step(struct libps_cpu* cpu)
 {
     assert(cpu != NULL);
 
-    if ((bus->i_mask & bus->i_stat) != 0)
-    {
-        cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] |= (1 << 10);
-    }
-
     if (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] & (1 << 10) &&
         (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & (1 << 10)) &&
-        cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 1)
+        (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 1))
     {
+        //cpu->fuck = true;
+
         libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Int);
 
         cpu->instruction = libps_bus_load_word(bus,
         LIBPS_CPU_TRANSLATE_ADDRESS(cpu->pc += 4));
 
-        cpu->fuck = true;
         return;
     }
 
@@ -594,7 +606,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
                             (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0xFFFFFFF0) |
                             ((cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0x3C) >> 2);
 
-                            cpu->fuck = false;
+                            //cpu->fuck = false;
                             break;
 
                         default:
@@ -603,6 +615,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
                     }
                     break;
             }
+            break;
+
+        case LIBPS_CPU_OP_GROUP_COP2:
             break;
 
         case LIBPS_CPU_OP_LB:

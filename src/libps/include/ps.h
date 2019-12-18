@@ -45,6 +45,8 @@ void libps_system_reset(struct libps_system* ps);
 // Executes one full system step.
 void libps_system_step(struct libps_system* ps);
 
+void libps_vblank(struct libps_system* ps);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

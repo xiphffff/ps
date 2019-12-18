@@ -12,7 +12,7 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set(SRCS bus.c cd.c cpu.c disasm.c gpu.c ps.c)
+set(SRCS bus.c cd.c cpu.c disasm.c gpu.c ps.c timer.c)
 
 set(HDRS include/bus.h
          include/cd.h
@@ -20,7 +20,8 @@ set(HDRS include/bus.h
          include/cpu_defs.h
          include/disasm.h
          include/gpu.h
-         include/ps.h)
+         include/ps.h
+         include/timer.h)
 
 add_library(ps STATIC ${SRCS} ${HDRS})
 

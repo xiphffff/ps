@@ -91,8 +91,57 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
             {
                 cdrom->interrupts[i].pending = false;
                 cdrom->fire_interrupt = true;
+
+                cdrom->interrupt_flag = (cdrom->interrupt_flag & ~0x07) |
+                                        (cdrom->interrupts[i].type & 0x07);
             }
         }
+    }
+}
+
+// Loads indexed CD-ROM register `reg`.
+uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
+                                          const unsigned int reg)
+{
+    assert(cdrom != NULL);
+
+    unsigned int i = 0;
+
+    switch (reg)
+    {
+        // 0x1F801801
+        case 1:
+            switch (cdrom->status & 0x03)
+            {
+                // 1F801801h.Index1 - Response Fifo (R)
+                case 1:
+                    return cdrom->response_fifo.data[i++];
+
+                default:
+                    printf("%d\n", cdrom->status & 0x03);
+                    __debugbreak();
+                    break;
+            }
+            break;
+
+        // 0x1F801803
+        case 3:
+            switch (cdrom->status & 0x03)
+            {
+                // 1F801803h.Index1 - Interrupt Flag Register (R/W)
+                case 1:
+                    return cdrom->interrupt_flag;
+
+                default:
+                    printf("%d\n", cdrom->status & 0x03);
+                    __debugbreak();
+                    break;
+            }
+            break;
+
+        default:
+            __debugbreak();
+            break;
     }
 }
 
@@ -116,7 +165,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom, const unsigne
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
-                                    queue_interrupt(cdrom, INT3, 800000, 4,
+                                    queue_interrupt(cdrom, INT3, 50000, 4,
                                                     0x94, 0x09, 0x19, 0xC0);
                                     break;
 

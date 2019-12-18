@@ -48,6 +48,9 @@ static uint16_t process_pixel_through_clut(struct libps_gpu* gpu,
             return gpu->vram[(clut_x + offset) + (LIBPS_GPU_VRAM_WIDTH * clut_y)];
         }
 
+        case 16:
+            return texel;
+
         default:
             return 0xFFFF;
     }
@@ -97,14 +100,17 @@ static void copy_rect_from_cpu(struct libps_gpu* gpu)
     {
         if (gpu->cmd_packet.remaining_words != 0)
         {
-            // XXX: This won't work for odd widths!
-            gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 0] =
+            gpu->vram[vram_x_pos++ + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos)] =
             gpu->received_data & 0x0000FFFF;
 
-            gpu->vram[vram_x_pos + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos) + 1] =
-            gpu->received_data >> 16;
+            if (vram_x_pos >= vram_x_pos_max)
+            {
+                vram_y_pos++;
+                vram_x_pos = ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF);
+            }
 
-            vram_x_pos += 2;
+            gpu->vram[vram_x_pos++ + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos)] =
+            gpu->received_data >> 16;
 
             if (vram_x_pos >= vram_x_pos_max)
             {
@@ -130,10 +136,104 @@ static void copy_rect_to_cpu(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
 
+    // Current X position
+    static unsigned int vram_x_pos;
+
+    // Current Y position
+    static unsigned int vram_y_pos;
+
+    // Maximum length of a line (should be Xxxx+Xsiz)
+    static unsigned int vram_x_pos_max;
+
+    if (gpu->state == LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS)
+    {
+        const uint16_t width =
+        (((gpu->cmd_packet.params[1] & 0x0000FFFF) - 1) & 0x000003FF) + 1;
+
+        const uint16_t height =
+        (((gpu->cmd_packet.params[1] >> 16) - 1) & 0x000001FF) + 1;
+
+        vram_x_pos =
+        ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF);
+
+        vram_y_pos =
+        ((gpu->cmd_packet.params[0] >> 16) & 0x000001FF);
+
+        vram_x_pos_max = vram_x_pos + width;
+
+        gpu->cmd_packet.remaining_words = (width * height) / 2;
+
+        // Lock the GP0 state to this function.
+        gpu->state = LIBPS_GPU_TRANSFERRING_DATA;
+
+        return;
+    }
+
+    if (gpu->state == LIBPS_GPU_TRANSFERRING_DATA)
+    {
+        if (gpu->cmd_packet.remaining_words != 0)
+        {
+            const uint16_t pixel0 =
+            gpu->vram[vram_x_pos++ + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos)];
+
+            if (vram_x_pos >= vram_x_pos_max)
+            {
+                vram_y_pos++;
+                vram_x_pos = ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF);
+            }
+
+            const uint16_t pixel1 =
+            gpu->vram[vram_x_pos++ + (LIBPS_GPU_VRAM_WIDTH * vram_y_pos)];
+
+            if (vram_x_pos >= vram_x_pos_max)
+            {
+                vram_y_pos++;
+                vram_x_pos = ((gpu->cmd_packet.params[0] & 0x0000FFFF) & 0x000003FF);
+            }
+
+            gpu->gpuread = ((pixel1 << 16) | pixel0);
+            gpu->cmd_packet.remaining_words--;
+        }
+        else
+        {
+            // All of the expected data has been sent. Return to normal
+            // operation.
+            memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
+            params_pos = 0;
+
+            gpu->state = LIBPS_GPU_AWAITING_COMMAND;
+        }
+    }
+}
+
+static void fill_rect_in_vram(struct libps_gpu* gpu)
+{
+    const unsigned int color = gpu->cmd_packet.params[0];
+
+    const unsigned int x_pos = gpu->cmd_packet.params[1] & 0x0000FFFF;
+    const unsigned int y_pos = gpu->cmd_packet.params[1] >> 16;
+
+    const unsigned int width  = gpu->cmd_packet.params[2] & 0x0000FFFF;
+    const unsigned int height = gpu->cmd_packet.params[2] >> 16;
+
+    for (unsigned int x = x_pos; x != (x_pos + width); ++x)
+    {
+        for (unsigned int y = y_pos; y != (y_pos + height); ++y)
+        {
+            const unsigned int pixel_r = (color & 0x000000FF) / 8;
+            const unsigned int pixel_g = ((color >> 8) & 0xFF) / 8;
+            const unsigned int pixel_b = ((color >> 16) & 0xFF) / 8;
+
+            gpu->vram[(x & 0x3FF) + (LIBPS_GPU_VRAM_WIDTH * (y & 0x1FF))] =
+            (pixel_g << 5) | (pixel_b << 10) | pixel_r;
+        }
+    }
+
     memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
     params_pos = 0;
 
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
+    return;
 }
 
 static void draw_polygon(struct libps_gpu* gpu,
@@ -192,26 +292,31 @@ static void draw_polygon(struct libps_gpu* gpu,
                     const unsigned int texpage_y_base = (v1->texpage & (1 << 4)) ? 256 : 0;
 
                     unsigned int texpage_color_depth;
+                    unsigned int divider;
+
+                    uint16_t final_texcoord_x;
 
                     switch ((v1->texpage >> 7) & 0x03)
                     {
                         case 0:
                             texpage_color_depth = 4;
+                            final_texcoord_x = (texpage_x_base * 64) + (texcoord_x / 4);
+
                             break;
 
                         case 1:
                             texpage_color_depth = 8;
+                            final_texcoord_x = (texpage_x_base * 64) + (texcoord_x / 8);
+
                             break;
 
                         case 2:
                             texpage_color_depth = 16;
-                            break;
 
-                        default:
+                            final_texcoord_x = (texpage_x_base * 64) + texcoord_x;
                             break;
                     }
 
-                    const uint16_t final_texcoord_x = (texpage_x_base * 64) + (texcoord_x / texpage_color_depth);
                     const uint16_t final_texcoord_y = texpage_y_base + texcoord_y;
 
                     const uint16_t texel = gpu->vram[final_texcoord_x +
@@ -484,6 +589,19 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                 case 0x01:
                     break;
 
+                // GP0(02h) - Fill Rectangle in VRAM
+                case 0x02:
+                    gpu->cmd_packet.params[params_pos++] =
+                    packet & 0x00FFFFFF;
+
+                    gpu->cmd_packet.remaining_words = 2;
+
+                    gpu->cmd_packet.raw = packet;
+                    gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
+
+                    cmd_func = &fill_rect_in_vram;
+                    break;
+
                 // GP0(28h) - Monochrome four-point polygon, opaque
                 //
                 // XXX: monochrome means "uses constant color"
@@ -496,6 +614,25 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                     gpu->cmd_packet.flags |= DRAW_FLAG_MONOCHROME;
                     gpu->cmd_packet.flags |= DRAW_FLAG_QUAD;
                     gpu->cmd_packet.flags |= DRAW_FLAG_OPAQUE;
+
+                    gpu->cmd_packet.raw = packet;
+
+                    gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
+
+                    cmd_func = &draw_polygon_helper;
+                    break;
+
+                // GP0(2Dh) - Textured four-point polygon, opaque, raw-texture
+                case 0x2D:
+                    gpu->cmd_packet.params[params_pos++] =
+                    packet & 0x00FFFFFF;
+
+                    gpu->cmd_packet.remaining_words = 8;
+
+                    gpu->cmd_packet.flags |= DRAW_FLAG_TEXTURED;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_QUAD;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_OPAQUE;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_RAW_TEXTURE;
 
                     gpu->cmd_packet.raw = packet;
 
@@ -556,6 +693,26 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                     gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
 
                     cmd_func = &draw_polygon_helper;
+                    break;
+
+                // GP0(65h) - Textured Rectangle, variable size, opaque,
+                // raw-texture
+                case 0x65:
+                    gpu->cmd_packet.params[params_pos++] =
+                    packet & 0x00FFFFFF;
+
+                    gpu->cmd_packet.remaining_words = 3;
+
+                    gpu->cmd_packet.flags |= DRAW_FLAG_TEXTURED;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_OPAQUE;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_RAW_TEXTURE;
+                    gpu->cmd_packet.flags |= DRAW_FLAG_VARIABLE_SIZE;
+
+                    gpu->cmd_packet.raw = packet;
+
+                    gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;
+
+                    cmd_func = &draw_rect_helper;
                     break;
 
                 // GP0(68h) - Monochrome Rectangle (1x1) (Dot) (opaque)
@@ -648,6 +805,11 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
             gpu->received_data = packet;
             cmd_func(gpu);
 
+            break;
+
+        // Used only by GP0(C0h)
+        case LIBPS_GPU_TRANSFERRING_DATA:
+            cmd_func(gpu);
             break;
     }
 }

@@ -83,5 +83,19 @@ void libps_system_step(struct libps_system* ps)
 
     // Check for DMAs first before involving the CPU in any way.
     libps_bus_step(ps->bus);
+
+    if ((ps->bus->i_mask & ps->bus->i_stat) != 0)
+    {
+        ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] |= (1 << 10);
+    }
+    else
+    {
+        ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] &= ~(1 << 10);
+    }
     libps_cpu_step(ps->cpu);
+}
+
+void libps_vblank(struct libps_system* ps)
+{
+    ps->bus->i_stat |= (1 << 0);
 }

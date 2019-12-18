@@ -69,6 +69,9 @@ struct libps_cdrom
     // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
     uint8_t status;
 
+    // 1F801803h.Index1 - Interrupt Flag Register (R/W)
+    uint8_t interrupt_flag;
+
     struct libps_cdrom_fifo parameter_fifo;
     struct libps_cdrom_fifo response_fifo;
 
@@ -88,6 +91,10 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom);
 
 // Checks to see if interrupts needs to be fired.
 void libps_cdrom_step(struct libps_cdrom* cdrom);
+
+// Loads indexed CD-ROM register `reg`.
+uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
+                                          const unsigned int reg);
 
 // Stores `data` into indexed CD-ROM register `reg`.
 void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,

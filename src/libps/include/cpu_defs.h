@@ -25,10 +25,6 @@ extern "C"
 // 33.8688 MHz
 #define LIBPS_CPU_CLOCK_RATE 33868800
 
-// This technically isn't accurate as it clobbers the Cache Control register
-// (0xFFFE0130), but for now it works.
-#define LIBPS_CPU_TRANSLATE_ADDRESS(vaddr) ((vaddr) & 0x1FFFFFFF)
-
 // Instruction groups
 #define LIBPS_CPU_OP_GROUP_SPECIAL 0x00
 #define LIBPS_CPU_OP_GROUP_BCOND 0x01

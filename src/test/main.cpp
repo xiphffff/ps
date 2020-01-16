@@ -60,7 +60,7 @@ static const char* const gpr[32] =
 
 int main(int argc, char* argv[])
 {
-    if (argc < 3)
+    if (argc < 2)
     {
         std::cerr << argv[0] << ": Missing required argument." << std::endl;
         std::cerr << "Syntax: " << argv[0] << " biosfile testfile" << std::endl;
@@ -72,13 +72,13 @@ int main(int argc, char* argv[])
     uint8_t* bios_data = static_cast<uint8_t*>(malloc(0x80000));
     fread(bios_data, 1, 0x80000, bios_file);
     fclose(bios_file);
-
+#if 0
     FILE* test_file = fopen(argv[2], "rb");
     const auto test_file_size = std::filesystem::file_size(argv[2]);
     uint8_t* test_data = static_cast<uint8_t*>(malloc(test_file_size));
     fread(test_data, 1, test_file_size, test_file);
     fclose(test_file);
-
+#endif
     FILE* disasm_file = fopen("disasm.txt", "w");
 
     struct libps_system* ps = libps_system_create(bios_data);

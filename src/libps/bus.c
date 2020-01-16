@@ -273,10 +273,14 @@ void libps_bus_step(struct libps_bus* bus)
     libps_timer_step(bus->timer);
 }
 
-// Returns a word from memory referenced by physical address `paddr`.
-uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
+// Returns a word from memory referenced by virtual address `vaddr`.
+uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
 {
     assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
 
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
@@ -363,13 +367,16 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t paddr)
     }
 }
 
-// Returns a halfword from memory referenced by physical address `paddr`.
-uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t paddr)
+// Returns a halfword from memory referenced by virtual address `vaddr`.
+uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
 {
     assert(bus != NULL);
 
-    // XXX: I think the handling of this can be a bit more sound.
-    switch ((paddr & 0xFFFF0000) >> 16)
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
+
+    switch ((vaddr & 0xFFFF0000) >> 16)
     {
         case 0x0000 ... 0x001F:
             return *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF));
@@ -435,10 +442,14 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t paddr)
     }
 }
 
-// Returns a byte from memory referenced by physical address `paddr`.
-uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t paddr)
+// Returns a byte from memory referenced by virtual address `vaddr`.
+uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
 {
     assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
 
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
@@ -505,12 +516,16 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t paddr)
     }
 }
 
-// Stores word `data` into memory referenced by phsyical address `paddr`.
+// Stores word `data` into memory referenced by virtual address `vaddr`.
 void libps_bus_store_word(struct libps_bus* bus,
-                          const uint32_t paddr,
+                          const uint32_t vaddr,
                           const uint32_t data)
 {
     assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
 
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
@@ -680,12 +695,16 @@ void libps_bus_store_word(struct libps_bus* bus,
     }
 }
 
-// Stores halfword `data` into memory referenced by phsyical address `paddr`.
+// Stores halfword `data` into memory referenced by virtual address `paddr`.
 void libps_bus_store_halfword(struct libps_bus* bus,
-                              const uint32_t paddr,
+                              const uint32_t vaddr,
                               const uint16_t data)
 {
     assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
 
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)
@@ -811,12 +830,16 @@ void libps_bus_store_halfword(struct libps_bus* bus,
     }
 }
 
-// Stores byte `data` into memory referenced by phsyical address `paddr`.
+// Stores byte `data` into memory referenced by virtual address `paddr`.
 void libps_bus_store_byte(struct libps_bus* bus,
-                          const uint32_t paddr,
+                          const uint32_t vaddr,
                           const uint8_t data)
 {
     assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
 
     // XXX: I think the handling of this can be a bit more sound.
     switch ((paddr & 0xFFFF0000) >> 16)

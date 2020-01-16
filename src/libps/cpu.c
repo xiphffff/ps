@@ -51,10 +51,14 @@
 // `libps_cpu` doesn't need to know about this.
 static struct libps_bus* bus;
 
-static uint32_t bad_vaddr;
+// Used for calling `raise_exception()` when throwing an exception that is not
+// an address exception.
+#define UNUSED 0x00000000
 
 // Throws exception `exccode`.
-void libps_cpu_raise_exception(struct libps_cpu* cpu, const unsigned int exccode)
+static void raise_exception(struct libps_cpu* cpu,
+                            const unsigned int exccode,
+                            const uint32_t bad_vaddr)
 {
     assert(cpu != NULL);
 
@@ -124,17 +128,15 @@ void libps_cpu_reset(struct libps_cpu* cpu)
     // affect anything as we don't handle what those memory addresses represent
     // ("RAM Size" and "Expansion 3 Delay/Size" respectively) but of course, we
     // should still clear these anyway.
-    memset(cpu->gpr,         0, sizeof(cpu->gpr));
-    memset(cpu->cop0_cpr,    0, sizeof(cpu->cop0_cpr));
+    memset(cpu->gpr,      0, sizeof(cpu->gpr));
+    memset(cpu->cop0_cpr, 0, sizeof(cpu->cop0_cpr));
 
     cpu->pc      = 0xBFC00000;
     cpu->next_pc = 0xBFC00000;
 
     cpu->good = true;
-    cpu->fuck = false;
 
-    cpu->instruction = libps_bus_load_word(bus,
-                       LIBPS_CPU_TRANSLATE_ADDRESS(cpu->pc));
+    cpu->instruction = libps_bus_load_word(bus, cpu->pc);
 }
 
 // Executes one instruction.
@@ -146,13 +148,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
         (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & (1 << 10)) &&
         (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 1))
     {
-        //cpu->fuck = true;
+        raise_exception(cpu, LIBPS_CPU_EXCCODE_Int, UNUSED);
 
-        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Int);
-
-        cpu->instruction = libps_bus_load_word(bus,
-        LIBPS_CPU_TRANSLATE_ADDRESS(cpu->pc += 4));
-
+        cpu->instruction = libps_bus_load_word(bus, cpu->pc += 4);
         return;
     }
 
@@ -217,7 +215,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if ((target & 0x00000003) != 0)
                     {
-                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                        raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL, target);
                         break;
                     }
                     cpu->next_pc = target;
@@ -230,7 +228,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if ((target & 0x00000003) != 0)
                     {
-                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                        raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL, target);
                         break;
                     }
 
@@ -242,11 +240,11 @@ void libps_cpu_step(struct libps_cpu* cpu)
                 }
 
                 case LIBPS_CPU_OP_SYSCALL:
-                    libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Sys);
+                    raise_exception(cpu, LIBPS_CPU_EXCCODE_Sys, UNUSED);
                     break;
 
                 case LIBPS_CPU_OP_BREAK:
-                    libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Bp);
+                    raise_exception(cpu, LIBPS_CPU_EXCCODE_Bp, UNUSED);
                     break;
 
                 case LIBPS_CPU_OP_MFHI:
@@ -363,7 +361,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if (!((rs ^ rt) & 0x80000000) && ((result ^ rs) & 0x80000000))
                     {
-                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
+                        raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov, UNUSED);
                         break;
                     }
 
@@ -387,7 +385,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     if (((rs ^ rt) & 0x80000000) && ((result ^ rs) & 0x80000000))
                     {
-                        libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
+                        raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov, UNUSED);
                         break;
                     }
 
@@ -529,7 +527,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             if (!((rs ^ imm) & 0x80000000) && ((result ^ rs) & 0x80000000))
             {
-                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov);
+                raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov, UNUSED);
                 break;
             }
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = result;
@@ -606,7 +604,6 @@ void libps_cpu_step(struct libps_cpu* cpu)
                             (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0xFFFFFFF0) |
                             ((cpu->cop0_cpr[LIBPS_CPU_COP0_REG_SR] & 0x3C) >> 2);
 
-                            //cpu->fuck = false;
                             break;
 
                         default:
@@ -626,9 +623,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-
-            const int8_t data = (int8_t)libps_bus_load_byte(bus, paddr);
+            const int8_t data = (int8_t)libps_bus_load_byte(bus, vaddr);
 
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
@@ -640,17 +635,13 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-
             if ((vaddr & 1) != 0)
             {
-                bad_vaddr = vaddr;
-
-                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL, vaddr);
                 break;
             }
 
-            const int16_t data = (int16_t)libps_bus_load_halfword(bus, paddr);
+            const int16_t data = (int16_t)libps_bus_load_halfword(bus, vaddr);
 
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
@@ -662,46 +653,28 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            // XXX: Don't like this. We should be able to remove the switch
-            // with some bitwise trickery.
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr & 0xFFFFFFFC);
+            const uint32_t data = libps_bus_load_word(bus, vaddr & 0xFFFFFFFC);
 
-            const uint32_t data = libps_bus_load_word(bus, paddr);
-
-            uint32_t result;
+            const unsigned int rt = LIBPS_CPU_DECODE_RT(cpu->instruction);
 
             switch (vaddr & 3)
             {
                 case 0:
-                    result =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x00FFFFFF) |
-                    (data << 24);
-
+                    cpu->gpr[rt] = (cpu->gpr[rt] & 0x00FFFFFF) | (data << 24);
                     break;
 
                 case 1:
-                    result =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x0000FFFF) |
-                    (data << 16);
-
+                    cpu->gpr[rt] = (cpu->gpr[rt] & 0x0000FFFF) | (data << 16);
                     break;
 
                 case 2:
-                    result =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x000000FF) |
-                    (data << 8);
-
+                    cpu->gpr[rt] = (cpu->gpr[rt] & 0x000000FF) | (data << 8);
                     break;
 
                 case 3:
-                    result =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x00000000) |
-                    (data << 0);
-
+                    cpu->gpr[rt] = (cpu->gpr[rt] & 0x00000000) | (data << 0);
                     break;
             }
-
-            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = result;
             break;
         }
 
@@ -714,17 +687,13 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-
             if ((vaddr & 0x00000003) != 0)
             {
-                bad_vaddr = vaddr;
-
-                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL, vaddr);
                 break;
             }
 
-            const uint32_t data = libps_bus_load_word(bus, paddr);
+            const uint32_t data = libps_bus_load_word(bus, vaddr);
 
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
@@ -736,9 +705,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-
-            const uint8_t data = libps_bus_load_byte(bus, paddr);
+            const uint8_t data = libps_bus_load_byte(bus, vaddr);
 
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
@@ -750,17 +717,13 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-
             if ((vaddr & 1) != 0)
             {
-                bad_vaddr = vaddr;
-
-                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL);
+                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdEL, vaddr);
                 break;
             }
 
-            const uint16_t data = libps_bus_load_halfword(bus, paddr);
+            const uint16_t data = libps_bus_load_halfword(bus, vaddr);
 
             cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = data;
             break;
@@ -772,43 +735,28 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            // XXX: Don't like this. We should be able to remove the switch
-            // with some bitwise trickery.
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr & 0xFFFFFFFC);
+            const uint32_t data = libps_bus_load_word(bus, vaddr & 0xFFFFFFFC);
 
-            const uint32_t data = libps_bus_load_word(bus, paddr);
-
-            uint32_t result;
+            const unsigned int rt = LIBPS_CPU_DECODE_RT(cpu->instruction);
 
             switch (vaddr & 3)
             {
                 case 0:
-                    result = data;
+                    cpu->gpr[rt] = data;
                     break;
 
                 case 1:
-                    result =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0xFF000000) |
-                    (data >> 8);
-
+                    cpu->gpr[rt] = (cpu->gpr[rt] & 0xFF000000) | (data >> 8);
                     break;
 
                 case 2:
-                    result =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0xFFFF0000) |
-                    (data >> 16);
-
+                    cpu->gpr[rt] = (cpu->gpr[rt] & 0xFFFF0000) | (data >> 16);
                     break;
 
                 case 3:
-                    result =
-                    (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0xFFFFFF00) |
-                    (data >> 24);
-
+                    cpu->gpr[rt] = (cpu->gpr[rt] & 0xFFFFFF00) | (data >> 24);
                     break;
             }
-
-            cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] = result;
             break;
         }
 
@@ -818,10 +766,8 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-
             libps_bus_store_byte(bus,
-                                 paddr,
+                                 vaddr,
                 cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x000000FF);
             break;
         }
@@ -832,16 +778,14 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-
             if ((vaddr & 1) != 0)
             {
-                libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES);
+                raise_execption(cpu, LIBPS_CPU_EXCCODE_AdES);
                 break;
             }
 
             libps_bus_store_halfword(bus,
-                                     paddr,
+                                     vaddr,
                  cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] & 0x0000FFFF);
             break;
         }
@@ -852,40 +796,31 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            // XXX: Don't like this. We should be able to remove the switch
-            // with some bitwise trickery.
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr & 0xFFFFFFFC);
+            const unsigned int rt = LIBPS_CPU_DECODE_RT(cpu->instruction);
 
-            uint32_t data = libps_bus_load_word(bus, paddr);
+            uint32_t data = libps_bus_load_word(bus, vaddr & 0xFFFFFFFC);
 
             switch (vaddr & 3)
             {
                 case 0:
-                    data =
-                    (data & 0xFFFFFF00) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 24);
-
+                    data = (data & 0xFFFFFF00) | (cpu->gpr[rt] >> 24);
                     break;
 
                 case 1:
-                    data =
-                    (data & 0xFFFF0000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 16);
-
+                    data = (data & 0xFFFF0000) | (cpu->gpr[rt] >> 16);
                     break;
 
                 case 2:
-                    data =
-                    (data & 0xFF000000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 8);
+                    data = (data & 0xFF000000) | (cpu->gpr[rt] >> 8);
 
                     break;
 
                 case 3:
-                    data =
-                    (data & 0x00000000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] >> 0);
-
+                    data = (data & 0x00000000) | (cpu->gpr[rt] >> 0);
                     break;
             }
 
-            libps_bus_store_word(bus, paddr, data);
+            libps_bus_store_word(bus, vaddr & 0xFFFFFFFC, data);
             break;
         }
 
@@ -899,14 +834,12 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                 if ((vaddr & 0x00000003) != 0)
                 {
-                    libps_cpu_raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES);
+                    raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES, vaddr);
                     break;
                 }
 
-                const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr);
-                        
                 libps_bus_store_word(bus,
-                                     paddr,
+                                     vaddr,
                               cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)]);
             }
             break;
@@ -918,40 +851,30 @@ void libps_cpu_step(struct libps_cpu* cpu)
             (int16_t)LIBPS_CPU_DECODE_OFFSET(cpu->instruction) +
             cpu->gpr[LIBPS_CPU_DECODE_BASE(cpu->instruction)];
 
-            // XXX: Don't like this. We should be able to remove the switch
-            // with some bitwise trickery.
-            const uint32_t paddr = LIBPS_CPU_TRANSLATE_ADDRESS(vaddr & 0xFFFFFFFC);
+            const unsigned int rt = LIBPS_CPU_DECODE_RT(cpu->instruction);
 
-            uint32_t data = libps_bus_load_word(bus, paddr);
+            uint32_t data = libps_bus_load_word(bus, vaddr & 0xFFFFFFFC);
 
             switch (vaddr & 3)
             {
                 case 0:
-                    data =
-                    (data & 0x00000000) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 0);
-
+                    data = (data & 0x00000000) | (cpu->gpr[rt] << 0);
                     break;
 
                 case 1:
-                    data =
-                    (data & 0x000000FF) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 8);
-
+                    data = (data & 0x000000FF) | (cpu->gpr[rt] << 8);
                     break;
 
                 case 2:
-                    data =
-                    (data & 0x0000FFFF) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 16);
-
+                    data = (data & 0x0000FFFF) | (cpu->gpr[rt] << 16);
                     break;
 
                 case 3:
-                    data =
-                    (data & 0x00FFFFFF) | (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] << 24);
-
+                    data = (data & 0x00FFFFFF) | (cpu->gpr[rt] << 24);
                     break;
             }
 
-            libps_bus_store_word(bus, paddr, data);
+            libps_bus_store_word(bus, vaddr & 0xFFFFFFFC, data);
             break;
         }
 
@@ -960,8 +883,6 @@ void libps_cpu_step(struct libps_cpu* cpu)
             break;
     }
 
-    cpu->instruction = libps_bus_load_word(bus,
-                       LIBPS_CPU_TRANSLATE_ADDRESS(cpu->pc += 4));
-
+    cpu->instruction = libps_bus_load_word(bus, cpu->pc += 4);
     cpu->gpr[0] = 0x00000000;
 }

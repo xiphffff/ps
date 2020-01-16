@@ -49,8 +49,6 @@ struct libps_cpu
 
     // Is the CPU still in a valid state?
     bool good;
-
-    bool fuck;
 };
 
 // Allocates memory for a `libps_cpu` structure and returns a pointer to it if
@@ -67,9 +65,6 @@ void libps_cpu_reset(struct libps_cpu* cpu);
 
 // Executes one instruction.
 void libps_cpu_step(struct libps_cpu* cpu);
-
-// Throws exception `exccode`.
-void libps_cpu_raise_exception(struct libps_cpu* cpu, const unsigned int exccode);
 
 #ifdef __cplusplus
 }

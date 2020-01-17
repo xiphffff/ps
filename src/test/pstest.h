@@ -12,16 +12,29 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <qapplication.h>
-#include "pstest.h"
+#pragma once
 
-int main(int argc, char* argv[])
+#include "emulator.h"
+#include "main_window.h"
+#include "debug/tty_log.h"
+
+class PSTest : public QObject
 {
-    QApplication qt(argc, argv);
+    Q_OBJECT
 
-    qt.setApplicationName("libps debugging station");
-    qt.setApplicationVersion("1.0");
+public:
+    PSTest();
+    ~PSTest();
 
-    PSTest pstest;
-    return qt.exec();
-}
+private:
+    // Returns the BIOS file to use.
+    QString handle_initial_bios_select();
+
+    void open_tty_log();
+
+    QThread* emu_thread;
+
+    MainWindow* main_window;
+    TTYLogger* tty_logger;
+    Emulator* emulator;
+};

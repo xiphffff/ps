@@ -376,7 +376,7 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
     // (0xFFFE0130), but for now it works.
     const uint32_t paddr = vaddr & 0x1FFFFFFF;
 
-    switch ((vaddr & 0xFFFF0000) >> 16)
+    switch ((paddr & 0xFFFF0000) >> 16)
     {
         case 0x0000 ... 0x001F:
             return *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF));

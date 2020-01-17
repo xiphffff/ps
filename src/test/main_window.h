@@ -12,16 +12,33 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <qapplication.h>
-#include "pstest.h"
+#pragma once
 
-int main(int argc, char* argv[])
+#include <QtWidgets>
+
+class MainWindow : public QMainWindow
 {
-    QApplication qt(argc, argv);
+    Q_OBJECT
 
-    qt.setApplicationName("libps debugging station");
-    qt.setApplicationVersion("1.0");
+public:
+    MainWindow();
+    ~MainWindow();
 
-    PSTest pstest;
-    return qt.exec();
-}
+    // Renders the VRAM data.
+    void render_frame(const uint16_t* vram);
+
+    QAction* open_ps_exe;
+    QAction* open_tty_log;
+
+private:
+    QImage* vram_image;
+    QLabel* vram_image_view;
+
+    QMenu* file_menu;
+    QMenu* debug_menu;
+
+    void on_open_ps_exe();
+
+signals:
+    void inject_ps_exe(const QString& exe_file);
+};

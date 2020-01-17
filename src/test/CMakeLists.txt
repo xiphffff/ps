@@ -1,4 +1,4 @@
-# Copyright 2019 Michael Rodriguez
+# Copyright 2020 Michael Rodriguez
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -12,27 +12,37 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-find_package(SDL2 CONFIG REQUIRED)
+find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
-add_executable(pstest main.cpp)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+if (CMAKE_VERSION VERSION_LESS "3.7.0")
+    set(CMAKE_INCLUDE_CURRENT_DIR ON)
+endif()
+
+set(SRCS emulator.cpp main.cpp main_window.cpp pstest.cpp)
+set(HDRS emulator.h main_window.h pstest.h)
+
+set(DEBUG_SRCS debug/tty_log.cpp)
+set(DEBUG_HDRS debug/tty_log.h)
+
+source_group("Source Files\\debug" FILES ${DEBUG_SRCS})
+source_group("Header Files\\debug" FILES ${DEBUG_HDRS})
+
+add_executable(pstest ${SRCS} ${HDRS} ${DEBUG_SRCS} ${DEBUG_HDRS})
 
 set_target_properties(pstest PROPERTIES
-                      CXX_STANDARD 17
+                      CXX_STANDARD 20
                       CXX_STANDARD_REQUIRED YES
                       CXX_EXTENSIONS ON)
 
-# For some reason this is required to get SDL w/ vcpkg to play nice using the
-# RelWithDebugInfo build type.
-set_target_properties(SDL2::SDL2 SDL2::SDL2main PROPERTIES
-	MAP_IMPORTED_CONFIG_MINSIZEREL Release
-	MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
-    )
+target_link_libraries(pstest ps Qt5::Widgets)
 
 target_compile_options(pstest PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
-                       -Wall -Wextra -Wno-gnu-case-range -Wno-old-style-cast -Wno-c++98-compat -Wno-c++98-compat-pedantic>)
+                       -Wall -Wextra -Wno-gnu-case-range -Wno-old-style-cast -Wno-c++98-compat>)
 
-target_compile_definitions(pstest PRIVATE _CRT_SECURE_NO_WARNINGS)
-
-target_link_libraries(pstest ps SDL2::SDL2 SDL2::SDL2main)
+target_compile_definitions(pstest PRIVATE _CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pstest)

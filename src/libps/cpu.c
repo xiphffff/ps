@@ -298,9 +298,13 @@ void libps_cpu_step(struct libps_cpu* cpu)
                 case LIBPS_CPU_OP_DIV:
                 {
                     // The result of a division by zero is consistent with the
-                    // result of a simple radix-2 (“one bit at a time”) implementation.
-                    const int32_t rt = (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
-                    const int32_t rs = (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)];
+                    // result of a simple radix-2 ("one bit at a time")
+                    // implementation.
+                    const int32_t rt =
+                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+
+                    const int32_t rs =
+                    (int32_t)cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)];
 
                     // Divisor is zero
                     if (rt == 0)
@@ -316,7 +320,8 @@ void libps_cpu_step(struct libps_cpu* cpu)
                     // Will trigger an arithmetic exception when dividing
                     // 0x80000000 by 0xFFFFFFFF. The result of the division is
                     // a quotient of 0x80000000 and a remainder of 0x00000000.
-                    else if ((uint32_t)rs == 0x80000000 && (uint32_t)rt == 0xFFFFFFFF)
+                    else if ((uint32_t)rs == 0x80000000 &&
+                             (uint32_t)rt == 0xFFFFFFFF)
                     {
                         cpu->reg_lo = (uint32_t)rs;
                         cpu->reg_hi = 0x00000000;
@@ -331,35 +336,40 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                 case LIBPS_CPU_OP_DIVU:
                 {
+                    const uint32_t rt =
+                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                    
+                    const uint32_t rs =
+                    cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)];
+
                     // In the case of unsigned division, the dividend can't be
                     // negative and thus the quotient is always -1 (0xFFFFFFFF)
                     // and the remainder equals the dividend.
-                    if (cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)] == 0)
+                    if (rt == 0)
                     {
                         cpu->reg_lo = 0xFFFFFFFF;
-                        cpu->reg_hi = cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)];
+                        cpu->reg_hi = rs;
                     }
                     else
                     {
-                        cpu->reg_lo =
-                        cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] /
-                        cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
-
-                        cpu->reg_hi =
-                        cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] %
-                        cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                        cpu->reg_lo = rs / rt;
+                        cpu->reg_hi = rs % rt;
                     }
                     break;
                 }
 
                 case LIBPS_CPU_OP_ADD:
                 {
-                    const uint32_t rs = cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)];
-                    const uint32_t rt = cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
+                    const uint32_t rs =
+                    cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)];
+                    
+                    const uint32_t rt =
+                    cpu->gpr[LIBPS_CPU_DECODE_RT(cpu->instruction)];
 
                     const uint32_t result = rs + rt;
 
-                    if (!((rs ^ rt) & 0x80000000) && ((result ^ rs) & 0x80000000))
+                    if (!((rs ^ rt) & 0x80000000) &&
+                        ((result ^ rs) & 0x80000000))
                     {
                         raise_exception(cpu, LIBPS_CPU_EXCCODE_Ov, UNUSED);
                         break;
@@ -780,7 +790,7 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
             if ((vaddr & 1) != 0)
             {
-                raise_execption(cpu, LIBPS_CPU_EXCCODE_AdES);
+                raise_exception(cpu, LIBPS_CPU_EXCCODE_AdES, vaddr);
                 break;
             }
 

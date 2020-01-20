@@ -28,13 +28,21 @@ public:
     void render_frame(const uint16_t* vram);
 
     QAction* open_ps_exe;
+
     QAction* open_tty_log;
+    QAction* bios_calls;
+
+    QAction* start_emu;
+    QAction* stop_emu;
+    QAction* pause_emu;
+    QAction* reset_emu;
 
 private:
     QImage* vram_image;
     QLabel* vram_image_view;
 
     QMenu* file_menu;
+    QMenu* emulation_menu;
     QMenu* debug_menu;
 
     void on_open_ps_exe();

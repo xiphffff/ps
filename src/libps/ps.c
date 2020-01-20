@@ -16,23 +16,30 @@
 #include <stdlib.h>
 #include "ps.h"
 
-// Allocates memory for a `libps_system` structure and returns a pointer to it
-// if memory allocation was successful, `NULL` otherwise.
+// Creates a PlayStation emulator and returns a pointer to it if memory
+// allocation was successful, or `NULL` otherwise.
 struct libps_system* libps_system_create(uint8_t* const bios_data)
 {
     // XXX: I don't like the notion of passing a pointer to the BIOS data,
     // loaded entirely by the caller. That's 512KB just sitting in RAM and I'm
-    // not exactly okay with that. The only alternative I can think of is just
-    // doing file I/O on every BIOS read (also known as a very bad idea), or
-    // splitting the BIOS data into 16 32KB blocks and loading a block when the
-    // read falls within a certain range. The more blocks we have, the more
-    // memory will be used and file I/O will be less frequent, whereas if we
-    // have fewer blocks, more memory will be used, but file I/O will become
-    // more frequent.
+    // not okay with that. There are a few possibilities to avoid this:
     //
-    // Another alternative is HLEing the BIOS.
+    // 1) doing file I/O on every BIOS read (slow, garbage solution)
+    // 
+    // 2) splitting the BIOS into x number of yKB blocks and loading a block
+    //    when a read falls within a certain range. The more blocks we have,
+    //    the more memory will be used and file I/O will be less frequent,
+    //    whereas if we have fewer blocks, less memory will be used, but file
+    //    I/O will become more frequent. The amount of blocks and their size
+    //    should be configurable at runtime.
     //
-    // This is important for systems with extremely scarce amounts of RAM.
+    // 3) HLE of the BIOS, the most complicated option but possibly the most
+    //    effective one, worst case.
+    //
+    // This may not be worth it however, I don't think there's a single system
+    // that will fail to allocate 512KB outright or will suffer from
+    // detrimental effects for doing so. We'll have to see. If no system falls
+    // under this circumstance, this idea will be discarded.
     struct libps_system* ps = malloc(sizeof(struct libps_system));
 
     if (ps)
@@ -55,7 +62,7 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
     return NULL;
 }
 
-// Deallocates the memory held by `ps`.
+// Destroys PlayStation emulator `ps` and deallocates all memory held by it.
 void libps_system_destroy(struct libps_system* ps)
 {
     assert(ps != NULL);
@@ -81,9 +88,10 @@ void libps_system_step(struct libps_system* ps)
 {
     assert(ps != NULL);
 
-    // Check for DMAs first before involving the CPU in any way.
+    // Step 1: Check for DMAs and tick the hardware.
     libps_bus_step(ps->bus);
 
+    // Step 2: Check to see if the interrupt line needs to be enabled.
     if ((ps->bus->i_mask & ps->bus->i_stat) != 0)
     {
         ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] |= (1 << 10);
@@ -92,10 +100,14 @@ void libps_system_step(struct libps_system* ps)
     {
         ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] &= ~(1 << 10);
     }
+
+    // Step 3: Execute one instruction.
     libps_cpu_step(ps->cpu);
 }
 
+// Triggers a V-Blank interrupt. This *must* be called once per frame.
 void libps_vblank(struct libps_system* ps)
 {
-    ps->bus->i_stat |= (1 << 0);
+    assert(ps != NULL);
+    ps->bus->i_stat |= LIBPS_IRQ_VBLANK;
 }

@@ -16,6 +16,8 @@
 // customize the result, whether it's uppercase, whether there are prefixes on
 // the registers, etc.
 
+#ifdef LIBPS_DEBUG
+
 #include <math.h>
 #include <stdio.h>
 #include "cpu_defs.h"
@@ -977,3 +979,5 @@ void libps_disassemble_instruction(const uint32_t instruction,
             break;
     }
 }
+
+#endif // LIBPS_DEBUG

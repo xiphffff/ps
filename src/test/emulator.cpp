@@ -15,6 +15,7 @@
 #include <filesystem>
 #include "emulator.h"
 #include "../libps/include/ps.h"
+#include "../libps/include/disasm.h"
 
 Emulator::Emulator(const QString& bios_file)
 {
@@ -43,7 +44,7 @@ void Emulator::run()
 
         for (unsigned int cycle = 0;
              cycle != (LIBPS_CPU_CLOCK_RATE / 60);
-             ++cycle)
+             cycle += 2)
         {
             if (((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x3C) ||
                 ((sys->cpu->pc == 0x000000B0) && sys->cpu->gpr[9] == 0x3D))
@@ -56,11 +57,13 @@ void Emulator::run()
                 tty_str += sys->cpu->gpr[4];
             }
 
-            if (!sys->cpu->good)
+            if ((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x40)
             {
-                __debugbreak();
-            }
+                emit system_error();
+                running = false;
 
+                break;
+            }
             libps_system_step(sys);
         }
 
@@ -81,6 +84,7 @@ void Emulator::begin_run_loop()
     if (!running)
     {
         running = true;
+        start();
     }
 }
 
@@ -90,6 +94,8 @@ void Emulator::stop_run_loop()
     {
         running = false;
         libps_system_reset(sys);
+
+        exit();
     }
 }
 
@@ -98,6 +104,7 @@ void Emulator::pause_run_loop()
     if (running)
     {
         running = false;
+        exit();
     }
 }
 

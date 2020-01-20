@@ -34,6 +34,9 @@ extern "C"
 #define LIBPS_GPU_VRAM_WIDTH 1024
 #define LIBPS_GPU_VRAM_HEIGHT 512
 
+// Interrupts
+#define LIBPS_IRQ_VBLANK (1 << 0)
+
 enum libps_gpu_state
 {
     LIBPS_GPU_AWAITING_COMMAND,
@@ -109,6 +112,9 @@ void libps_gpu_destroy(struct libps_gpu* gpu);
 
 // Resets the GPU to the initial state.
 void libps_gpu_reset(struct libps_gpu* gpu);
+
+// Steps the GPU.
+void libps_gpu_step(struct libps_gpu* gpu);
 
 // Processes a GP0 packet.
 void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet);

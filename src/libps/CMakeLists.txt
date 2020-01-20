@@ -12,13 +12,14 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set(SRCS bus.c cd.c cpu.c disasm.c gpu.c ps.c timer.c)
+set(SRCS bus.c cd.c cpu.c disasm.c event.c gpu.c ps.c timer.c)
 
 set(HDRS include/bus.h
          include/cd.h
          include/cpu.h
          include/cpu_defs.h
          include/disasm.h
+         include/event.h
          include/gpu.h
          include/ps.h
          include/timer.h)
@@ -31,6 +32,8 @@ set_target_properties(ps PROPERTIES
                       C_EXTENSIONS ON)
 
 target_include_directories(ps PRIVATE include)
+
+target_compile_definitions(ps PRIVATE LIBPS_DEBUG)
 
 target_compile_options(ps PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:

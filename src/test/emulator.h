@@ -44,11 +44,11 @@ private:
 
 signals:
 #ifdef LIBPS_DEBUG
-    void critical_exception_raised(const unsigned int exccode,
-                                   const uint32_t vaddr);
-
+    void exception_raised(const unsigned int exccode, const uint32_t vaddr);
     void illegal_instruction(const uint32_t instruction, const uint32_t pc);
-#endif
+#endif // LIBPS_DEBUG
+
+    void system_error();
     void tty_string(const QString& string);
     void render_frame(const uint16_t* vram);
 };

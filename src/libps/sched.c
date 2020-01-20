@@ -12,35 +12,30 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#pragma once
+#include <assert.h>
+#include <stdlib.h>
+#include "sched.h"
 
-#include "emulator.h"
-#include "main_window.h"
-#include "debug/tty_log.h"
-
-class PSTest : public QObject
+struct libps_scheduler* libps_scheduler_create(void)
 {
-    Q_OBJECT
+    struct libps_scheduler* sched = malloc(sizeof(struct libps_scheduler));
+    return sched;
+}
 
-public:
-    PSTest();
-    ~PSTest();
+void libps_scheduler_destroy(struct libps_scheduler* sched)
+{
+    assert(sched != NULL);
+    free(sched);
+}
 
-private:
-    // Returns the BIOS file to use.
-    QString handle_initial_bios_select();
+void libps_scheduler_run(struct libps_scheduler* sched)
+{
+    assert(sched != NULL);
+}
 
-#ifdef LIBPS_DEBUG
-    void emu_report_system_error();
-#endif // LIBPS_DEBUG
+void libps_scheduler_add(struct libps_scheduler* sched,
+                         const unsigned int cycles,
+                         void (*cb)(void))
+{
 
-    void open_tty_log();
-
-    void start_emu();
-    void reset_emu();
-    void pause_emu();
-
-    MainWindow* main_window;
-    TTYLogger* tty_logger;
-    Emulator* emulator;
-};
+}

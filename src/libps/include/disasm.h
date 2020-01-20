@@ -14,6 +14,8 @@
 
 #pragma once
 
+#ifdef LIBPS_DEBUG
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -33,3 +35,5 @@ void libps_disassemble_instruction(const uint32_t instruction,
 #ifdef __cplusplus
 }
 #endif // __cplusplus
+
+#endif // LIBPS_DEBUG

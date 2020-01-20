@@ -28,11 +28,29 @@ MainWindow::MainWindow()
 
     open_tty_log = new QAction(tr("Display TTY Log"), this);
 
+    bios_calls = new QAction(tr("BIOS calls"), this);
+
     file_menu = menuBar()->addMenu(tr("&File"));
     file_menu->addAction(open_ps_exe);
 
+    emulation_menu = menuBar()->addMenu(tr("&Emulation"));
+
+    start_emu = new QAction(tr("Start"), this);
+    stop_emu  = new QAction(tr("Stop"),  this);
+    pause_emu = new QAction(tr("Pause"), this);
+    reset_emu = new QAction(tr("Reset"), this);
+
+    // The emulator is already running when we get here
+    start_emu->setDisabled(true);
+
+    emulation_menu->addAction(start_emu);
+    emulation_menu->addAction(stop_emu);
+    emulation_menu->addAction(pause_emu);
+    emulation_menu->addAction(reset_emu);
+
     debug_menu = menuBar()->addMenu(tr("&Debug"));
     debug_menu->addAction(open_tty_log);
+    debug_menu->addAction(bios_calls);
 
     setWindowFlags(Qt::MSWindowsFixedSizeDialogHint);
     setCentralWidget(vram_image_view);

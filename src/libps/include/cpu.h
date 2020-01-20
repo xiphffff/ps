@@ -46,9 +46,6 @@ struct libps_cpu
 
     // System control co-processor (COP0) registers
     uint32_t cop0_cpr[32];
-
-    // Is the CPU still in a valid state?
-    bool good;
 };
 
 // Allocates memory for a `libps_cpu` structure and returns a pointer to it if

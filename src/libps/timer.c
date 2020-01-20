@@ -13,7 +13,9 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
+#include "cpu_defs.h"
 #include "timer.h"
 
 // Allocates memory for a `libps_timer` structure and returns a pointer to it
@@ -28,121 +30,65 @@ struct libps_timer* libps_timer_create(void)
 // Deallocates the memory held by `timer`.
 void libps_timer_destroy(struct libps_timer* timer)
 {
+    // `free()` doesn't care whether or not you pass it a `NULL` pointer, but
+    // `timer` should never be `NULL` when we get here.
     assert(timer != NULL);
+    free(timer);
 }
 
 // Resets the timers to their initial state.
 void libps_timer_reset(struct libps_timer* timer)
 {
     assert(timer != NULL);
+
     memset(timer->timers, 0, sizeof(timer->timers));
 
-    timer->fire_interrupt = false;
+    timer->fire_interrupt            = false;
+    timer->vblank_or_hblank_occurred = false;
+}
+
+// Adjusts the clock source of the timer specified by `timer_id` and resets
+// the value for said timer.
+void libps_timer_set_mode(struct libps_timer* timer,
+                          const unsigned int timer_id,
+                          const uint32_t mode)
+{
+    assert(timer != NULL);
+    assert(timer_id < 3);
+
+    timer->timers[timer_id].mode = mode;
+
+    switch (timer_id)
+    {
+        case 2:
+            switch (timer->timers[timer_id].mode & 0x300)
+            {
+                // 2 or 3 = System Clock/8
+                case 0x200:
+                    timer->timers[2].threshold = 8;
+                    break;
+
+                default:
+                    timer->timers[2].threshold = 1;
+                    break;
+            }
+            break;
+    }
+
+    timer->timers[timer_id].counter = 0;
+    timer->timers[timer_id].value = 0x0000;
 }
 
 // Advances the timers.
 void libps_timer_step(struct libps_timer* timer)
 {
-    for (unsigned int t = 0; t < 3; ++t)
+    if (timer->timers[2].counter == timer->timers[2].threshold)
     {
-        if (timer->timers[t].mode & (1 << 3))
-        {
-            if (timer->timers[t].value == timer->timers[t].target)
-            {
-                timer->timers[t].value = 0x0000;
-
-                if (timer->timers[t].mode & (1 << 4))
-                {
-                    timer->fire_interrupt = true;
-                }
-            }
-        }
-        else
-        {
-            if (timer->timers[t].value == 0xFFFF)
-            {
-                timer->timers[t].value = 0x0000;
-
-                timer->timers[t].mode |= (1 << 12);
-
-                if (timer->timers[t].mode & (1 << 5))
-                {
-                    timer->fire_interrupt = true;
-                }
-            }
-        }
-
-        // Check if synchronization is enabled.
-        if (timer->timers[t].mode & 1)
-        {
-            // Synchronization type is dependent on the timer in question.
-            switch (t)
-            {
-                case 0: // H-Blank
-                case 1: // V-Blank
-                    switch (timer->timers[t].mode & 0x06)
-                    {
-                        // Pause counter during HBlank(s) or VBlanks(s)
-                        case 0:
-                            timer->timers[t].value +=
-                            !timer->vblank_or_hblank_occurred;
-
-                            break;
-
-                        // Reset counter to 0x0000 at HBlank(s) or VBlanks(s)
-                        case 1:
-                            if (timer->vblank_or_hblank_occurred)
-                            {
-                                timer->timers[t].value = 0x0000;
-                            }
-                            else
-                            {
-                                timer->timers[t].value++;
-                            }
-                            break;
-
-                        // Reset counter to 0000h at VBlank or HBlank and pause
-                        // outside of the blanking period
-                        case 2:
-                            if (timer->vblank_or_hblank_occurred)
-                            {
-                                timer->timers[t].value = 0x0000;
-                            }
-                            break;
-
-                        // Pause until a blanking period occurs once, then
-                        // switch to Free Run
-                        case 3:
-                            if (timer->vblank_or_hblank_occurred)
-                            {
-                                timer->timers[t].mode;
-                            }
-                            break;
-                    }
-                    break;
-
-                case 2:
-                    switch (timer->timers[t].mode & 0x06)
-                    {
-                        // Stop counter at current value (forever, no
-                        // h/v-blank start)
-                        case 0:
-                        case 3:
-                            break;
-
-                        // Free Run (same as when Synchronization Disabled)
-                        case 1:
-                        case 2:
-                            timer->timers[t].value++;
-                            break;
-                    }
-                    break;
-            }
-        }
-        else
-        {
-            // Free run
-            timer->timers[t].value++;
-        }
+        timer->timers[2].value++;
+        timer->timers[2].counter = 0;
+    }
+    else
+    {
+        timer->timers[2].counter++;
     }
 }

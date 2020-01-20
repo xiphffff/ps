@@ -12,35 +12,32 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#pragma once
-
-#include "emulator.h"
-#include "main_window.h"
-#include "debug/tty_log.h"
-
-class PSTest : public QObject
-{
-    Q_OBJECT
-
-public:
-    PSTest();
-    ~PSTest();
-
-private:
-    // Returns the BIOS file to use.
-    QString handle_initial_bios_select();
+// This event system is indeed a dinky one designed for debugging libps. It
+// simply serves to notify the caller when certain things happen.
 
 #ifdef LIBPS_DEBUG
-    void emu_report_system_error();
+
+#include "event.h"
+
+void libps_ev_unknown_word_load(const uint32_t paddr)
+{ }
+
+void libps_ev_unknown_halfword_load(const uint32_t paddr)
+{ }
+
+void libps_ev_unknown_byte_load(const uint32_t paddr)
+{ }
+
+void libps_ev_unknown_word_store(const uint32_t paddr, const uint32_t data)
+{ }
+
+void libps_ev_unknown_halfword_store(const uint32_t paddr, const uint16_t data)
+{ }
+
+void libps_ev_unknown_byte_store(const uint32_t paddr, const uint8_t data)
+{ }
+
+void libps_ev_dma_otc_unknown(const uint32_t chcr)
+{ }
+
 #endif // LIBPS_DEBUG
-
-    void open_tty_log();
-
-    void start_emu();
-    void reset_emu();
-    void pause_emu();
-
-    MainWindow* main_window;
-    TTYLogger* tty_logger;
-    Emulator* emulator;
-};

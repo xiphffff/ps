@@ -57,9 +57,6 @@ struct libps_bus
     // 0x1F8010F4 - DMA Interrupt Register (R/W)
     uint32_t dicr;
 
-    // 0x1F802041 - POST - External 7 - segment Display (W)
-    uint32_t post_status;
-
     // GPU instance
     struct libps_gpu* gpu;
 

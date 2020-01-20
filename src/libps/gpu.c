@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "cpu_defs.h"
 #include "gpu.h"
 
 static void (*cmd_func)(struct libps_gpu*);
@@ -569,6 +570,22 @@ void libps_gpu_reset(struct libps_gpu* gpu)
 
     params_pos = 0;
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
+}
+
+// Steps the GPU.
+void libps_gpu_step(struct libps_gpu* gpu)
+{
+    assert(gpu != NULL);
+
+    static unsigned int clock = 0;
+    static const unsigned int clock_max = (LIBPS_CPU_CLOCK_RATE * 11) / 7;
+
+    if (clock == clock_max)
+    {
+        clock = 0;
+        // ??
+    }
+    clock++;
 }
 
 // Processes a GP0 packet.

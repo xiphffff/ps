@@ -17,20 +17,25 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct libps_timer_spec
-{
-    uint16_t value;
-    uint16_t mode;
-    uint16_t target;
-};
-
 struct libps_timer
 {
     struct timer_spec
     {
-        uint16_t value;
-        uint16_t mode;
-        uint16_t target;
+        // 1F801100h+N*10h - Timer 0..2 Current Counter Value (R/W)
+        uint32_t value;
+
+        // 1F801104h + N * 10h - Timer 0..2 Counter Mode(R / W)
+        uint32_t mode;
+
+        // 1F801108h + N * 10h - Timer 0..2 Counter Target Value(R / W)
+        uint32_t target;
+
+        // Current cycle count
+        unsigned int counter;
+
+        // The number of cycles we need to wait before incrementing the timer
+        unsigned int threshold;
+        bool interrupt;
     } timers[3];
 
     bool vblank_or_hblank_occurred;
@@ -47,6 +52,12 @@ void libps_timer_destroy(struct libps_timer* timer);
 
 // Resets the timers to their initial state.
 void libps_timer_reset(struct libps_timer* timer);
+
+// Adjusts the clock source of the timer specified by `timer_id` and resets
+// the value for said timer.
+void libps_timer_set_mode(struct libps_timer* timer,
+                          const unsigned int timer_id,
+                          const uint32_t mode);
 
 // Advances the timers.
 void libps_timer_step(struct libps_timer* timer);

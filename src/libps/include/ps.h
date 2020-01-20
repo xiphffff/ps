@@ -31,20 +31,21 @@ struct libps_system
     struct libps_cpu* cpu;
 };
 
-// Allocates memory for a `libps_system` structure and returns a pointer to it
-// if memory allocation was successful, `NULL` otherwise.
+// Creates a PlayStation emulator and returns a pointer to it if memory
+// allocation was successful, or `NULL` otherwise.
 struct libps_system* libps_system_create(uint8_t* const bios_data);
 
-// Deallocates the memory held by `ps`.
+// Destroys PlayStation emulator `ps` and deallocates all memory held by it.
 void libps_system_destroy(struct libps_system* ps);
 
-// Resets the PlayStation to the startup state. This is called automatically by
+// Resets a PlayStation to the startup state. This is called automatically by
 // `libps_system_create()`.
 void libps_system_reset(struct libps_system* ps);
 
 // Executes one full system step.
 void libps_system_step(struct libps_system* ps);
 
+// Triggers a V-Blank interrupt. This *must* be called once per frame.
 void libps_vblank(struct libps_system* ps);
 
 #ifdef __cplusplus

@@ -29,14 +29,15 @@ PSTest::PSTest()
     connect(main_window->reset_emu, &QAction::triggered, this, &PSTest::reset_emu);
     connect(main_window->pause_emu, &QAction::triggered, this, &PSTest::pause_emu);
 
+    connect(main_window->bios_calls, &QAction::triggered, this, &PSTest::open_bios_calls);
+
     main_window->setWindowTitle("libps debugging station");
     main_window->resize(1024, 512);
 
-    connect(emulator, &Emulator::finished, emulator, &QObject::deleteLater);
+    connect(emulator, &Emulator::finished,     emulator,    &QObject::deleteLater);
     connect(emulator, &Emulator::render_frame, main_window, &MainWindow::render_frame);
-#ifdef LIBPS_DEBUG
-    connect(emulator, &Emulator::system_error, this, &PSTest::emu_report_system_error);
-#endif // LIBPS_DEBUG
+    connect(emulator, &Emulator::system_error, this,        &PSTest::emu_report_system_error);
+    connect(emulator, &Emulator::bios_call,    this,        &PSTest::bios_call);
 
     main_window->show();
 
@@ -57,6 +58,14 @@ void PSTest::open_tty_log()
     tty_logger->resize(500, 500);
 
     tty_logger->show();
+}
+
+void PSTest::bios_call(const uint32_t pc, const uint32_t fn)
+{
+    if (bios_calls)
+    {
+        bios_calls->add(pc, fn);
+    }
 }
 
 void PSTest::start_emu()
@@ -85,14 +94,22 @@ void PSTest::reset_emu()
     emulator->begin_run_loop();
 }
 
-#ifdef LIBPS_DEBUG
+void PSTest::open_bios_calls()
+{
+    bios_calls = new BIOSCalls();
+
+    bios_calls->resize(640, 480);
+    bios_calls->setWindowTitle(tr("libps BIOS call log"));
+
+    bios_calls->show();
+}
+
 void PSTest::emu_report_system_error()
 {
     QMessageBox::critical(main_window,
                           tr("Emulation failure"),
                           tr("A($40): SystemErrorUnresolvedException() reached. Emulation halted."));
 }
-#endif // LIBPS_DEBUG
 
 QString PSTest::handle_initial_bios_select()
 {

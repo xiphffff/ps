@@ -31,7 +31,7 @@
 // * There is no MMU, therefore there is no support for TLB instructions and
 //   all address translations are fixed.
 //
-// * No support for load delays. Probably will be required for games, but
+// * No support for load delays. Undoubtedly will be required for games, but
 //   apparently they don't seem to be required for the BIOS.
 
 #include <assert.h>
@@ -49,7 +49,7 @@ static struct libps_bus* bus;
 // an address exception.
 #define UNUSED 0x00000000
 
-bool in_delay_slot = false;
+static bool in_delay_slot = false;
 
 // Throws exception `exccode`.
 static void raise_exception(struct libps_cpu* cpu,

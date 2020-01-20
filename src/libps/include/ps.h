@@ -19,6 +19,10 @@ extern "C"
 {
 #endif // __cplusplus
 
+#define LIBPS_API_VERSION_MAJOR 1
+#define LIBPS_API_VERSION_MINOR 0
+#define LIBPS_API_VERSION_PATCH 0
+
 #include "bus.h"
 #include "cd.h"
 #include "cpu.h"

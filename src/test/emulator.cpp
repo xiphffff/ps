@@ -57,6 +57,13 @@ void Emulator::run()
                 tty_str += sys->cpu->gpr[4];
             }
 
+            if (sys->cpu->pc == 0x000000A0 ||
+                sys->cpu->pc == 0x000000B0 ||
+                sys->cpu->pc == 0x000000C0)
+            {
+                emit bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+            }
+
             if ((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x40)
             {
                 emit system_error();

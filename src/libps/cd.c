@@ -165,7 +165,6 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
-                                    libps_scheduler_add(sched, 50000, &get_cdrom_date);
                                     queue_interrupt(cdrom, INT3, 50000, 4,
                                                     0x94, 0x09, 0x19, 0xC0);
                                     break;

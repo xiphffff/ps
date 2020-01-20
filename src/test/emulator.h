@@ -41,6 +41,7 @@ private:
     uint8_t* bios;
 
     bool running;
+    bool injecting;
 
 signals:
 #ifdef LIBPS_DEBUG
@@ -49,6 +50,7 @@ signals:
 #endif // LIBPS_DEBUG
 
     void system_error();
+    void bios_call(const uint32_t pc, const uint32_t fn);
     void tty_string(const QString& string);
     void render_frame(const uint16_t* vram);
 };

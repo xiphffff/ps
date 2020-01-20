@@ -14,36 +14,15 @@
 
 #pragma once
 
-#include "emulator.h"
-#include "main_window.h"
-#include "debug/bios_calls.h"
-#include "debug/tty_log.h"
+#include <QtWidgets>
 
-class PSTest : public QObject
+class GPUDebugger : public QWidget
 {
     Q_OBJECT
 
 public:
-    PSTest();
-    ~PSTest();
+    GPUDebugger() noexcept;
+    ~GPUDebugger() noexcept;
 
-private:
-    // Returns the BIOS file to use.
-    QString handle_initial_bios_select();
-
-    void emu_report_system_error();
-
-    void open_tty_log();
-    void open_bios_calls();
-
-    void bios_call(const uint32_t pc, const uint32_t fn);
-
-    void start_emu();
-    void reset_emu();
-    void pause_emu();
-
-    BIOSCalls* bios_calls;
-    MainWindow* main_window;
-    TTYLogger* tty_logger;
-    Emulator* emulator;
+    void refresh() noexcept;
 };

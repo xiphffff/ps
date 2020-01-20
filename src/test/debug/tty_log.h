@@ -14,36 +14,31 @@
 
 #pragma once
 
-#include "emulator.h"
-#include "main_window.h"
-#include "debug/bios_calls.h"
-#include "debug/tty_log.h"
+#include <QtWidgets>
 
-class PSTest : public QObject
+class TTYLogger : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    PSTest();
-    ~PSTest();
+    TTYLogger();
+    ~TTYLogger();
+
+    void append(const QString& data);
+    void clear_log();
 
 private:
-    // Returns the BIOS file to use.
-    QString handle_initial_bios_select();
+    void on_select_font();
+    void on_save_log();
 
-    void emu_report_system_error();
+    QList<QString> breakpoints;
 
-    void open_tty_log();
-    void open_bios_calls();
+    QMenu* file_menu;
+    QMenu* view_menu;
 
-    void bios_call(const uint32_t pc, const uint32_t fn);
+    QAction* save_log;
+    QAction* clear;
+    QAction* select_font;
 
-    void start_emu();
-    void reset_emu();
-    void pause_emu();
-
-    BIOSCalls* bios_calls;
-    MainWindow* main_window;
-    TTYLogger* tty_logger;
-    Emulator* emulator;
+    QPlainTextEdit* text_edit;
 };

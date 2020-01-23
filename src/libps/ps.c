@@ -15,11 +15,25 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "ps.h"
+#include "utility.h"
 
-// Creates a PlayStation emulator and returns a pointer to it if memory
-// allocation was successful, or `NULL` otherwise.
+// Triggers a V-Blank interrupt. This *must* be called once per frame.
+static void vblank(struct libps_system* ps)
+{
+    assert(ps != NULL);
+    ps->bus->i_stat |= LIBPS_IRQ_VBLANK;
+}
+
+// Creates a PlayStation emulator. `bios_data` is a pointer to the BIOS data
+// supplied by the caller and cannot be `NULL`. If `bios_data` is `NULL`, this
+// function will return `NULL` and the emulator will not be created.
 struct libps_system* libps_system_create(uint8_t* const bios_data)
 {
+    if (bios_data == NULL)
+    {
+        return NULL;
+    }
+
     // XXX: I don't like the notion of passing a pointer to the BIOS data,
     // loaded entirely by the caller. That's 512KB just sitting in RAM and I'm
     // not okay with that. There are a few possibilities to avoid this:
@@ -40,37 +54,26 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
     // that will fail to allocate 512KB outright or will suffer from
     // detrimental effects for doing so. We'll have to see. If no system falls
     // under this circumstance, this idea will be discarded.
-    struct libps_system* ps = malloc(sizeof(struct libps_system));
+    struct libps_system* ps = libps_safe_malloc(sizeof(struct libps_system));
 
-    if (ps)
-    {
-        ps->bus = libps_bus_create(bios_data);
+    ps->bus   = libps_bus_create(bios_data);
+    ps->cpu   = libps_cpu_create(ps->bus);
+    ps->sched = libps_scheduler_create();
 
-        if (ps->bus)
-        {
-            ps->cpu = libps_cpu_create(ps->bus);
+    libps_scheduler_add_task(ps->sched, LIBPS_SCHEDULER_SYNC_GPU, &vblank);
 
-            if (ps->cpu)
-            {
-                libps_system_reset(ps);
-                return ps;
-            }
-            return NULL;
-        }
-        return NULL;
-    }
-    return NULL;
+    libps_system_reset(ps);
+    return ps;
 }
 
-// Destroys PlayStation emulator `ps` and deallocates all memory held by it.
+// Destroys a PlayStation emulator.
 void libps_system_destroy(struct libps_system* ps)
 {
-    assert(ps != NULL);
-
     libps_cpu_destroy(ps->cpu);
     libps_bus_destroy(ps->bus);
+    libps_scheduler_destroy(ps->sched);
 
-    free(ps);
+    libps_safe_free(ps);
 }
 
 // Resets the PlayStation to the startup state. This is called automatically by
@@ -88,7 +91,10 @@ void libps_system_step(struct libps_system* ps)
 {
     assert(ps != NULL);
 
-    // Step 1: Check for DMAs and tick the hardware.
+    // Step 1: Run the scheduler.
+    libps_scheduler_step(ps->sched);
+
+    // Step 2: Check for DMAs and tick the hardware.
     libps_bus_step(ps->bus);
 
     // Step 2: Check to see if the interrupt line needs to be enabled.
@@ -105,9 +111,6 @@ void libps_system_step(struct libps_system* ps)
     libps_cpu_step(ps->cpu);
 }
 
-// Triggers a V-Blank interrupt. This *must* be called once per frame.
-void libps_vblank(struct libps_system* ps)
-{
-    assert(ps != NULL);
-    ps->bus->i_stat |= LIBPS_IRQ_VBLANK;
-}
+// Runs for one full entire frame.
+void libps_system_run_full_frame(struct libps_system* ps)
+{ }

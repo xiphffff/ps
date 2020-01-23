@@ -13,3 +13,14 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #pragma once
+
+struct libps_system;
+
+struct libps_scph1010
+{ };
+
+// Creates a SCPH-1010.
+struct libps_scph1010* libps_scph1010_create(struct libps_system* ps);
+
+// Destroys the SCPH-1010.
+void libps_scph1010_destroy(struct libps_scph1010* controller);

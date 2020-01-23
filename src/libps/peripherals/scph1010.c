@@ -16,18 +16,19 @@
 // (SCPH-1010).
 
 #include "scph1010.h"
+#include "../include/utility.h"
 
+// Creates a SCPH-1010.
 struct libps_scph1010* libps_scph1010_create(struct libps_system* ps)
 {
-    struct libps_scph1010* controller = malloc(sizeof(struct libps_scph1010));
-    return controlller;
+    struct libps_scph1010* controller =
+    libps_safe_malloc(sizeof(struct libps_scph1010));
+
+    return controller;
 }
 
+// Destroys the SCPH-1010.
 void libps_scph1010_destroy(struct libps_scph1010* controller)
 {
-    assert(controller != NULL);
-    free(controller);
+    libps_safe_free(controller);
 }
-
-void scph1010_disconnect(struct libps_sytem* ps)
-{ }

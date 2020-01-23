@@ -23,7 +23,7 @@ extern "C"
 
 struct libps_gpu;
 struct libps_cdrom;
-struct libps_timer;
+struct libps_rcnt;
 
 struct libps_dma_channel
 {
@@ -57,14 +57,16 @@ struct libps_bus
     // 0x1F8010F4 - DMA Interrupt Register (R/W)
     uint32_t dicr;
 
+    uint16_t joy_ctrl;
+
     // GPU instance
     struct libps_gpu* gpu;
 
     // CD-ROM instance
     struct libps_cdrom* cdrom;
 
-    // Timer instance
-    struct libps_timer* timer;
+    // Root counter instance
+    struct libps_rcnt* rcnt;
 
     // DMA channel 2 - GPU (lists + image data)
     struct libps_dma_channel dma_gpu_channel;
@@ -73,16 +75,19 @@ struct libps_bus
     struct libps_dma_channel dma_otc_channel;
 };
 
-// Allocates memory for a `libps_bus` structure and returns a pointer to it if
-// memory allocation was successful, or `NULL` otherwise. This function should
-// not be called anywhere other than `libps_system_create()`.
+// Creates the system bus. The system bus is the interconnect between the CPU
+// and devices, and accordingly has primary ownership of devices. The system
+// bus does not directly know about the CPU, however.
 //
-// `bios_data_ptr` should be a pointer to BIOS data, passed by
-// `libps_system_create()`.
+// `bios_data_ptr` is a pointer to the BIOS data loaded by the caller, passed
+// by `libps_system_create()`.
+//
+// Do not call this function directly.
 struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr);
 
-// Deallocates memory held by `bus`. This function should not be called
-// anywhere other than `libps_system_destroy()`.
+// Destroys the system bus, destroying all memory and devices. Please note that
+// connected peripherals WILL NOT BE DESTROYED with this function; refer to the
+// peripherals' own destroy functions and use them accordingly.
 void libps_bus_destroy(struct libps_bus* bus);
 
 // Resets the system bus, which resets the peripherals to their startup state.

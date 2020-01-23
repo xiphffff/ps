@@ -14,20 +14,20 @@
 
 #include "bios_calls.h"
 
-BIOSCalls::BIOSCalls()
+BIOSCalls::BIOSCalls() : threshold(1),
+                         widget(new QWidget(this)),
+                         threshold_specifier(new QSpinBox(this)),
+                         calls(new QTreeWidget(widget)),
+                         threshold_layout(new QFormLayout()),
+                         widget_layout(new QHBoxLayout(widget))
 {
-    widget = new QWidget(this);
-
-    calls = new QTreeWidget(widget);
-    calls->setHeaderLabels(QStringList() << "PC" << "Function");
-
-    threshold_specifier = new QSpinBox(this);
+    calls->setHeaderLabels(QStringList() <<
+                           "Calling PC" << "Function" << "Return Value");
 
     threshold_specifier->setMinimum(1);
     threshold_specifier->setMaximum(100);
 
-    threshold_layout = new QFormLayout();
-    threshold_layout->addRow(tr("Maximum number of items:"), threshold_specifier);
+    threshold_layout->addRow(tr("Maximum number of calls:"), threshold_specifier);
 
     connect(threshold_specifier,
             QOverload<int>::of(&QSpinBox::valueChanged),
@@ -36,7 +36,6 @@ BIOSCalls::BIOSCalls()
         threshold = value;
     });
 
-    widget_layout = new QHBoxLayout(widget);
     widget_layout->addWidget(calls);
     widget_layout->addLayout(threshold_layout);
 
@@ -52,7 +51,7 @@ void BIOSCalls::add(const uint32_t pc, const uint32_t fn)
     {
         QTreeWidgetItem* item = new QTreeWidgetItem(calls);
         item->setText(0, QString::number(pc, 16));
-        item->setText(1, "");
+        item->setText(1, QString::number(fn, 16));
 
         calls->addTopLevelItem(item);
         call_list.push_back(item);

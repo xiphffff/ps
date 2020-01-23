@@ -18,17 +18,10 @@
 #include <stdio.h>
 #include "cpu_defs.h"
 #include "gpu.h"
+#include "utility.h"
 
 static void (*cmd_func)(struct libps_gpu*);
 static unsigned int params_pos;
-
-static float edge_function(const struct libps_gpu_vertex* const v0,
-                           const struct libps_gpu_vertex* const v1,
-                           const struct libps_gpu_vertex* const v2)
-{
-    return ((v1->x - v0->x) * (v2->y - v0->y)) -
-           ((v1->y - v0->y) * (v2->x - v0->x));
-}
 
 static uint16_t process_pixel_through_clut(struct libps_gpu* gpu,
                                            const unsigned int x,
@@ -237,125 +230,15 @@ static void fill_rect_in_vram(struct libps_gpu* gpu)
     return;
 }
 
-static void draw_polygon(struct libps_gpu* gpu,
-                         const struct libps_gpu_vertex* const v0,
-                         const struct libps_gpu_vertex* const v1,
-                         const struct libps_gpu_vertex* const v2)
-{
-    assert(gpu != NULL);
-    assert(v0 != NULL);
-    assert(v1 != NULL);
-    assert(v2 != NULL);
-
-    // https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
-    struct libps_gpu_vertex p;
-    const struct libps_gpu_vertex* v1_real;
-    const struct libps_gpu_vertex* v2_real;
-
-    if (edge_function(v0, v1, v2) < 0)
-    {
-        v1_real = v2;
-        v2_real = v1;
-    }
-    else
-    {
-        v1_real = v1;
-        v2_real = v2;
-    }
-
-    const float area = edge_function(v0, v1_real, v2_real);
-
-    for (p.y = gpu->drawing_area.y1; p.y <= gpu->drawing_area.y2; p.y++)
-    {
-        for (p.x = gpu->drawing_area.x1; p.x <= gpu->drawing_area.x2; p.x++)
-        {
-            float w0 = edge_function(v1_real, v2_real, &p);
-            float w1 = edge_function(v2_real, v0, &p);
-            float w2 = edge_function(v0, v1_real, &p);
-
-            if (w0 >= 0 && w1 >= 0 && w2 >= 0)
-            {
-                unsigned int pixel_r;
-                unsigned int pixel_g;
-                unsigned int pixel_b;
-
-                if (gpu->cmd_packet.flags & DRAW_FLAG_TEXTURED)
-                {
-                    const uint16_t texcoord_x = ((w0 * (v0->texcoord & 0x00FF)) +
-                                                 (w1 * (v1_real->texcoord & 0x00FF)) +
-                                                 (w2 * (v2_real->texcoord & 0x00FF))) / area;
-
-                    const uint16_t texcoord_y = ((w0 * (v0->texcoord >> 8)) +
-                                                 (w1 * (v1_real->texcoord >> 8)) +
-                                                 (w2 * (v2_real->texcoord >> 8))) / area;
-
-                    const unsigned int texpage_x_base = v1->texpage & 0x0F;
-                    const unsigned int texpage_y_base = (v1->texpage & (1 << 4)) ? 256 : 0;
-
-                    unsigned int texpage_color_depth;
-                    unsigned int divider;
-
-                    uint16_t final_texcoord_x;
-
-                    switch ((v1->texpage >> 7) & 0x03)
-                    {
-                        case 0:
-                            texpage_color_depth = 4;
-                            final_texcoord_x = (texpage_x_base * 64) + (texcoord_x / 4);
-
-                            break;
-
-                        case 1:
-                            texpage_color_depth = 8;
-                            final_texcoord_x = (texpage_x_base * 64) + (texcoord_x / 8);
-
-                            break;
-
-                        case 2:
-                            texpage_color_depth = 16;
-
-                            final_texcoord_x = (texpage_x_base * 64) + texcoord_x;
-                            break;
-                    }
-
-                    const uint16_t final_texcoord_y = texpage_y_base + texcoord_y;
-
-                    const uint16_t texel = gpu->vram[final_texcoord_x +
-                                           (LIBPS_GPU_VRAM_WIDTH * final_texcoord_y)];
-
-                    const uint16_t color = process_pixel_through_clut(gpu, texcoord_x, texel, texpage_color_depth, v0->palette);
-
-                    if (color == 0x0000)
-                    {
-                        continue;
-                    }
-
-                    // G5B5R5A1
-                    gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] = color;
-                }
-                else
-                {
-                    pixel_r = ((w0 * (v0->color & 0x000000FF)) +
-                               (w1 * (v1_real->color & 0x000000FF)) +
-                               (w2 * (v2_real->color & 0x000000FF))) / area / 8;
-
-                    pixel_g = ((w0 * ((v0->color >> 8) & 0xFF)) +
-                               (w1 * ((v1_real->color >> 8) & 0xFF)) +
-                               (w2 * ((v2_real->color >> 8) & 0xFF))) / area / 8;
-
-                    pixel_b = ((w0 * ((v0->color >> 16) & 0xFF)) +
-                               (w1 * ((v1_real->color >> 16) & 0xFF)) +
-                               (w2 * ((v2_real->color >> 16) & 0xFF))) / area / 8;
-
-                    // G5B5R5A1
-                    gpu->vram[p.x + (LIBPS_GPU_VRAM_WIDTH * p.y)] =
-                    (pixel_g << 5) | (pixel_b << 10) | pixel_r;
-                }
-            }
-        }
-    }
-}
-
+// This function is called whenever we must render a polygon. It assembles
+// vertices primarily based on the following flags:
+//
+// * DRAW_FLAG_MONOCHROME
+// * DRAW_FLAG_TEXTURED
+// * DRAW_FLAG_SHADED
+//
+// It will call the renderer's `draw_polygon()` function once all of the
+// vertices have been assembled, and resets the parameter FIFO.
 static void draw_polygon_helper(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
@@ -383,7 +266,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
             .color = gpu->cmd_packet.params[0]
         };
 
-        draw_polygon(gpu, &v0, &v1, &v2);
+        gpu->draw_polygon(gpu, &v0, &v1, &v2);
 
         if (gpu->cmd_packet.flags & DRAW_FLAG_QUAD)
         {
@@ -393,7 +276,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
                 .y     = (int16_t)(gpu->cmd_packet.params[4] >> 16),
                 .color = gpu->cmd_packet.params[0]
             };
-            draw_polygon(gpu, &v1, &v2, &v3);
+            gpu->draw_polygon(gpu, &v1, &v2, &v3);
         }
 
         memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
@@ -433,7 +316,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
             .color    = gpu->cmd_packet.params[0]
         };
 
-        draw_polygon(gpu, &v0, &v1, &v2);
+        gpu->draw_polygon(gpu, &v0, &v1, &v2);
 
         if (gpu->cmd_packet.flags & DRAW_FLAG_QUAD)
         {
@@ -444,7 +327,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
                 .texcoord = gpu->cmd_packet.params[8] & 0x0000FFFF,
                 .color    = gpu->cmd_packet.params[0]
             };
-            draw_polygon(gpu, &v1, &v2, &v3);
+            gpu->draw_polygon(gpu, &v1, &v2, &v3);
         }
 
         memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
@@ -477,7 +360,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
             .color = gpu->cmd_packet.params[4] & 0x00FFFFFF
         };
 
-        draw_polygon(gpu, &v0, &v1, &v2);
+        gpu->draw_polygon(gpu, &v0, &v1, &v2);
 
         if (gpu->cmd_packet.flags & DRAW_FLAG_QUAD)
         {
@@ -487,7 +370,7 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
                 .y     = (int16_t)(gpu->cmd_packet.params[7] >> 16),
                 .color = gpu->cmd_packet.params[6] & 0x00FFFFFF
             };
-            draw_polygon(gpu, &v1, &v2, &v3);
+            gpu->draw_polygon(gpu, &v1, &v2, &v3);
         }
     }
 
@@ -495,19 +378,6 @@ static void draw_polygon_helper(struct libps_gpu* gpu)
     params_pos = 0;
 
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
-}
-
-static void draw_rect(struct libps_gpu* gpu, const struct libps_gpu_vertex* const vertex)
-{
-    assert(gpu != NULL);
-    assert(vertex != NULL);
-
-    const unsigned int pixel_r = (vertex->color & 0x000000FF) / 8;
-    const unsigned int pixel_g = ((vertex->color >> 8) & 0xFF) / 8;
-    const unsigned int pixel_b = ((vertex->color >> 16) & 0xFF) / 8;
-
-    gpu->vram[vertex->x + (LIBPS_GPU_VRAM_WIDTH * vertex->y)] =
-    (pixel_g << 5) | (pixel_b << 10) | pixel_r;
 }
 
 static void draw_rect_helper(struct libps_gpu* gpu)
@@ -522,7 +392,7 @@ static void draw_rect_helper(struct libps_gpu* gpu)
             .x     = gpu->cmd_packet.params[1] & 0x0000FFFF,
             .y     = gpu->cmd_packet.params[1] >> 16
         };
-        draw_rect(gpu, &vertex);
+        gpu->draw_rect(gpu, &vertex);
     }
 
     memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
@@ -531,24 +401,22 @@ static void draw_rect_helper(struct libps_gpu* gpu)
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
 }
 
-// Allocates memory for a `libps_gpu` structure and returns a pointer to it if
-// memory allocation was successful, `NULL` otherwise. This function does not
-// automatically initialize initial state.
+// Creates a PlayStation GPU.
 struct libps_gpu* libps_gpu_create(void)
 {
-    struct libps_gpu* gpu = malloc(sizeof(struct libps_gpu));
+    struct libps_gpu* gpu = libps_safe_malloc(sizeof(struct libps_gpu));
 
-    gpu->vram = malloc(LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT * sizeof(uint16_t));
+    gpu->vram = libps_safe_malloc(LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT * sizeof(uint16_t));
     return gpu;
 }
 
-// Deallocates the memory held by `gpu`.
+// Destroys the PlayStation GPU.
 void libps_gpu_destroy(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
 
-    free(gpu->vram);
-    free(gpu);
+    libps_safe_free(gpu->vram);
+    libps_safe_free(gpu);
 }
 
 // Resets the GPU to the initial state.
@@ -564,28 +432,12 @@ void libps_gpu_reset(struct libps_gpu* gpu)
 
     gpu->received_data = 0x00000000;
 
-    memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
+    memset(&gpu->cmd_packet,   0, sizeof(gpu->cmd_packet));
     memset(&gpu->drawing_area, 0, sizeof(gpu->drawing_area));
-    memset(gpu->vram, 0, (LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT) * sizeof(uint16_t));
+    memset(gpu->vram,          0, (LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT) * sizeof(uint16_t));
 
     params_pos = 0;
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
-}
-
-// Steps the GPU.
-void libps_gpu_step(struct libps_gpu* gpu)
-{
-    assert(gpu != NULL);
-
-    static unsigned int clock = 0;
-    static const unsigned int clock_max = (LIBPS_CPU_CLOCK_RATE * 11) / 7;
-
-    if (clock == clock_max)
-    {
-        clock = 0;
-        // ??
-    }
-    clock++;
 }
 
 // Processes a GP0 packet.

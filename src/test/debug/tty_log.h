@@ -21,7 +21,7 @@ class TTYLogger : public QMainWindow
     Q_OBJECT
 
 public:
-    TTYLogger();
+    TTYLogger(QWidget* parent);
     ~TTYLogger();
 
     void append(const QString& data);

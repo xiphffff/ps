@@ -27,26 +27,46 @@ public:
     // Renders the VRAM data.
     void render_frame(const uint16_t* vram);
 
-    QAction* open_ps_exe;
+    // "File -> Inject PS-X EXE..."
+    QAction* inject_ps_exe;
 
-    QAction* open_tty_log;
-    QAction* bios_calls;
+    // "Debug -> Display TTY Log"
+    QAction* display_tty_log;
 
+    // "Debug -> Display BIOS call log"
+    QAction* display_bios_call_log;
+
+    // "Debug -> Adjust clock frequencies"
+    QAction* adjust_clock_frequencies;
+
+    // "Emulation -> Start" or "Emulation -> Resume" depending on the run state
+    // of the emulator
     QAction* start_emu;
+
+    // "Emulation -> Stop"
     QAction* stop_emu;
+
+    // "Emulation -> Pause"
     QAction* pause_emu;
+
+    // "Emulation -> Reset"
     QAction* reset_emu;
 
 private:
+    // Image
     QImage* vram_image;
+
+    // Image view
     QLabel* vram_image_view;
 
     QMenu* file_menu;
     QMenu* emulation_menu;
     QMenu* debug_menu;
 
-    void on_open_ps_exe();
+    // Called when the user triggers "File -> Inject PS-X EXE..."
+    void on_inject_ps_exe();
 
 signals:
-    void inject_ps_exe(const QString& exe_file);
+    // Emitted when the user selects a PS-X EXE.
+    void selected_ps_x_exe(const QString& exe_file);
 };

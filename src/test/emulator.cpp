@@ -17,12 +17,15 @@
 #include "../libps/include/ps.h"
 #include "../libps/include/disasm.h"
 
-Emulator::Emulator(const QString& bios_file)
+Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 {
-    FILE* handle = fopen(qPrintable(bios_file), "rb");
+    QFile bios_file_handle(bios_file);
+    bios_file_handle.open(QIODevice::ReadOnly);
+
     bios = new uint8_t[0x80000];
-    fread(bios, 1, 0x80000, handle);
-    fclose(handle);
+
+    const char* data = bios_file_handle.readAll().constData();
+    memcpy(bios, data, 0x80000);
 
     sys = libps_system_create(bios);
 }
@@ -33,6 +36,7 @@ Emulator::~Emulator()
     libps_system_destroy(sys);
 }
 
+// Thread entry point
 void Emulator::run()
 {
     static QString tty_str;
@@ -43,7 +47,7 @@ void Emulator::run()
         timer.start();
 
         for (unsigned int cycle = 0;
-             cycle != (LIBPS_CPU_CLOCK_RATE / 60);
+             cycle != (33868800 / 60);
              cycle += 2)
         {
             if (((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x3C) ||
@@ -74,7 +78,6 @@ void Emulator::run()
             libps_system_step(sys);
         }
 
-        libps_vblank(sys);
         emit render_frame(sys->bus->gpu->vram);
 
         const qint64 elapsed = timer.elapsed();
@@ -86,6 +89,7 @@ void Emulator::run()
     }
 }
 
+// Starts the emulation if it is not running.
 void Emulator::begin_run_loop()
 {
     if (!running)
@@ -95,6 +99,8 @@ void Emulator::begin_run_loop()
     }
 }
 
+// Stops the emulation if it is running, resetting the emulator to the
+// startup state.
 void Emulator::stop_run_loop()
 {
     if (running)
@@ -106,6 +112,8 @@ void Emulator::stop_run_loop()
     }
 }
 
+// Pauses the emulation if it is running, but *does not* reset the emulator to
+// the startup state.
 void Emulator::pause_run_loop()
 {
     if (running)

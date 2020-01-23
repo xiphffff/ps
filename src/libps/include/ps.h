@@ -28,18 +28,23 @@ extern "C"
 #include "cpu.h"
 #include "cpu_defs.h"
 #include "gpu.h"
+#include "sched.h"
 
+// Defines the structure of a PlayStation emulator.
 struct libps_system
 {
     struct libps_bus* bus;
     struct libps_cpu* cpu;
+
+    struct libps_scheduler* sched;
 };
 
-// Creates a PlayStation emulator and returns a pointer to it if memory
-// allocation was successful, or `NULL` otherwise.
+// Creates a PlayStation emulator. `bios_data` is a pointer to the BIOS data
+// supplied by the caller and cannot be `NULL`. If `bios_data` is `NULL`, this
+// function will return `NULL` and the emulator will not be created.
 struct libps_system* libps_system_create(uint8_t* const bios_data);
 
-// Destroys PlayStation emulator `ps` and deallocates all memory held by it.
+// Destroys a PlayStation emulator.
 void libps_system_destroy(struct libps_system* ps);
 
 // Resets a PlayStation to the startup state. This is called automatically by
@@ -49,8 +54,8 @@ void libps_system_reset(struct libps_system* ps);
 // Executes one full system step.
 void libps_system_step(struct libps_system* ps);
 
-// Triggers a V-Blank interrupt. This *must* be called once per frame.
-void libps_vblank(struct libps_system* ps);
+// Runs for one full entire frame.
+void libps_system_run_full_frame(struct libps_system* ps);
 
 #ifdef __cplusplus
 }

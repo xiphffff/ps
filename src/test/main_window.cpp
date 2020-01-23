@@ -22,16 +22,18 @@ MainWindow::MainWindow()
     vram_image_view = new QLabel(this);
     vram_image_view->setPixmap(QPixmap::fromImage(*vram_image));
 
-    open_ps_exe = new QAction(tr("Inject PS-X EXE..."), this);
+    inject_ps_exe = new QAction(tr("Inject PS-X EXE..."), this);
 
-    connect(open_ps_exe, &QAction::triggered, this, &MainWindow::on_open_ps_exe);
+    connect(inject_ps_exe, &QAction::triggered, this, &MainWindow::on_inject_ps_exe);
 
-    open_tty_log = new QAction(tr("Display TTY Log"), this);
+    display_tty_log = new QAction(tr("Display TTY Log"), this);
 
-    bios_calls = new QAction(tr("BIOS calls"), this);
+    display_bios_call_log = new QAction(tr("Display BIOS call log"), this);
+
+    adjust_clock_frequencies = new QAction(tr("Adjust clock rates"), this);
 
     file_menu = menuBar()->addMenu(tr("&File"));
-    file_menu->addAction(open_ps_exe);
+    file_menu->addAction(inject_ps_exe);
 
     emulation_menu = menuBar()->addMenu(tr("&Emulation"));
 
@@ -49,8 +51,10 @@ MainWindow::MainWindow()
     emulation_menu->addAction(reset_emu);
 
     debug_menu = menuBar()->addMenu(tr("&Debug"));
-    debug_menu->addAction(open_tty_log);
-    debug_menu->addAction(bios_calls);
+
+    debug_menu->addAction(display_tty_log);
+    debug_menu->addAction(display_bios_call_log);
+    debug_menu->addAction(adjust_clock_frequencies);
 
     setWindowFlags(Qt::MSWindowsFixedSizeDialogHint);
     setCentralWidget(vram_image_view);
@@ -59,16 +63,17 @@ MainWindow::MainWindow()
 MainWindow::~MainWindow()
 { }
 
-void MainWindow::on_open_ps_exe()
+// Called when the user triggers "File -> Inject PS-X EXE..."
+void MainWindow::on_inject_ps_exe()
 {
     QString file_name = QFileDialog::getOpenFileName(this,
                                                      tr("Select PS-X EXE"),
                                                      "",
-                                                     tr("PlayStation EXEs (*.exe)"));
+                                                     tr("PS-X EXEs (*.exe)"));
 
     if (!file_name.isEmpty())
     {
-        emit inject_ps_exe(file_name);
+        emit selected_ps_x_exe(file_name);
     }
 }
 
@@ -76,7 +81,9 @@ void MainWindow::on_open_ps_exe()
 void MainWindow::render_frame(const uint16_t* vram)
 {
     memcpy(vram_image->bits(), vram, vram_image->sizeInBytes());
-    auto img = vram_image->rgbSwapped();
+
+    // This is seriously awful.
+    QImage img = vram_image->rgbSwapped();
 
     vram_image_view->setPixmap(QPixmap::fromImage(img));
 }

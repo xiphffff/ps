@@ -74,31 +74,6 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
     cdrom->status = 0x18;
 }
 
-// Checks to see if interrupts needs to be fired.
-void libps_cdrom_step(struct libps_cdrom* cdrom)
-{
-    assert(cdrom != NULL);
-
-    for (unsigned int i = 0; i < 2; ++i)
-    {
-        if (cdrom->interrupts[i].pending)
-        {
-            if (cdrom->interrupts[i].cycles != 0)
-            {
-                cdrom->interrupts[i].cycles--;
-            }
-            else
-            {
-                cdrom->interrupts[i].pending = false;
-                cdrom->fire_interrupt = true;
-
-                cdrom->interrupt_flag = (cdrom->interrupt_flag & ~0x07) |
-                                        (cdrom->interrupts[i].type & 0x07);
-            }
-        }
-    }
-}
-
 // Loads indexed CD-ROM register `reg`.
 uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
                                           const unsigned int reg)
@@ -160,12 +135,17 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                 case 0:
                     switch (data)
                     {
+                        // Getstat
+                        case 0x01:
+                            queue_interrupt(cdrom, INT3, 20000, 1, 0xFF);
+                            break;
+
                         case 0x19:
                             switch (cdrom->parameter_fifo.data[0])
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
-                                    queue_interrupt(cdrom, INT3, 50000, 4,
+                                    queue_interrupt(cdrom, INT3, 20000, 4,
                                                     0x94, 0x09, 0x19, 0xC0);
                                     break;
 
@@ -173,6 +153,15 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                                     __debugbreak();
                                     break;
                             }
+                            break;
+
+                        // GetID
+                        case 0x1A:
+                            queue_interrupt(cdrom, INT5, 20000, 2, 0x01, 0x80);
+                            break;
+
+                        default:
+                            __debugbreak();
                             break;
                     }
                     break;

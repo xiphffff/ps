@@ -14,7 +14,7 @@
 
 #include "tty_log.h"
 
-TTYLogger::TTYLogger()
+TTYLogger::TTYLogger(QWidget* parent) : QMainWindow(parent)
 {
     save_log    = new QAction(tr("&Save..."), this);
     select_font = new QAction(tr("&Font..."), this);

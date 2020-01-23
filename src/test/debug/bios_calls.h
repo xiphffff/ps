@@ -28,54 +28,6 @@ public:
     void add(const uint32_t pc, const uint32_t fn);
 
 private:
-    const std::array<std::string, 0x9F> a0_table =
-    {
-        "FileOpen",     // 0x00
-        "FileSeek", // 0x01
-        "FileRead", // 0x02
-        "FileWrite",
-        "FileClose",
-        "FileIoctl",
-        "exit",
-        "FileGetDeviceFlag",
-        "FileGetc",
-        "FilePutc",
-        "todigit",
-        "atof",
-    };
-
-    const std::array<std::string, 0x9F> b0_table =
-    {
-        "FileOpen(%s, %s)",     // 0x00
-        "FileSeek(%d, %d, %d)", // 0x01
-        "FileRead(%d, %d, %d)", // 0x02
-        "FileWrite",
-        "FileClose",
-        "FileIoctl",
-        "exit(%d)",
-        "FileGetDeviceFlag",
-        "FileGetc",
-        "FilePutc",
-        "todigit('%c')",
-        "atof(%s)",
-    };
-
-    const std::array<std::string, 0x9F> c0_table =
-    {
-        "FileOpen(%s, %s)",     // 0x00
-        "FileSeek(%d, %d, %d)", // 0x01
-        "FileRead(%d, %d, %d)", // 0x02
-        "FileWrite",
-        "FileClose",
-        "FileIoctl",
-        "exit(%d)",
-        "FileGetDeviceFlag",
-        "FileGetc",
-        "FilePutc",
-        "todigit('%c')",
-        "atof(%s)",
-    };
-
     unsigned int threshold;
 
     QWidget* widget;

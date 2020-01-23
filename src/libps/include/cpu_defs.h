@@ -22,9 +22,6 @@ extern "C"
 {
 #endif // __cplusplus
 
-// 33.8688 MHz
-#define LIBPS_CPU_CLOCK_RATE 33868800
-
 // Instruction groups
 #define LIBPS_CPU_OP_GROUP_SPECIAL 0x00
 #define LIBPS_CPU_OP_GROUP_BCOND 0x01

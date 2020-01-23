@@ -74,6 +74,14 @@ struct libps_gpu
     // State of the GP0 port.
     enum libps_gpu_state state;
 
+    void (*draw_polygon)(struct libps_gpu* gpu,
+                         const struct libps_gpu_vertex* const v0,
+                         const struct libps_gpu_vertex* const v1,
+                         const struct libps_gpu_vertex* const v2);
+
+    void (*draw_rect)(struct libps_gpu* gpu,
+                      const struct libps_gpu_vertex* const vertex);
+
     struct
     {
         uint32_t params[32];
@@ -102,19 +110,14 @@ struct libps_gpu
     uint32_t received_data;
 };
 
-// Allocates memory for a `libps_gpu` structure and returns a pointer to it if
-// memory allocation was successful, `NULL` otherwise. This function does not
-// automatically initialize initial state.
+// Creates the PlayStation GPU.
 struct libps_gpu* libps_gpu_create(void);
 
-// Deallocates the memory held by `gpu`.
+// Destroys the PlayStation GPU.
 void libps_gpu_destroy(struct libps_gpu* gpu);
 
 // Resets the GPU to the initial state.
 void libps_gpu_reset(struct libps_gpu* gpu);
-
-// Steps the GPU.
-void libps_gpu_step(struct libps_gpu* gpu);
 
 // Processes a GP0 packet.
 void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet);

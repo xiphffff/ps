@@ -41,6 +41,7 @@
 #include "bus.h"
 #include "cpu.h"
 #include "cpu_defs.h"
+#include "utility.h"
 
 // `libps_cpu` doesn't need to know about this.
 static struct libps_bus* bus;
@@ -93,26 +94,18 @@ static void raise_exception(struct libps_cpu* cpu,
 // Allocates memory for a `libps_cpu` structure and returns a pointer to it if
 // memory allocation was successful, `NULL` otherwise. This function does not
 // automatically initialize initial state.
-__attribute__((warn_unused_result))
 struct libps_cpu* libps_cpu_create(struct libps_bus* b)
 {
-    struct libps_cpu* cpu = malloc(sizeof(struct libps_cpu));
+    struct libps_cpu* cpu = libps_safe_malloc(sizeof(struct libps_cpu));
+    bus = b;
 
-    if (cpu)
-    {
-        bus = b;
-        return cpu;
-    }
-    return NULL;
+    return cpu;
 }
 
 // Deallocates the memory held by `cpu`.
 void libps_cpu_destroy(struct libps_cpu* cpu)
 {
-    // `free()` doesn't care whether or not you pass a `NULL` pointer, but
-    // `cpu` should never be `NULL` by the time we get here.
-    assert(cpu != NULL);
-    free(cpu);
+    libps_safe_free(cpu);
 }
 
 // Triggers a reset exception, thereby initializing the CPU to the predefined

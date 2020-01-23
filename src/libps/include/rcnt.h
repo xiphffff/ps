@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct libps_timer
+struct libps_rcnt
 {
-    struct timer_spec
+    struct rcnt_spec
     {
         // 1F801100h+N*10h - Timer 0..2 Current Counter Value (R/W)
         uint32_t value;
@@ -29,35 +29,20 @@ struct libps_timer
 
         // 1F801108h + N * 10h - Timer 0..2 Counter Target Value(R / W)
         uint32_t target;
-
-        // Current cycle count
-        unsigned int counter;
-
-        // The number of cycles we need to wait before incrementing the timer
-        unsigned int threshold;
-        bool interrupt;
-    } timers[3];
-
-    bool vblank_or_hblank_occurred;
-    bool fire_interrupt;
+    } rcnts[3];
 };
 
-// Allocates memory for a `libps_timer` structure and returns a pointer to it
-// if memory allocation was successful, `NULL` otherwise. This function does
-// not automatically initialize initial state.
-struct libps_timer* libps_timer_create(void);
+// Creates the root counters.
+struct libps_rcnt* libps_rcnt_create(void);
 
-// Deallocates the memory held by `timer`.
-void libps_timer_destroy(struct libps_timer* timer);
+// Destroys the root counters.
+void libps_rcnt_destroy(struct libps_rcnt* rcnt);
 
 // Resets the timers to their initial state.
-void libps_timer_reset(struct libps_timer* timer);
+void libps_rcnt_reset(struct libps_rcnt* rcnt);
 
 // Adjusts the clock source of the timer specified by `timer_id` and resets
 // the value for said timer.
-void libps_timer_set_mode(struct libps_timer* timer,
-                          const unsigned int timer_id,
-                          const uint32_t mode);
-
-// Advances the timers.
-void libps_timer_step(struct libps_timer* timer);
+void libps_rcnt_set_mode(struct libps_rcnt* rcnt,
+                         const unsigned int timer_id,
+                         const uint32_t mode);

@@ -12,33 +12,21 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// This event system is indeed a dinky one designed for debugging libps. It
-// simply serves to notify the caller when certain things happen.
+#pragma once
 
-#ifdef LIBPS_DEBUG
+#ifdef __cplusplus
+extern "C"
+{
+#endif // __cplusplus
 
-#include <stdio.h>
-#include "event.h"
+// Attempts to allocate memory, and if memory allocation is successful returns
+// a pointer to the memory, or calls `abort()` if memory allocation was
+// unsuccessful.
+void* libps_safe_malloc(const size_t size);
 
-void libps_ev_unknown_word_load(const uint32_t paddr)
-{ }
+// Calls `free()` and sets `ptr` to `NULL`.
+void libps_safe_free(void* ptr);
 
-void libps_ev_unknown_halfword_load(const uint32_t paddr)
-{ }
-
-void libps_ev_unknown_byte_load(const uint32_t paddr)
-{ }
-
-void libps_ev_unknown_word_store(const uint32_t paddr, const uint32_t data)
-{ }
-
-void libps_ev_unknown_halfword_store(const uint32_t paddr, const uint16_t data)
-{ }
-
-void libps_ev_unknown_byte_store(const uint32_t paddr, const uint8_t data)
-{ }
-
-void libps_ev_dma_otc_unknown(const uint32_t chcr)
-{ }
-
-#endif // LIBPS_DEBUG
+#ifdef __cplusplus
+}
+#endif // __cplusplus

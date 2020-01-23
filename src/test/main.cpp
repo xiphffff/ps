@@ -22,9 +22,6 @@ int main(int argc, char* argv[])
     qt.setApplicationName("libps debugging station");
     qt.setApplicationVersion("1.0");
 
-    // What the fuck?
-    qRegisterMetaType<uint32_t>("uint32_t");
-
     PSTest pstest;
     return qt.exec();
 }

@@ -19,15 +19,13 @@
 
 Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 {
-    QFile bios_file_handle(bios_file);
-    bios_file_handle.open(QIODevice::ReadOnly);
-
+    FILE* handle = fopen(qPrintable(bios_file), "rb");
     bios = new uint8_t[0x80000];
-
-    const char* data = bios_file_handle.readAll().constData();
-    memcpy(bios, data, 0x80000);
+    fread(bios, 1, 0x80000, handle);
+    fclose(handle);
 
     sys = libps_system_create(bios);
+    running = false;
 }
 
 Emulator::~Emulator()
@@ -46,10 +44,13 @@ void Emulator::run()
         QElapsedTimer timer;
         timer.start();
 
-        for (unsigned int cycle = 0;
-             cycle != (33868800 / 60);
-             cycle += 2)
+        while (!libps_must_render_frame(sys))
         {
+            //char disasm[LIBPS_DISASM_MAX_LENGTH];
+            //libps_disassemble_instruction(sys->cpu->instruction, sys->cpu->pc, disasm);
+
+            //printf("0x%08X: %s\n", sys->cpu->pc, disasm);
+
             if (((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x3C) ||
                 ((sys->cpu->pc == 0x000000B0) && sys->cpu->gpr[9] == 0x3D))
             {

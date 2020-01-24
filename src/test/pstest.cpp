@@ -156,16 +156,17 @@ void PSTest::adjust_clock_frequencies()
 {
     clock_rates = new ClockRates();
 
-    connect(clock_rates, &ClockRates::master_clock_changed, [&](const unsigned int value)
+    connect(clock_rates, &ClockRates::master_clock_changed, [&](const double value)
     {
-        const unsigned int cpu_clock  = value * 0x300;
-        const unsigned int gpu_clock  = cpu_clock * 11 / 7;
+        const double cpu_clock        = value / 2;
+        const double spu_clock        = value / 1536;
+        const double gpu_clock        = cpu_clock * 11 / 7;
         const unsigned int frame_rate = gpu_clock / 263 / 3413;
 
-        clock_rates->cpu_clock->setText(QString::number(cpu_clock));
-        clock_rates->gpu_clock->setText(QString::number(gpu_clock));
-
-        clock_rates->frame_rate->setText(QString::number(frame_rate));
+        clock_rates->cpu_clock->setText(QString::number(cpu_clock) + "MHz");
+        clock_rates->gpu_clock->setText(QString::number(gpu_clock) + "MHz");
+        clock_rates->spu_clock->setText(QString::number(spu_clock) + "kHz");
+        clock_rates->frame_rate->setText(QString::number(frame_rate) + " FPS");
     });
 
     clock_rates->resize(300, 100);

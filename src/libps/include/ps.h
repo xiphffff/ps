@@ -37,6 +37,8 @@ struct libps_system
     struct libps_cpu* cpu;
 
     struct libps_scheduler* sched;
+
+    bool render_frame;
 };
 
 // Creates a PlayStation emulator. `bios_data` is a pointer to the BIOS data
@@ -51,11 +53,11 @@ void libps_system_destroy(struct libps_system* ps);
 // `libps_system_create()`.
 void libps_system_reset(struct libps_system* ps);
 
+// Returns `true` if a frame should be rendered, or `false` otherwise.
+bool libps_must_render_frame(struct libps_system* ps);
+
 // Executes one full system step.
 void libps_system_step(struct libps_system* ps);
-
-// Runs for one full entire frame.
-void libps_system_run_full_frame(struct libps_system* ps);
 
 #ifdef __cplusplus
 }

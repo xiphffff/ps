@@ -17,11 +17,18 @@
 #include "ps.h"
 #include "utility.h"
 
+// Is it time to render a frame?
+static bool render_frame;
+
 // Triggers a V-Blank interrupt. This *must* be called once per frame.
-static void vblank(struct libps_system* ps)
+static void vblank(void* event_param)
 {
-    assert(ps != NULL);
+    assert(event_param != NULL);
+
+    struct libps_system* ps = (struct libps_system *)event_param;
+
     ps->bus->i_stat |= LIBPS_IRQ_VBLANK;
+    render_frame = true;
 }
 
 // Creates a PlayStation emulator. `bios_data` is a pointer to the BIOS data
@@ -60,7 +67,10 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
     ps->cpu   = libps_cpu_create(ps->bus);
     ps->sched = libps_scheduler_create();
 
-    libps_scheduler_add_task(ps->sched, LIBPS_SCHEDULER_SYNC_GPU, &vblank);
+    libps_scheduler_add_task(ps->sched,
+                             LIBPS_SCHEDULER_SYNC_GPU,
+                             &vblank,
+                             ps);
 
     libps_system_reset(ps);
     return ps;
@@ -84,6 +94,21 @@ void libps_system_reset(struct libps_system* ps)
 
     libps_bus_reset(ps->bus);
     libps_cpu_reset(ps->cpu);
+
+    render_frame = false;
+}
+
+// Returns `true` if a frame should be rendered, or `false` otherwise.
+bool libps_must_render_frame(struct libps_system* ps)
+{
+    assert(ps != NULL);
+
+    if (ps->render_frame)
+    {
+        ps->render_frame = false;
+        return true;
+    }
+    return false;
 }
 
 // Executes one full system step.
@@ -97,7 +122,7 @@ void libps_system_step(struct libps_system* ps)
     // Step 2: Check for DMAs and tick the hardware.
     libps_bus_step(ps->bus);
 
-    // Step 2: Check to see if the interrupt line needs to be enabled.
+    // Step 3: Check to see if the interrupt line needs to be enabled.
     if ((ps->bus->i_mask & ps->bus->i_stat) != 0)
     {
         ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] |= (1 << 10);
@@ -107,10 +132,6 @@ void libps_system_step(struct libps_system* ps)
         ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] &= ~(1 << 10);
     }
 
-    // Step 3: Execute one instruction.
+    // Step 4: Execute one instruction.
     libps_cpu_step(ps->cpu);
 }
-
-// Runs for one full entire frame.
-void libps_system_run_full_frame(struct libps_system* ps)
-{ }

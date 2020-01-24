@@ -14,13 +14,22 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif // __cplusplus
+
 struct libps_gpu;
 struct libps_gpu_vertex;
 
-static void libps_renderer_sw_draw_polygon(struct libps_gpu* gpu,
-                         const struct libps_gpu_vertex* const v0,
-                         struct libps_gpu_vertex* const v1,
-                         struct libps_gpu_vertex* const v2);
+void libps_renderer_sw_draw_polygon(struct libps_gpu* gpu,
+                                    const struct libps_gpu_vertex* const v0,
+                                    struct libps_gpu_vertex* const v1,
+                                    struct libps_gpu_vertex* const v2);
 
-static void libps_renderer_sw_draw_rect(struct libps_gpu* gpu,
-                                        const struct libps_gpu_vertex* const vertex);
+void libps_renderer_sw_draw_rect(struct libps_gpu* gpu,
+                                 const struct libps_gpu_vertex* const vertex);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus

@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include "cd.h"
+#include "utility.h"
 
 // Queues an interrupt `interrupt`, delaying its firing by `delay_cycles`.
 static void queue_interrupt(struct libps_cdrom* cdrom,
@@ -50,15 +51,16 @@ static void queue_interrupt(struct libps_cdrom* cdrom,
 // if memory allocation was successful, or `NULL` otherwise.
 struct libps_cdrom* libps_cdrom_create(void)
 {
-    struct libps_cdrom* cdrom = malloc(sizeof(struct libps_cdrom));
-    return cdrom != NULL ? cdrom : NULL;
+    struct libps_cdrom* cdrom =
+    libps_safe_malloc(sizeof(struct libps_cdrom));
+
+    return cdrom;
 }
 
 // Deallocates the memory held by `cdrom`.
 void libps_cdrom_destroy(struct libps_cdrom* cdrom)
 {
-    assert(cdrom != NULL);
-    free(cdrom);
+    libps_safe_free(cdrom);
 }
 
 // Resets the CD-ROM drive to its initial state.

@@ -26,14 +26,15 @@ public:
 
     QLabel* cpu_clock;
     QLabel* gpu_clock;
+    QLabel* spu_clock;
     QLabel* frame_rate;
 
 private:
-    QSpinBox* master_clock;
+    QDoubleSpinBox* master_clock;
 
     QWidget* widget;
     QFormLayout* main_layout;
 
 signals:
-    void master_clock_changed(const unsigned int value);
+    void master_clock_changed(const double value);
 };

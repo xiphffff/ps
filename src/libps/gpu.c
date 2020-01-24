@@ -19,36 +19,10 @@
 #include "cpu_defs.h"
 #include "gpu.h"
 #include "utility.h"
+#include "renderer/sw.h"
 
 static void (*cmd_func)(struct libps_gpu*);
 static unsigned int params_pos;
-
-static uint16_t process_pixel_through_clut(struct libps_gpu* gpu,
-                                           const unsigned int x,
-                                           const uint16_t texel,
-                                           const unsigned int texpage_color_depth,
-                                           const uint16_t clut)
-{
-    assert(gpu != NULL);
-
-    const unsigned int clut_x = (clut & 0x3F) * 16;
-    const unsigned int clut_y = (clut >> 6) & 0x1FF;
-
-    switch (texpage_color_depth)
-    {
-        case 4:
-        {
-            const unsigned int offset = (texel >> (x & 3) * 4) & 0xF;
-            return gpu->vram[(clut_x + offset) + (LIBPS_GPU_VRAM_WIDTH * clut_y)];
-        }
-
-        case 16:
-            return texel;
-
-        default:
-            return 0xFFFF;
-    }
-}
 
 // Handles the GP0(A0h) command - Copy Rectangle (CPU to VRAM)
 static void copy_rect_from_cpu(struct libps_gpu* gpu)
@@ -406,6 +380,9 @@ struct libps_gpu* libps_gpu_create(void)
 {
     struct libps_gpu* gpu = libps_safe_malloc(sizeof(struct libps_gpu));
 
+    gpu->draw_polygon = &libps_renderer_sw_draw_polygon;
+    gpu->draw_rect    = &libps_renderer_sw_draw_rect;
+
     gpu->vram = libps_safe_malloc(LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT * sizeof(uint16_t));
     return gpu;
 }
@@ -601,8 +578,8 @@ void libps_gpu_process_gp0(struct libps_gpu* gpu, const uint32_t packet)
                     cmd_func = &draw_rect_helper;
                     break;
 
-                // GP0(A0h...BFh) - Copy Rectangle (CPU to VRAM)
-                case 0xA0 ... 0xBF:
+                // GP0(A0h) - Copy Rectangle (CPU to VRAM)
+                case 0xA0:
                     gpu->cmd_packet.remaining_words = 2;
 
                     gpu->state = LIBPS_GPU_RECEIVING_COMMAND_PARAMETERS;

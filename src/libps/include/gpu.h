@@ -76,8 +76,8 @@ struct libps_gpu
 
     void (*draw_polygon)(struct libps_gpu* gpu,
                          const struct libps_gpu_vertex* const v0,
-                         const struct libps_gpu_vertex* const v1,
-                         const struct libps_gpu_vertex* const v2);
+                         struct libps_gpu_vertex* const v1,
+                         struct libps_gpu_vertex* const v2);
 
     void (*draw_rect)(struct libps_gpu* gpu,
                       const struct libps_gpu_vertex* const vertex);

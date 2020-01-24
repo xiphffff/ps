@@ -14,13 +14,14 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #define LIBPS_SCHEDULER_MAX_EVENTS 10
 
 enum libps_scheduler_tcb_state
 {
-    LIBPS_SCHEDULER_STATE_READY,
-    LIBPS_SCHEDULER_STATE_INACTIVE,
-    LIBPS_SCHEDULER_STATE_WAITING
+    LIBPS_SCHEDULER_TCB_ACTIVE,
+    LIBPS_SCHEDULER_TCB_INACTIVE
 };
 
 enum libps_scheduler_tcb_sync_mode
@@ -39,10 +40,11 @@ struct libps_scheduler
 {
     struct libps_scheduler_tcb
     {
-        enum libps_scheduler_tcb_state state;
         enum libps_scheduler_tcb_sync_mode sync_mode;
         signed int cycles;
-        void (*dispatch_func)(void);
+        void (*dispatch_func)(void* device);
+        void* device;
+        bool active;
     } tasks[LIBPS_SCHEDULER_MAX_EVENTS];
 
     // Set the master clock *only* through
@@ -52,6 +54,7 @@ struct libps_scheduler
     // Do not set these directly. These are automatically adjusted upon a call
     // to `libps_scheduler_set_master_clock()`.
     unsigned int cpu_clock;
+    unsigned int spu_clock;
     unsigned int gpu_clock;
     unsigned int dot_clock;
     unsigned int frame_rate;
@@ -70,9 +73,11 @@ void libps_scheduler_destroy(struct libps_scheduler* sched);
 void libps_scheduler_set_master_clock(struct libps_scheduler* sched,
                                       const unsigned int clock_rate);
 
-// Runs the scheduler until a frame needs to be rendered.
+// Runs the scheduler.
 void libps_scheduler_step(struct libps_scheduler* sched);
 
+// Adds a task that will be ran 
 void libps_scheduler_add_task(struct libps_scheduler* sched,
-                              const enum libps_scheduler_tcb_sync_mode sync_type,
-                              void (*cb)(void));
+                              const enum libps_scheduler_tcb_sync_mode sync_mode,
+                              void (*cb)(void* param),
+                              void* device);

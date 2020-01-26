@@ -39,9 +39,50 @@ void libps_rcnt_reset(struct libps_rcnt* rcnt)
     memset(rcnt->rcnts, 0, sizeof(rcnt->rcnts));
 }
 
-// Adjusts the clock source of the timer specified by `timer_id` and resets
+// Adjusts the clock source of the timer specified by `rcnt_id` and resets
 // the value for said timer.
 void libps_rcnt_set_mode(struct libps_rcnt* rcnt,
-                         const unsigned int timer_id,
+                         const unsigned int rcnt_id,
                          const uint32_t mode)
-{ }
+{
+    assert(rcnt != NULL);
+    assert(rcnt_id < 3);
+
+    rcnt->rcnts[rcnt_id].mode = mode;
+
+    switch (rcnt_id)
+    {
+        case 2:
+            switch (rcnt->rcnts[rcnt_id].mode & 0x300)
+            {
+                // 2 or 3 = System Clock/8
+                case 0x200:
+                    rcnt->rcnts[2].threshold = 8;
+                    break;
+
+                default:
+                    rcnt->rcnts[2].threshold = 1;
+                    break;
+            }
+            break;
+    }
+
+    rcnt->rcnts[rcnt_id].counter = 0;
+    rcnt->rcnts[rcnt_id].value = 0x0000;
+}
+
+// Steps the root counters.
+void libps_rcnt_step(struct libps_rcnt* rcnt)
+{
+    assert(rcnt != NULL);
+
+    if (rcnt->rcnts[2].counter == rcnt->rcnts[2].threshold)
+    {
+        rcnt->rcnts[2].value++;
+        rcnt->rcnts[2].counter = 0;
+    }
+    else
+    {
+        rcnt->rcnts[2].counter++;
+    }
+}

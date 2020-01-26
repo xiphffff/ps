@@ -263,6 +263,9 @@ void libps_bus_step(struct libps_bus* bus)
         bus->cdrom->fire_interrupt = false;
         bus->i_stat |= (1 << 2);
     }
+
+    libps_cdrom_step(bus->cdrom);
+    libps_rcnt_step(bus->rcnt);
 }
 
 // Returns a word from memory referenced by virtual address `vaddr`.

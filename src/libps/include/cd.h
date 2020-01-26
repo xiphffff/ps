@@ -89,6 +89,9 @@ void libps_cdrom_destroy(struct libps_cdrom* cdrom);
 // Resets the CD-ROM drive to its initial state.
 void libps_cdrom_reset(struct libps_cdrom* cdrom);
 
+// Checks to see if interrupts needs to be fired.
+void libps_cdrom_step(struct libps_cdrom* cdrom);
+
 // Loads indexed CD-ROM register `reg`.
 uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
                                           const unsigned int reg);

@@ -76,6 +76,31 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
     cdrom->status = 0x18;
 }
 
+// Checks to see if interrupts needs to be fired.
+void libps_cdrom_step(struct libps_cdrom* cdrom)
+{
+    assert(cdrom != NULL);
+
+    for (unsigned int i = 0; i < 2; ++i)
+    {
+        if (cdrom->interrupts[i].pending)
+        {
+            if (cdrom->interrupts[i].cycles != 0)
+            {
+                cdrom->interrupts[i].cycles--;
+            }
+            else
+            {
+                cdrom->interrupts[i].pending = false;
+                cdrom->fire_interrupt = true;
+
+                cdrom->interrupt_flag = (cdrom->interrupt_flag & ~0x07) |
+                    (cdrom->interrupts[i].type & 0x07);
+            }
+        }
+    }
+}
+
 // Loads indexed CD-ROM register `reg`.
 uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
                                           const unsigned int reg)

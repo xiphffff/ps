@@ -12,7 +12,14 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+// XXX: Don't use this.
+
 #pragma once
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif // __cplusplus
 
 #include <stdbool.h>
 
@@ -81,3 +88,7 @@ void libps_scheduler_add_task(struct libps_scheduler* sched,
                               const enum libps_scheduler_tcb_sync_mode sync_mode,
                               void (*cb)(void* param),
                               void* device);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus

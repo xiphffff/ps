@@ -28,17 +28,12 @@ extern "C"
 #include "cpu.h"
 #include "cpu_defs.h"
 #include "gpu.h"
-#include "sched.h"
 
 // Defines the structure of a PlayStation emulator.
 struct libps_system
 {
     struct libps_bus* bus;
     struct libps_cpu* cpu;
-
-    struct libps_scheduler* sched;
-
-    bool render_frame;
 };
 
 // Creates a PlayStation emulator. `bios_data` is a pointer to the BIOS data
@@ -52,9 +47,6 @@ void libps_system_destroy(struct libps_system* ps);
 // Resets a PlayStation to the startup state. This is called automatically by
 // `libps_system_create()`.
 void libps_system_reset(struct libps_system* ps);
-
-// Returns `true` if a frame should be rendered, or `false` otherwise.
-bool libps_must_render_frame(struct libps_system* ps);
 
 // Executes one full system step.
 void libps_system_step(struct libps_system* ps);

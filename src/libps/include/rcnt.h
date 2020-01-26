@@ -29,6 +29,12 @@ struct libps_rcnt
 
         // 1F801108h + N * 10h - Timer 0..2 Counter Target Value(R / W)
         uint32_t target;
+
+        // Current cycle count
+        unsigned int counter;
+
+        // The number of cycles we need to wait before incrementing the timer
+        unsigned int threshold;
     } rcnts[3];
 };
 
@@ -44,5 +50,8 @@ void libps_rcnt_reset(struct libps_rcnt* rcnt);
 // Adjusts the clock source of the timer specified by `timer_id` and resets
 // the value for said timer.
 void libps_rcnt_set_mode(struct libps_rcnt* rcnt,
-                         const unsigned int timer_id,
+                         const unsigned int rcnt_id,
                          const uint32_t mode);
+
+// Steps the root counters.
+void libps_rcnt_step(struct libps_rcnt* rcnt);

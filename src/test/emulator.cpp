@@ -44,13 +44,8 @@ void Emulator::run()
         QElapsedTimer timer;
         timer.start();
 
-        while (!libps_must_render_frame(sys))
+        for (unsigned int cycle = 0; cycle < 33868800 / 60; cycle += 2)
         {
-            //char disasm[LIBPS_DISASM_MAX_LENGTH];
-            //libps_disassemble_instruction(sys->cpu->instruction, sys->cpu->pc, disasm);
-
-            //printf("0x%08X: %s\n", sys->cpu->pc, disasm);
-
             if (((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x3C) ||
                 ((sys->cpu->pc == 0x000000B0) && sys->cpu->gpr[9] == 0x3D))
             {
@@ -78,6 +73,8 @@ void Emulator::run()
             }
             libps_system_step(sys);
         }
+
+        sys->bus->i_stat |= LIBPS_IRQ_VBLANK;
 
         emit render_frame(sys->bus->gpu->vram);
 

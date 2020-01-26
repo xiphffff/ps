@@ -358,16 +358,16 @@ static void draw_rect_helper(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
 
-    if (gpu->cmd_packet.flags & DRAW_FLAG_MONOCHROME)
+    const struct libps_gpu_vertex vertex =
     {
-        const struct libps_gpu_vertex vertex =
-        {
-            .color = gpu->cmd_packet.params[0],
-            .x     = gpu->cmd_packet.params[1] & 0x0000FFFF,
-            .y     = gpu->cmd_packet.params[1] >> 16
-        };
-        gpu->draw_rect(gpu, &vertex);
-    }
+        .color    = gpu->cmd_packet.params[0],
+        .y        = gpu->cmd_packet.params[1] >> 16,
+        .x        = gpu->cmd_packet.params[1] & 0x0000FFFF,
+        .texcoord = gpu->cmd_packet.params[2] >> 16,
+        .palette  = gpu->cmd_packet.params[2] & 0x0000FFFF
+    };
+
+    gpu->draw_rect(gpu, &vertex);
 
     memset(&gpu->cmd_packet, 0, sizeof(gpu->cmd_packet));
     params_pos = 0;

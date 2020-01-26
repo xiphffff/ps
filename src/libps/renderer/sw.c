@@ -16,6 +16,7 @@
 #include "gpu.h"
 #include "sw.h"
 
+// XXX: This should probably be a helper function.
 static uint16_t process_pixel_through_clut(struct libps_gpu* gpu,
                                            const unsigned int x,
                                            const uint16_t texel,
@@ -173,5 +174,13 @@ void libps_renderer_sw_draw_polygon(struct libps_gpu* gpu,
 void libps_renderer_sw_draw_rect(struct libps_gpu* gpu,
                                  const struct libps_gpu_vertex* const vertex)
 {
+    assert(gpu != NULL);
+    assert(vertex != NULL);
 
+    const unsigned int pixel_r = (vertex->color & 0x000000FF) / 8;
+    const unsigned int pixel_g = ((vertex->color >> 8) & 0xFF) / 8;
+    const unsigned int pixel_b = ((vertex->color >> 16) & 0xFF) / 8;
+
+    gpu->vram[vertex->x + (LIBPS_GPU_VRAM_WIDTH * vertex->y)] =
+    (pixel_g << 5) | (pixel_b << 10) | pixel_r;
 }

@@ -23,13 +23,13 @@ extern "C"
 
 struct libps_fifo
 {
-	int* entries;
+    int* entries;
 
-	unsigned int current_size;
-	unsigned int max_size;
+    unsigned int current_size;
+    unsigned int max_size;
 
-	unsigned int head;
-	unsigned int tail;
+    unsigned int head;
+    unsigned int tail;
 };
 
 // Creates a fixed-size FIFO.

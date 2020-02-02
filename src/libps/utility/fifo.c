@@ -20,77 +20,77 @@
 // Creates a fixed-sized FIFO.
 struct libps_fifo* libps_fifo_create(const unsigned int size)
 {
-	struct libps_fifo* fifo = libps_safe_malloc(sizeof(struct libps_fifo));
-	fifo->entries = libps_safe_malloc(sizeof(int) * size);
+    struct libps_fifo* fifo = libps_safe_malloc(sizeof(struct libps_fifo));
+    fifo->entries = libps_safe_malloc(sizeof(int) * size);
 
-	fifo->max_size = size;
+    fifo->max_size = size;
 
-	libps_fifo_reset(fifo);
-	return fifo;
+    libps_fifo_reset(fifo);
+    return fifo;
 }
 
 // Destroys a FIFO.
 void libps_fifo_destroy(struct libps_fifo* fifo)
 {
-	libps_safe_free(fifo);
+    libps_safe_free(fifo);
 }
 
 // Clears a FIFO.
 void libps_fifo_reset(struct libps_fifo* fifo)
 {
-	fifo->current_size = 0;
-	fifo->head		   = 0;
-	fifo->tail		   = fifo->max_size - 1;
+    fifo->current_size = 0;
+    fifo->head		   = 0;
+    fifo->tail		   = fifo->max_size - 1;
 
-	memset(fifo->entries, 0, sizeof(*fifo->entries));
+    memset(fifo->entries, 0, sizeof(*fifo->entries));
 }
 
 // Returns `true` if the FIFO is empty, or `false` otherwise.
 bool libps_fifo_is_empty(struct libps_fifo* fifo)
 {
-	assert(fifo != NULL);
+    assert(fifo != NULL);
 
-	return fifo->current_size == 0;
+    return fifo->current_size == 0;
 }
 
 // Returns `true` if the FIFO is full, or `false` otherwise.
 bool libps_fifo_is_full(struct libps_fifo* fifo)
 {
-	assert(fifo != NULL);
+    assert(fifo != NULL);
 
-	return fifo->current_size == fifo->max_size;
+    return fifo->current_size == fifo->max_size;
 }
 
 // Adds an item to the FIFO.
 void libps_fifo_enqueue(struct libps_fifo* fifo, const int data)
 {
-	assert(fifo != NULL);
+    assert(fifo != NULL);
 
-	if (libps_fifo_is_full(fifo))
-	{
-		return;
-	}
+    if (libps_fifo_is_full(fifo))
+    {
+        return;
+    }
 
-	fifo->tail = (fifo->tail + 1) % fifo->max_size;
-	fifo->current_size++;
+    fifo->tail = (fifo->tail + 1) % fifo->max_size;
+    fifo->current_size++;
 
-	fifo->entries[fifo->tail] = data;
+    fifo->entries[fifo->tail] = data;
 }
 
 // Removes an item from the FIFO and returns this value.
 int libps_fifo_dequeue(struct libps_fifo* fifo)
 {
-	assert(fifo != NULL);
+    assert(fifo != NULL);
 
-	if (libps_fifo_is_empty(fifo))
-	{
-		return 0;
-	}
+    if (libps_fifo_is_empty(fifo))
+    {
+        return 0;
+    }
 
-	const int entry = fifo->entries[fifo->head];
+    const int entry = fifo->entries[fifo->head];
 
-	fifo->head = (fifo->head + 1) % fifo->max_size;
-	fifo->current_size--;
+    fifo->head = (fifo->head + 1) % fifo->max_size;
+    fifo->current_size--;
 
-	return entry;
+    return entry;
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Michael Rodriguez
+// Copyright 2020 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -20,7 +20,7 @@
 #include "event.h"
 #include "gpu.h"
 #include "rcnt.h"
-#include "utility.h"
+#include "utility/memory.h"
 
 // `libps_bus` doesn't need to know about this, since the operator of the
 // library has the BIOS data loaded already and no other part of the system

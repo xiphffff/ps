@@ -15,7 +15,6 @@
 #include <filesystem>
 #include "emulator.h"
 #include "../libps/include/ps.h"
-#include "../libps/include/disasm.h"
 
 Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 {

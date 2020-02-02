@@ -48,6 +48,9 @@ void libps_system_destroy(struct libps_system* ps);
 // `libps_system_create()`.
 void libps_system_reset(struct libps_system* ps);
 
+// "Inserts" a CD-ROM image into the system.
+void libps_system_insert_cdrom(uint8_t(*read_cb)(const uint16_t sector));
+
 // Executes one full system step.
 void libps_system_step(struct libps_system* ps);
 

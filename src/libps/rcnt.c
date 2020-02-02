@@ -1,4 +1,4 @@
-// Copyright 2019 Michael Rodriguez
+// Copyright 2020 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
 #include <string.h>
 #include "cpu_defs.h"
 #include "rcnt.h"
-#include "utility.h"
+#include "utility/memory.h"
 
 // Creates the root counters.
 struct libps_rcnt* libps_rcnt_create(void)

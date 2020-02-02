@@ -1,4 +1,4 @@
-// Copyright 2019 Michael Rodriguez
+// Copyright 2020 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include "cd.h"
-#include "utility.h"
+#include "utility/fifo.h"
+#include "utility/memory.h"
 
 // Queues an interrupt `interrupt`, delaying its firing by `delay_cycles`.
 static void queue_interrupt(struct libps_cdrom* cdrom,
@@ -28,8 +29,6 @@ static void queue_interrupt(struct libps_cdrom* cdrom,
 {
     assert(cdrom != NULL);
 
-    static unsigned int queue_pos = 0;
-
     va_list args;
     va_start(args, num_args);
 
@@ -38,13 +37,13 @@ static void queue_interrupt(struct libps_cdrom* cdrom,
     for (unsigned int i = 0; i < num_args; ++i)
     {
         arg = va_arg(args, int);
-        cdrom->response_fifo.data[cdrom->response_fifo.pos++] = (uint8_t)arg;
+        libps_fifo_enqueue(cdrom->response_fifo, arg);
     }
     va_end(args);
 
-    cdrom->interrupts[queue_pos].pending = true;
-    cdrom->interrupts[queue_pos].cycles  = delay_cycles;
-    cdrom->interrupts[queue_pos++].type  = interrupt;
+    cdrom->interrupts[0].pending = true;
+    cdrom->interrupts[0].cycles = delay_cycles;
+    cdrom->interrupts[0].type = interrupt;
 }
 
 // Allocates memory for a `libps_cdrom` structure and returns a pointer to it
@@ -54,12 +53,18 @@ struct libps_cdrom* libps_cdrom_create(void)
     struct libps_cdrom* cdrom =
     libps_safe_malloc(sizeof(struct libps_cdrom));
 
+    cdrom->response_fifo  = libps_fifo_create(16);
+    cdrom->parameter_fifo = libps_fifo_create(16);
+
     return cdrom;
 }
 
 // Deallocates the memory held by `cdrom`.
 void libps_cdrom_destroy(struct libps_cdrom* cdrom)
 {
+    libps_fifo_destroy(cdrom->response_fifo);
+    libps_fifo_destroy(cdrom->parameter_fifo);
+
     libps_safe_free(cdrom);
 }
 
@@ -68,9 +73,10 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
 {
     assert(cdrom != NULL);
 
-    memset(&cdrom->parameter_fifo, 0, sizeof(cdrom->parameter_fifo));
-    memset(&cdrom->response_fifo,  0, sizeof(cdrom->response_fifo));
-    memset(cdrom->interrupts,      0, sizeof(cdrom->interrupts));
+    libps_fifo_reset(cdrom->parameter_fifo);
+    libps_fifo_reset(cdrom->response_fifo);
+
+    memset(cdrom->interrupts, 0, sizeof(cdrom->interrupts));
 
     cdrom->fire_interrupt = false;
     cdrom->status = 0x18;
@@ -107,8 +113,6 @@ uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
 {
     assert(cdrom != NULL);
 
-    static unsigned int i = 0;
-
     switch (reg)
     {
         // 0x1F801801
@@ -117,7 +121,7 @@ uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
             {
                 // 1F801801h.Index1 - Response Fifo (R)
                 case 1:
-                    return cdrom->response_fifo.data[i++];
+                    return libps_fifo_dequeue(cdrom->response_fifo);
 
                 default:
                     __debugbreak();
@@ -164,11 +168,11 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                     {
                         // Getstat
                         case 0x01:
-                            queue_interrupt(cdrom, INT3, 20000, 1, 0xFF);
+                            queue_interrupt(cdrom, INT3, 20000, 1, cdrom->status);
                             break;
 
                         case 0x19:
-                            switch (cdrom->parameter_fifo.data[0])
+                            switch (libps_fifo_dequeue(cdrom->parameter_fifo))
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
@@ -184,7 +188,9 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
 
                         // GetID
                         case 0x1A:
-                            queue_interrupt(cdrom, INT5, 20000, 2, 0x01, 0x80);
+                            queue_interrupt(cdrom, INT5, 20000, 8,
+                                            0x08, 0x40, 0x00, 0x00, 0x00,
+                                            0x00, 0x00, 0x00);
                             break;
 
                         default:
@@ -205,7 +211,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
             {
                 // 1F801802h.Index0 - Parameter Fifo (W)
                 case 0:
-                    cdrom->parameter_fifo.data[cdrom->parameter_fifo.pos++] = data;
+                    libps_fifo_enqueue(cdrom->parameter_fifo, data);
                     break;
 
                 // 1F801802h.Index1 - Interrupt Enable Register (W)

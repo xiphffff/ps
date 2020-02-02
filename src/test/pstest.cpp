@@ -46,9 +46,8 @@ PSTest::PSTest()
     connect(main_window->pause_emu, &QAction::triggered, this, &PSTest::pause_emu);
 
     // "Debug" menu
-    connect(main_window->display_tty_log,          &QAction::triggered, this, &PSTest::display_tty_log);
-    connect(main_window->display_bios_call_log,    &QAction::triggered, this, &PSTest::display_bios_call_log);
-    connect(main_window->adjust_clock_frequencies, &QAction::triggered, this, &PSTest::adjust_clock_frequencies);
+    connect(main_window->display_tty_log,       &QAction::triggered, this, &PSTest::display_tty_log);
+    connect(main_window->display_bios_call_log, &QAction::triggered, this, &PSTest::display_bios_call_log);
 
     main_window->setWindowTitle("libps debugging station");
     main_window->resize(1024, 512);
@@ -149,30 +148,6 @@ void PSTest::display_bios_call_log()
     bios_calls->setWindowTitle(tr("libps BIOS call log"));
 
     bios_calls->show();
-}
-
-// Called when the user triggers `Debug -> Adjust clock frequencies`.
-void PSTest::adjust_clock_frequencies()
-{
-    clock_rates = new ClockRates();
-
-    connect(clock_rates, &ClockRates::master_clock_changed, [&](const double value)
-    {
-        const double cpu_clock        = value / 2;
-        const double spu_clock        = value / 1536;
-        const double gpu_clock        = cpu_clock * 11 / 7;
-        const unsigned int frame_rate = gpu_clock / 263 / 3413;
-
-        clock_rates->cpu_clock->setText(QString::number(cpu_clock) + "MHz");
-        clock_rates->gpu_clock->setText(QString::number(gpu_clock) + "MHz");
-        clock_rates->spu_clock->setText(QString::number(spu_clock) + "kHz");
-        clock_rates->frame_rate->setText(QString::number(frame_rate) + " FPS");
-    });
-
-    clock_rates->resize(300, 100);
-    clock_rates->setWindowTitle(tr("libps frequency adjuster"));
-
-    clock_rates->show();
 }
 
 // Called when the user triggers `Emulation -> Start`. This function is also

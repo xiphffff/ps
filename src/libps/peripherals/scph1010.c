@@ -16,7 +16,7 @@
 // (SCPH-1010).
 
 #include "scph1010.h"
-#include "../include/utility.h"
+#include "../utility/memory.h"
 
 // Creates a SCPH-1010.
 struct libps_scph1010* libps_scph1010_create(struct libps_system* ps)

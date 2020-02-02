@@ -1,4 +1,4 @@
-// Copyright 2019 Michael Rodriguez
+// Copyright 2020 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "ps.h"
-#include "utility.h"
+#include "utility/memory.h"
 
 // Creates a PlayStation emulator. `bios_data` is a pointer to the BIOS data
 // supplied by the caller and cannot be `NULL`. If `bios_data` is `NULL`, this
@@ -49,8 +49,8 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
     // under this circumstance, this idea will be discarded.
     struct libps_system* ps = libps_safe_malloc(sizeof(struct libps_system));
 
-    ps->bus   = libps_bus_create(bios_data);
-    ps->cpu   = libps_cpu_create(ps->bus);
+    ps->bus = libps_bus_create(bios_data);
+    ps->cpu = libps_cpu_create(ps->bus);
 
     libps_system_reset(ps);
     return ps;

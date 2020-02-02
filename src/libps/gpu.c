@@ -1,4 +1,4 @@
-// Copyright 2019 Michael Rodriguez
+// Copyright 2020 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include "cpu_defs.h"
 #include "gpu.h"
-#include "utility.h"
+#include "utility/memory.h"
 #include "renderer/sw.h"
 
 static void (*cmd_func)(struct libps_gpu*);

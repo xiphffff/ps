@@ -36,9 +36,6 @@ public:
     // "Debug -> Display BIOS call log"
     QAction* display_bios_call_log;
 
-    // "Debug -> Adjust clock frequencies"
-    QAction* adjust_clock_frequencies;
-
     // "Emulation -> Start" or "Emulation -> Resume" depending on the run state
     // of the emulator
     QAction* start_emu;

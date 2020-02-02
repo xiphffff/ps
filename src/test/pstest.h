@@ -17,9 +17,7 @@
 #include "emulator.h"
 #include "main_window.h"
 #include "debug/bios_calls.h"
-#include "debug/clock_rates.h"
 #include "debug/tty_log.h"
-
 
 class PSTest : public QObject
 {
@@ -47,9 +45,6 @@ private:
     // Called when the user triggers `Debug -> Display BIOS call log`.
     void display_bios_call_log();
 
-    // Called when the user triggers `Debug -> Adjust clock frequencies`.
-    void adjust_clock_frequencies();
-
     // Called when the user triggers `Emulation -> Start`. This function is
     // also called upon startup, and is used also to resume emulation from a
     // paused state.
@@ -63,8 +58,7 @@ private:
 
     // Called when the user triggers `Emulation -> Reset`.
     void reset_emu();
-    
-    ClockRates* clock_rates;
+
     BIOSCalls* bios_calls;
     MainWindow* main_window;
     TTYLogger* tty_logger;

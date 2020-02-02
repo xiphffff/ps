@@ -14,7 +14,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include "utility.h"
+#include "memory.h"
 
 // Attempts to allocate memory, and if memory allocation is successful returns
 // a pointer to the memory, or calls `abort()` if memory allocation was

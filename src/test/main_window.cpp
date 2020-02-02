@@ -30,8 +30,6 @@ MainWindow::MainWindow()
 
     display_bios_call_log = new QAction(tr("Display BIOS call log"), this);
 
-    adjust_clock_frequencies = new QAction(tr("Adjust clock rates"), this);
-
     file_menu = menuBar()->addMenu(tr("&File"));
     file_menu->addAction(inject_ps_exe);
 
@@ -54,7 +52,6 @@ MainWindow::MainWindow()
 
     debug_menu->addAction(display_tty_log);
     debug_menu->addAction(display_bios_call_log);
-    debug_menu->addAction(adjust_clock_frequencies);
 
     setWindowFlags(Qt::MSWindowsFixedSizeDialogHint);
     setCentralWidget(vram_image_view);

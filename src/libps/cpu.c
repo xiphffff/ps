@@ -1,4 +1,4 @@
-// Copyright 2019 Michael Rodriguez
+// Copyright 2020 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -41,7 +41,7 @@
 #include "bus.h"
 #include "cpu.h"
 #include "cpu_defs.h"
-#include "utility.h"
+#include "utility/memory.h"
 
 // `libps_cpu` doesn't need to know about this.
 static struct libps_bus* bus;

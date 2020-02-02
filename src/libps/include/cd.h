@@ -19,6 +19,8 @@ extern "C"
 {
 #endif // __cplusplus
 
+struct libps_fifo;
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -50,13 +52,6 @@ enum libps_cdrom_interrupt_type
     INT7
 };
 
-// Not a real FIFO, not technically.
-struct libps_cdrom_fifo
-{
-    uint8_t data[16];
-    unsigned int pos;
-};
-
 struct libps_cdrom_interrupt
 {
     bool pending;
@@ -72,8 +67,8 @@ struct libps_cdrom
     // 1F801803h.Index1 - Interrupt Flag Register (R/W)
     uint8_t interrupt_flag;
 
-    struct libps_cdrom_fifo parameter_fifo;
-    struct libps_cdrom_fifo response_fifo;
+    struct libps_fifo* parameter_fifo;
+    struct libps_fifo* response_fifo;
 
     bool fire_interrupt;
     struct libps_cdrom_interrupt interrupts[2];

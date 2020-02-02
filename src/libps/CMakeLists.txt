@@ -15,25 +15,19 @@
 set(SRCS bus.c
          cd.c
          cpu.c
-         disasm.c
          event.c
          gpu.c
          ps.c
-         sched.c
-         rcnt.c
-         utility.c)
+         rcnt.c)
 
 set(HDRS include/bus.h
          include/cd.h
          include/cpu.h
          include/cpu_defs.h
-         include/disasm.h
          include/event.h
          include/gpu.h
          include/ps.h
-         include/sched.h
-         include/rcnt.h
-         include/utility.h)
+         include/rcnt.h)
 
 set(PERIPHERALS_SRCS peripherals/scph1010.c peripherals/scph1020.c)
 set(PERIPHERALS_HDRS peripherals/scph1010.h peripherals/scph1020.h)
@@ -41,12 +35,17 @@ set(PERIPHERALS_HDRS peripherals/scph1010.h peripherals/scph1020.h)
 set(RENDERER_SRCS renderer/sw.c)
 set(RENDERER_HDRS renderer/sw.h)
 
+set(UTILITY_SRCS utility/fifo.c utility/memory.c)
+set(UTILITY_HDRS utility/fifo.h utility/memory.h)
+
 add_library(ps STATIC ${SRCS}
                       ${HDRS}
                       ${PERIPHERALS_SRCS}
                       ${PERIPHERALS_HDRS}
                       ${RENDERER_SRCS}
-                      ${RENDERER_HDRS})
+                      ${RENDERER_HDRS}
+                      ${UTILITY_SRCS}
+                      ${UTILITY_HDRS})
 
 set_target_properties(ps PROPERTIES
                       C_STANDARD 17

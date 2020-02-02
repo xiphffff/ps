@@ -25,8 +25,8 @@ endif()
 set(SRCS emulator.cpp main.cpp main_window.cpp pstest.cpp)
 set(HDRS emulator.h main_window.h pstest.h)
 
-set(DEBUG_SRCS debug/bios_calls.cpp debug/clock_rates.cpp debug/gpu.cpp debug/tty_log.cpp)
-set(DEBUG_HDRS debug/bios_calls.h debug/clock_rates.h debug/gpu.h debug/tty_log.h)
+set(DEBUG_SRCS debug/bios_calls.cpp debug/gpu.cpp debug/tty_log.cpp)
+set(DEBUG_HDRS debug/bios_calls.h debug/gpu.h debug/tty_log.h)
 
 source_group("Source Files\\debug" FILES ${DEBUG_SRCS})
 source_group("Header Files\\debug" FILES ${DEBUG_HDRS})
@@ -34,7 +34,7 @@ source_group("Header Files\\debug" FILES ${DEBUG_HDRS})
 add_executable(pstest ${SRCS} ${HDRS} ${DEBUG_SRCS} ${DEBUG_HDRS})
 
 set_target_properties(pstest PROPERTIES
-                      CXX_STANDARD 20
+                      CXX_STANDARD 17
                       CXX_STANDARD_REQUIRED YES
                       CXX_EXTENSIONS ON)
 
@@ -45,6 +45,4 @@ target_compile_options(pstest PRIVATE
                        -Wall -Wextra -Wno-gnu-case-range -Wno-old-style-cast -Wno-c++98-compat>)
 
 target_compile_definitions(pstest PRIVATE LIBPS_DEBUG)
-
-target_compile_definitions(pstest PRIVATE _CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pstest)

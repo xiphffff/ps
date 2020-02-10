@@ -12,9 +12,11 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include "tty_log.h"
+#ifdef LIBPS_DEBUG
 
-TTYLogger::TTYLogger(QWidget* parent) : QMainWindow(parent)
+#include "libps_log.h"
+
+LibraryLogger::LibraryLogger(QWidget* parent) : QMainWindow(parent)
 {
     save_log    = new QAction(tr("&Save..."), this);
     select_font = new QAction(tr("&Font..."), this);
@@ -24,35 +26,59 @@ TTYLogger::TTYLogger(QWidget* parent) : QMainWindow(parent)
     connect(save_log,
             &QAction::triggered,
             this,
-            &TTYLogger::on_save_log);
+            &LibraryLogger::on_save_log);
 
-    connect(clear, &QAction::triggered, this, &TTYLogger::clear_log);
+    connect(clear, &QAction::triggered, this, &LibraryLogger::clear_log);
 
     connect(select_font,
             &QAction::triggered,
             this,
-            &TTYLogger::on_select_font);
+            &LibraryLogger::on_select_font);
 
     file_menu = menuBar()->addMenu(tr("&File"));
     file_menu->addAction(save_log);
-    
+
     view_menu = menuBar()->addMenu(tr("&View"));
 
     view_menu->addAction(clear);
     view_menu->addAction(select_font);
+
+    events_menu = menuBar()->addMenu(tr("&Events"));
+
+    unknown_byte_load            = new QAction(tr("Unknown byte load"),      this);
+    unknown_halfword_load        = new QAction(tr("Unknown halfword load"),  this);
+    unknown_word_load            = new QAction(tr("Unknown word load"),      this);
+    unknown_byte_store           = new QAction(tr("Unknown byte store"),     this);
+    unknown_halfword_store       = new QAction(tr("Unknown halfword store"), this);
+    unknown_word_store           = new QAction(tr("Unknown word store"),     this);
+    unknown_dma_otc_channel_chcr = new QAction(tr("Unknown DMA6 CHCR"),      this);
+
+    unknown_byte_load->setCheckable(true);
+    unknown_halfword_load->setCheckable(true);
+    unknown_word_load->setCheckable(true);
+    unknown_byte_store->setCheckable(true);
+    unknown_halfword_store->setCheckable(true);
+    unknown_word_store->setCheckable(true);
+    unknown_dma_otc_channel_chcr->setCheckable(true);
+
+    events_menu->addAction(unknown_byte_load);
+    events_menu->addAction(unknown_halfword_load);
+    events_menu->addAction(unknown_word_load);
+    events_menu->addAction(unknown_byte_store);
+    events_menu->addAction(unknown_halfword_store);
+    events_menu->addAction(unknown_word_store);
+    events_menu->addAction(unknown_dma_otc_channel_chcr);
 
     text_edit = new QPlainTextEdit(this);
     text_edit->setReadOnly(true);
 
     QSettings config_file("pstest.ini", QSettings::IniFormat, this);
 
-    const QString font_name = config_file.value("tty_viewer/font_name",
+    const QString font_name = config_file.value("library_logger/font_name",
                                                 "Lucida Console").toString();
 
-    const int font_size = config_file.value("tty_viewer/font_size",
+    const int font_size = config_file.value("library_logger/font_size",
                                             10).toInt();
-
-
     QFont font(font_name, font_size);
 
     QTextDocument* doc = text_edit->document();
@@ -61,22 +87,22 @@ TTYLogger::TTYLogger(QWidget* parent) : QMainWindow(parent)
     setCentralWidget(text_edit);
 }
 
-TTYLogger::~TTYLogger()
+LibraryLogger::~LibraryLogger()
 { }
 
-void TTYLogger::append(const QString& data)
+void LibraryLogger::append(const QString& data)
 {
     text_edit->moveCursor(QTextCursor::End);
     text_edit->insertPlainText(data);
     text_edit->moveCursor(QTextCursor::End);
 }
 
-void TTYLogger::clear_log()
+void LibraryLogger::clear_log()
 {
     text_edit->clear();
 }
 
-void TTYLogger::on_select_font()
+void LibraryLogger::on_select_font()
 {
     bool ok;
 
@@ -90,16 +116,16 @@ void TTYLogger::on_select_font()
 
         QSettings config_file("pstest.ini", QSettings::IniFormat, this);
 
-        config_file.setValue("tty_viewer/font_name", font.toString());
-        config_file.setValue("tty_viewer/font_size", font.pointSize());
+        config_file.setValue("library_logger/font_name", font.toString());
+        config_file.setValue("library_logger/font_size", font.pointSize());
     }
 }
 
 // Called when the user triggers "File -> Save" to save the log contents.
-void TTYLogger::on_save_log()
+void LibraryLogger::on_save_log()
 {
     QString file_name = QFileDialog::getSaveFileName(this,
-                                                     tr("Save TTY Log"),
+                                                     tr("Save log"),
                                                      "",
                                                      tr("Log files (*.txt)"));
 
@@ -115,3 +141,5 @@ void TTYLogger::on_save_log()
         log_file.close();
     }
 }
+
+#endif // LIBPS_DEBUG

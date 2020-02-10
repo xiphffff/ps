@@ -17,7 +17,6 @@
 #include <string.h>
 #include "bus.h"
 #include "cd.h"
-#include "event.h"
 #include "gpu.h"
 #include "rcnt.h"
 #include "utility/memory.h"
@@ -122,7 +121,13 @@ static void dma_otc_process(struct libps_bus* bus)
 
     if (bus->dma_otc_channel.chcr != 0x11000002)
     {
-        libps_ev_dma_otc_unknown(bus->dma_otc_channel.chcr);
+#ifdef LIBPS_DEBUG
+        if (bus->debug_unknown_dma_otc_channel_chcr)
+        {
+            bus->debug_unknown_dma_otc_channel_chcr
+            (bus->debug_user_data, bus->dma_otc_channel.chcr);
+        }
+#endif // LIBPS_DEBUG
 
         bus->dma_otc_channel.chcr &= ~(1 << 24);
         return;
@@ -158,6 +163,16 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
     struct libps_bus* bus = libps_safe_malloc(sizeof(struct libps_bus));
 
     bios = bios_data_ptr;
+
+#ifdef LIBPS_DEBUG
+    bus->debug_unknown_byte_load            = NULL;
+    bus->debug_unknown_halfword_load        = NULL;
+    bus->debug_unknown_word_load            = NULL;
+    bus->debug_unknown_byte_store           = NULL;
+    bus->debug_unknown_halfword_store       = NULL;
+    bus->debug_unknown_word_store           = NULL;
+    bus->debug_unknown_dma_otc_channel_chcr = NULL;
+#endif // LIBPS_DEBUG
 
     // XXX: It might be poor forward thinking to allocate 2MB straightaway, not
     // really okay with that. Counting the BIOS (512KB) and this, we've already
@@ -333,13 +348,25 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
                             return 0x1FF00000;
 
                         default:
-                            libps_ev_unknown_word_load(paddr);
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_word_load)
+                            {
+                                bus->debug_unknown_word_load
+                                (bus->debug_user_data, paddr);
+                            }
+#endif // LIBPS_DEBUG
                             return 0x00000000;
                     }
                     break;
 
                 default:
-                    libps_ev_unknown_word_load(paddr);
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_word_load)
+                    {
+                        bus->debug_unknown_word_load(bus->debug_user_data,
+                                                     paddr);
+                    }
+#endif // LIBPS_DEBUG
                     return 0x00000000;
             }
             break;
@@ -348,7 +375,13 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
             return *(uint32_t *)(bios + (paddr & 0x000FFFFF));
 
         default:
-            libps_ev_unknown_word_load(paddr);
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_word_load)
+            {
+                bus->debug_unknown_word_load(bus->debug_user_data,
+                    paddr);
+            }
+#endif // LIBPS_DEBUG
             return 0x00000000;
     }
 }
@@ -400,19 +433,37 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
                             return bus->rcnt->rcnts[2].value & 0x0000FFFF;
 
                         default:
-                            libps_ev_unknown_halfword_load(paddr);
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_halfword_load)
+                            {
+                                bus->debug_unknown_halfword_load
+                                (bus->debug_user_data, paddr);
+                            }
+#endif // LIBPS_DEBUG
                             return 0x0000;
                     }
                     break;
 
                 default:
-                    libps_ev_unknown_halfword_load(paddr);
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_halfword_load)
+                    {
+                        bus->debug_unknown_halfword_load
+                        (bus->debug_user_data, paddr);
+                    }
+#endif // LIBPS_DEBUG
                     return 0x0000;
             }
             break;
 
         default:
-            libps_ev_unknown_halfword_load(paddr);
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_halfword_load)
+            {
+                bus->debug_unknown_halfword_load
+                (bus->debug_user_data, paddr);
+            }
+#endif // LIBPS_DEBUG
             return 0x0000;
     }
 }
@@ -461,13 +512,25 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
                             return libps_cdrom_indexed_register_load(bus->cdrom, 3);
 
                         default:
-                            libps_ev_unknown_byte_load(paddr);
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_byte_load)
+                            {
+                                bus->debug_unknown_byte_load
+                                (bus->debug_user_data, paddr);
+                            }
+#endif // LIBPS_DEBUG
                             return 0x00;
                     }
                     break;
 
                 default:
-                    libps_ev_unknown_byte_load(paddr);
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_byte_load)
+                    {
+                        bus->debug_unknown_byte_load
+                        (bus->debug_user_data, paddr);
+                    }
+#endif // LIBPS_DEBUG
                     return 0x00;
             }
             break;
@@ -476,7 +539,13 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
             return *(uint8_t *)(bios + (paddr & 0x000FFFFF));
 
         default:
-            libps_ev_unknown_byte_load(paddr);
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_byte_load)
+            {
+                bus->debug_unknown_byte_load
+                (bus->debug_user_data, paddr);
+            }
+#endif // LIBPS_DEBUG
             return 0x00;
     }
 }
@@ -584,7 +653,13 @@ void libps_bus_store_word(struct libps_bus* bus,
                             break;
 
                         default:
-                            libps_ev_unknown_word_store(paddr, data);
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_word_store)
+                            {
+                                bus->debug_unknown_word_store
+                                (bus->debug_user_data, paddr, data);
+                            }
+#endif // LIBPS_DEBUG
                             break;
                     }
                     break;
@@ -592,7 +667,13 @@ void libps_bus_store_word(struct libps_bus* bus,
             break;
 
         default:
-            libps_ev_unknown_word_store(paddr, data);
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_word_store)
+            {
+                bus->debug_unknown_word_store
+                (bus->debug_user_data, paddr, data);
+            }
+#endif // LIBPS_DEBUG
             break;
     }
 }
@@ -691,19 +772,37 @@ void libps_bus_store_halfword(struct libps_bus* bus,
                             break;
 
                         default:
-                            libps_ev_unknown_halfword_store(paddr, data);
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_halfword_store)
+                            {
+                                bus->debug_unknown_halfword_store
+                                (bus->debug_user_data, paddr, data);
+                            }
+#endif // LIBPS_DEBUG
                             break;
                     }
                     break;
 
                 default:
-                    libps_ev_unknown_halfword_store(paddr, data);
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_halfword_store)
+                    {
+                        bus->debug_unknown_halfword_store
+                        (bus->debug_user_data, paddr, data);
+                    }
+#endif // LIBPS_DEBUG
                     break;
             }
             break;
 
         default:
-            libps_ev_unknown_halfword_store(paddr, data);
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_halfword_store)
+            {
+                bus->debug_unknown_halfword_store
+                (bus->debug_user_data, paddr, data);
+            }
+#endif // LIBPS_DEBUG
             break;
     }
 }
@@ -769,19 +868,37 @@ void libps_bus_store_byte(struct libps_bus* bus,
                             break;
 
                         default:
-                            libps_ev_unknown_byte_store(paddr, data);
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_byte_store)
+                            {
+                                bus->debug_unknown_byte_store
+                                (bus->debug_user_data, paddr, data);
+                            }
+#endif // LIBPS_DEBUG
                             break;
                     }
                     break;
 
                 default:
-                    libps_ev_unknown_byte_store(paddr, data);
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_byte_store)
+                    {
+                        bus->debug_unknown_byte_store
+                        (bus->debug_user_data, paddr, data);
+                    }
+#endif // LIBPS_DEBUG
                     break;
             }
             break;
 
         default:
-            libps_ev_unknown_byte_store(paddr, data);
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_byte_store)
+            {
+                bus->debug_unknown_byte_store
+                (bus->debug_user_data, paddr, data);
+            }
+#endif // LIBPS_DEBUG
             break;
     }
 }

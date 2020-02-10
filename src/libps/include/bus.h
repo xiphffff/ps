@@ -73,6 +73,39 @@ struct libps_bus
 
     // DMA channel 6 - OTC (reverse clear OT)
     struct libps_dma_channel dma_otc_channel;
+
+#ifdef LIBPS_DEBUG
+    // If using C++, it would probably be wise to set this to `this`.
+    void* debug_user_data;
+
+    // Called when an unknown word load has been attempted
+    void (*debug_unknown_word_load)(void* user_data, const uint32_t vaddr);
+
+    // Called when an unknown halfword load has been attempted
+    void (*debug_unknown_halfword_load)(void* user_data, const uint32_t vaddr);
+
+    // Called when an unknown byte load has been attempted
+    void (*debug_unknown_byte_load)(void* user_data, const uint32_t vaddr);
+
+    // Called when an unknown word store has been attempted
+    void (*debug_unknown_word_store)(void* user_data,
+                                     const uint32_t vaddr,
+                                     const uint32_t data);
+
+    // Called when an unknown halfword store has been attempted
+    void (*debug_unknown_halfword_store)(void* user_data,
+                                         const uint32_t vaddr,
+                                         const uint16_t data);
+
+    // Called when an unknown byte store has been attempted
+    void (*debug_unknown_byte_store)(void* user_data,
+                                     const uint32_t vaddr,
+                                     const uint8_t data);
+
+    // Called when DMA6 CHCR is not known
+    void (*debug_unknown_dma_otc_channel_chcr)(void* user_data,
+                                               const uint32_t chcr);
+#endif // LIBPS_DEBUG
 };
 
 // Creates the system bus. The system bus is the interconnect between the CPU

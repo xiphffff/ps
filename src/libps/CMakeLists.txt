@@ -15,7 +15,6 @@
 set(SRCS bus.c
          cd.c
          cpu.c
-         event.c
          gpu.c
          ps.c
          rcnt.c)
@@ -24,7 +23,6 @@ set(HDRS include/bus.h
          include/cd.h
          include/cpu.h
          include/cpu_defs.h
-         include/event.h
          include/gpu.h
          include/ps.h
          include/rcnt.h)

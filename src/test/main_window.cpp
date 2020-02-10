@@ -22,15 +22,15 @@ MainWindow::MainWindow()
     vram_image_view = new QLabel(this);
     vram_image_view->setPixmap(QPixmap::fromImage(*vram_image));
 
+    file_menu = menuBar()->addMenu(tr("&File"));
+
     inject_ps_exe = new QAction(tr("Inject PS-X EXE..."), this);
 
-    connect(inject_ps_exe, &QAction::triggered, this, &MainWindow::on_inject_ps_exe);
+    connect(inject_ps_exe,
+            &QAction::triggered,
+            this,
+            &MainWindow::on_inject_ps_exe);
 
-    display_tty_log = new QAction(tr("Display TTY Log"), this);
-
-    display_bios_call_log = new QAction(tr("Display BIOS call log"), this);
-
-    file_menu = menuBar()->addMenu(tr("&File"));
     file_menu->addAction(inject_ps_exe);
 
     emulation_menu = menuBar()->addMenu(tr("&Emulation"));
@@ -40,15 +40,19 @@ MainWindow::MainWindow()
     pause_emu = new QAction(tr("Pause"), this);
     reset_emu = new QAction(tr("Reset"), this);
 
-    // The emulator is already running when we get here
-    start_emu->setDisabled(true);
-
     emulation_menu->addAction(start_emu);
     emulation_menu->addAction(stop_emu);
     emulation_menu->addAction(pause_emu);
     emulation_menu->addAction(reset_emu);
 
     debug_menu = menuBar()->addMenu(tr("&Debug"));
+
+    display_tty_log = new QAction(tr("Display TTY log"), this);
+#ifdef LIBPS_DEBUG
+    display_libps_log = new QAction(tr("Display libps log"), this);
+    debug_menu->addAction(display_libps_log);
+#endif // LIBPS_DEBUG
+    display_bios_call_log = new QAction(tr("Display BIOS call log"), this);
 
     debug_menu->addAction(display_tty_log);
     debug_menu->addAction(display_bios_call_log);

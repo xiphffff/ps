@@ -44,10 +44,10 @@ public:
     // and restarts emulation.
     void inject_ps_exe(const QString& file_name);
 
-private:
     // Emulator instance
     struct libps_system* sys;
 
+private:
     // Pointer to the BIOS data
     uint8_t* bios;
 
@@ -64,6 +64,30 @@ signals:
 
     // Illegal instruction occurred (Reserved Instruction exception).
     void illegal_instruction(const uint32_t instruction, const uint32_t pc);
+
+    // Called when an unknown word load has been attempted
+    void on_debug_unknown_word_load(const uint32_t paddr);
+
+    // Called when an unknown halfword load has been attempted
+    void on_debug_unknown_halfword_load(const uint32_t paddr);
+
+    // Called when an unknown byte load has been attempted
+    void on_debug_unknown_byte_load(const uint32_t paddr);
+
+    // Called when an unknown word store has been attempted
+    void on_debug_unknown_word_store(const uint32_t paddr,
+                                     const uint32_t data);
+
+    // Called when an unknown halfword store has been attempted
+    void on_debug_unknown_halfword_store(const uint32_t paddr,
+                                         const uint16_t data);
+
+    // Called when an unknown byte store has been attempted
+    void on_debug_unknown_byte_store(const uint32_t paddr,
+                                     const uint8_t data);
+
+    // Called when DMA6 CHCR is not known
+    void on_debug_unknown_dma_otc_channel_chcr(const uint32_t chcr);
 #endif // LIBPS_DEBUG
 
     // SystemErrorUnresolvedException() was called by the BIOS.

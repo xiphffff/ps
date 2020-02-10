@@ -12,33 +12,50 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-// This event system is indeed a dinky one designed for debugging libps. It
-// simply serves to notify the caller when certain things happen.
+#pragma once
 
 #ifdef LIBPS_DEBUG
 
-#include <stdio.h>
-#include "event.h"
+#include "log.h"
+#include <QtWidgets>
 
-void libps_ev_unknown_word_load(const uint32_t paddr)
-{ }
+class LibraryLogger : public QMainWindow
+{
+    Q_OBJECT
 
-void libps_ev_unknown_halfword_load(const uint32_t paddr)
-{ }
+public:
+    LibraryLogger(QWidget* parent);
+    ~LibraryLogger();
 
-void libps_ev_unknown_byte_load(const uint32_t paddr)
-{ }
+    void append(const QString& data);
+    void clear_log();
 
-void libps_ev_unknown_word_store(const uint32_t paddr, const uint32_t data)
-{ }
+    QAction* unknown_byte_load;
+    QAction* unknown_halfword_load;
+    QAction* unknown_word_load;
+    QAction* unknown_byte_store;
+    QAction* unknown_halfword_store;
+    QAction* unknown_word_store;
+    QAction* unknown_dma_otc_channel_chcr;
 
-void libps_ev_unknown_halfword_store(const uint32_t paddr, const uint16_t data)
-{ }
+private:
+    void on_select_font();
+    void on_save_log();
 
-void libps_ev_unknown_byte_store(const uint32_t paddr, const uint8_t data)
-{ }
+    // Name of the logger
+    QString name;
 
-void libps_ev_dma_otc_unknown(const uint32_t chcr)
-{ }
+    QList<QString> breakpoints;
+
+    QMenu* file_menu;
+    QMenu* view_menu;
+    QMenu* events_menu;
+
+    QAction* save_log;
+    QAction* clear;
+    QAction* select_font;
+
+    QPlainTextEdit* text_edit;
+};
 
 #endif // LIBPS_DEBUG

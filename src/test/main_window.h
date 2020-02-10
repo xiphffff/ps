@@ -30,7 +30,10 @@ public:
     // "File -> Inject PS-X EXE..."
     QAction* inject_ps_exe;
 
-    // "Debug -> Display TTY Log"
+    // "Debug -> Display libps log"
+    QAction* display_libps_log;
+
+    // "Debug -> "Display TTY Log"
     QAction* display_tty_log;
 
     // "Debug -> Display BIOS call log"

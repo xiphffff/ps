@@ -22,6 +22,10 @@ int main(int argc, char* argv[])
     qt.setApplicationName("libps debugging station");
     qt.setApplicationVersion("1.0");
 
+    qRegisterMetaType<uint32_t>("uint32_t");
+    qRegisterMetaType<uint16_t>("uint16_t");
+    qRegisterMetaType<uint8_t>("uint8_t");
+
     PSTest pstest;
     return qt.exec();
 }

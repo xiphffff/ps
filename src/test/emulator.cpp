@@ -24,6 +24,63 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
     fclose(handle);
 
     sys = libps_system_create(bios);
+
+#ifdef LIBPS_DEBUG
+    sys->bus->debug_user_data = this;
+
+    sys->bus->debug_unknown_byte_load = [](void* user_data,
+                                           const uint32_t paddr)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_unknown_byte_load(paddr);
+    };
+
+    sys->bus->debug_unknown_halfword_load = [](void* user_data,
+                                               const uint32_t paddr)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_unknown_halfword_load(paddr);
+    };
+
+    sys->bus->debug_unknown_word_load = [](void* user_data,
+                                           const uint32_t paddr)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_unknown_word_load(paddr);
+    };
+
+    sys->bus->debug_unknown_byte_store = [](void* user_data,
+                                            const uint32_t paddr,
+                                            const uint8_t data)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_unknown_byte_store(paddr, data);
+    };
+
+    sys->bus->debug_unknown_halfword_store = [](void* user_data,
+                                                const uint32_t paddr,
+                                                const uint16_t data)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_unknown_halfword_store(paddr, data);
+    };
+
+    sys->bus->debug_unknown_word_store = [](void* user_data,
+                                            const uint32_t paddr,
+                                            const uint32_t data)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_unknown_word_store(paddr, data);
+    };
+#if 0
+    sys->bus->debug_unknown_dma_otc_channel_chcr =
+    [](void* user_data, const uint32_t chcr)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_unknown_dma_otc_channel_chcr(chcr);
+    };
+#endif
+#endif // LIBPS_DEBUG
     running = false;
 }
 

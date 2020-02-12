@@ -28,58 +28,22 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 #ifdef LIBPS_DEBUG
     sys->bus->debug_user_data = this;
 
-    sys->bus->debug_unknown_byte_load = [](void* user_data,
-                                           const uint32_t paddr)
+    sys->bus->debug_unknown_memory_load = [](void* user_data,
+                                             const uint32_t paddr,
+                                             const unsigned int type)
     {
         Emulator* ps = reinterpret_cast<Emulator*>(user_data);
-        emit ps->on_debug_unknown_byte_load(paddr);
+        emit ps->on_debug_unknown_memory_load(paddr, type);
     };
 
-    sys->bus->debug_unknown_halfword_load = [](void* user_data,
-                                               const uint32_t paddr)
+    sys->bus->debug_unknown_memory_store = [](void* user_data,
+                                              const uint32_t paddr,
+                                              const unsigned int data,
+                                              const unsigned int type)
     {
         Emulator* ps = reinterpret_cast<Emulator*>(user_data);
-        emit ps->on_debug_unknown_halfword_load(paddr);
+        emit ps->on_debug_unknown_memory_store(paddr, data, type);
     };
-
-    sys->bus->debug_unknown_word_load = [](void* user_data,
-                                           const uint32_t paddr)
-    {
-        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
-        emit ps->on_debug_unknown_word_load(paddr);
-    };
-
-    sys->bus->debug_unknown_byte_store = [](void* user_data,
-                                            const uint32_t paddr,
-                                            const uint8_t data)
-    {
-        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
-        emit ps->on_debug_unknown_byte_store(paddr, data);
-    };
-
-    sys->bus->debug_unknown_halfword_store = [](void* user_data,
-                                                const uint32_t paddr,
-                                                const uint16_t data)
-    {
-        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
-        emit ps->on_debug_unknown_halfword_store(paddr, data);
-    };
-
-    sys->bus->debug_unknown_word_store = [](void* user_data,
-                                            const uint32_t paddr,
-                                            const uint32_t data)
-    {
-        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
-        emit ps->on_debug_unknown_word_store(paddr, data);
-    };
-#if 0
-    sys->bus->debug_unknown_dma_otc_channel_chcr =
-    [](void* user_data, const uint32_t chcr)
-    {
-        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
-        emit ps->on_debug_unknown_dma_otc_channel_chcr(chcr);
-    };
-#endif
 #endif // LIBPS_DEBUG
     running = false;
 }
@@ -93,8 +57,6 @@ Emulator::~Emulator()
 // Thread entry point
 void Emulator::run()
 {
-    static QString tty_str;
-
     while (running)
     {
         QElapsedTimer timer;
@@ -102,30 +64,43 @@ void Emulator::run()
 
         for (unsigned int cycle = 0; cycle < 33868800 / 60; cycle += 2)
         {
-            if (((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x3C) ||
-                ((sys->cpu->pc == 0x000000B0) && sys->cpu->gpr[9] == 0x3D))
+            if (sys->cpu->pc == 0x000000A0)
             {
-                if (sys->cpu->gpr[4] == '\n')
+                switch (sys->cpu->gpr[9])
                 {
-                    emit tty_string(tty_str);
-                    tty_str.clear();
+                    case 0x3C:
+                        handle_tty_string();
+                        break;
+
+                    case 0x40:
+                        emit system_error();
+                        running = false;
+
+                        break;
+
+                    default:
+                        emit bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                        break;
                 }
-                tty_str += sys->cpu->gpr[4];
+            }
+            
+            if (sys->cpu->pc == 0x000000B0)
+            {
+                switch (sys->cpu->gpr[9])
+                {
+                    case 0x3D:
+                        handle_tty_string();
+                        break;
+
+                    default:
+                        emit bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                        break;
+                }
             }
 
-            if (sys->cpu->pc == 0x000000A0 ||
-                sys->cpu->pc == 0x000000B0 ||
-                sys->cpu->pc == 0x000000C0)
+            if (sys->cpu->pc == 0x000000C0)
             {
                 emit bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
-            }
-
-            if ((sys->cpu->pc == 0x000000A0) && sys->cpu->gpr[9] == 0x40)
-            {
-                emit system_error();
-                running = false;
-
-                break;
             }
             libps_system_step(sys);
         }
@@ -140,6 +115,19 @@ void Emulator::run()
         {
             QThread::msleep((1000 / 60) - elapsed);
         }
+    }
+}
+
+void Emulator::handle_tty_string()
+{
+    static QString tty_str;
+
+    tty_str += sys->cpu->gpr[4];
+
+    if (sys->cpu->gpr[4] == '\n')
+    {
+        emit tty_string(tty_str);
+        tty_str.clear();
     }
 }
 

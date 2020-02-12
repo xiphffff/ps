@@ -16,12 +16,7 @@
 
 #include "emulator.h"
 #include "main_window.h"
-#include "debug/bios_calls.h"
 #include "debug/log.h"
-
-#ifdef LIBPS_DEBUG
-#include "debug/libps_log.h"
-#endif // LIBPS_DEBUG
 
 class PSTest : public QObject
 {
@@ -40,16 +35,8 @@ private:
     // A(0x40), A(0x3C), or B(0x3D) was reached.
     void emu_bios_call(const quint32 pc, const quint32 fn);
 
-    // Called when the user triggers `Debug -> Display TTY Log`.
-    void display_tty_log();
-
-    // Called when the user triggers `Debug -> Display BIOS call log`.
-    void display_bios_call_log();
-
-#ifdef LIBPS_DEBUG
     // Called when the user triggers `Debug -> Display libps log`.
     void display_libps_log();
-#endif // LIBPS_DEBUG
 
     // Called when the user triggers `Emulation -> Start`. This function is
     // also called upon startup, and is used also to resume emulation from a
@@ -67,35 +54,19 @@ private:
 
 #ifdef LIBPS_DEBUG
     // Called when an unknown word load has been attempted
-    void on_debug_unknown_word_load(const uint32_t paddr);
-
-    // Called when an unknown halfword load has been attempted
-    void on_debug_unknown_halfword_load(const uint32_t paddr);
-
-    // Called when an unknown byte load has been attempted
-    void on_debug_unknown_byte_load(const uint32_t paddr);
+    void on_debug_unknown_memory_load(const uint32_t paddr,
+                                      const unsigned int type);
 
     // Called when an unknown word store has been attempted
-    void on_debug_unknown_word_store(const uint32_t paddr,
-                                     const uint32_t data);
-
-    // Called when an unknown halfword store has been attempted
-    void on_debug_unknown_halfword_store(const uint32_t paddr,
-                                         const uint16_t data);
-
-    // Called when an unknown byte store has been attempted
-    void on_debug_unknown_byte_store(const uint32_t paddr,
-                                     const uint8_t data);
-
-    // Called when DMA6 CHCR is not known
-    void on_debug_unknown_dma_otc_channel_chcr(const uint32_t chcr);
+    void on_debug_unknown_memory_store(const uint32_t paddr,
+                                       const unsigned int data,
+                                       const unsigned int type);
 #endif // LIBPS_DEBUG
 
-    BIOSCalls* bios_calls;
+    // Called when a TTY string has been generated
+    void on_tty_string(const QString& tty_string);
+
     MainWindow* main_window;
-    MessageLogger* tty_logger;
-#ifdef LIBPS_DEBUG
-    LibraryLogger* libps_log;
-#endif // LIBPS_DEBUG
+    MessageLogger* libps_log;
     Emulator* emulator;
 };

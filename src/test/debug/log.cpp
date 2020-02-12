@@ -14,43 +14,60 @@
 
 #include "log.h"
 
-MessageLogger::MessageLogger(QWidget* parent, const QString& m_name) :
-                             QMainWindow(parent)
+MessageLogger::MessageLogger(QWidget* parent) : QMainWindow(parent)
 {
-    save_log    = new QAction(tr("&Save..."), this);
-    select_font = new QAction(tr("&Font..."), this);
+    file_menu = menuBar()->addMenu(tr("&File"));
 
-    clear = new QAction(tr("&Clear"), this);
+    save_log = new QAction(tr("&Save..."), this);
 
     connect(save_log,
             &QAction::triggered,
             this,
             &MessageLogger::on_save_log);
 
-    connect(clear, &QAction::triggered, this, &MessageLogger::clear_log);
+    file_menu->addAction(save_log);
+
+    view_menu = menuBar()->addMenu(tr("&View"));
+
+    select_font = new QAction(tr("&Font..."), this);
+    clear_log   = new QAction(tr("&Clear"),   this);
 
     connect(select_font,
             &QAction::triggered,
             this,
             &MessageLogger::on_select_font);
 
-    file_menu = menuBar()->addMenu(tr("&File"));
-    file_menu->addAction(save_log);
+    connect(clear_log, &QAction::triggered, this, &MessageLogger::reset);
 
-    view_menu = menuBar()->addMenu(tr("&View"));
-
-    view_menu->addAction(clear);
     view_menu->addAction(select_font);
+    view_menu->addAction(clear_log);
+
+    events_menu = menuBar()->addMenu(tr("&Events"));
+
+    tty_strings          = new QAction(tr("TTY output"),           this);
+    bios_calls           = new QAction(tr("BIOS calls"),           this);
+    unknown_memory_load  = new QAction(tr("Unknown memory load"),  this);
+    unknown_memory_store = new QAction(tr("Unknown memory store"), this);
+
+    tty_strings->setCheckable(true);
+    bios_calls->setCheckable(true);
+    unknown_memory_load->setCheckable(true);
+    unknown_memory_store->setCheckable(true);
+
+    events_menu->addAction(tty_strings);
+    events_menu->addAction(bios_calls);
+    events_menu->addAction(unknown_memory_load);
+    events_menu->addAction(unknown_memory_store);
 
     text_edit = new QPlainTextEdit(this);
     text_edit->setReadOnly(true);
 
     QSettings config_file("pstest.ini", QSettings::IniFormat, this);
 
-    const QString font_name = config_file.value("tty_viewer/font_name",
+    const QString font_name = config_file.value("message_logger/font_name",
                                                 "Lucida Console").toString();
 
-    const int font_size = config_file.value("tty_viewer/font_size",
+    const int font_size = config_file.value("message_logger/font_size",
                                             10).toInt();
     QFont font(font_name, font_size);
 
@@ -65,12 +82,10 @@ MessageLogger::~MessageLogger()
 
 void MessageLogger::append(const QString& data)
 {
-    text_edit->moveCursor(QTextCursor::End);
     text_edit->insertPlainText(data);
-    text_edit->moveCursor(QTextCursor::End);
 }
 
-void MessageLogger::clear_log()
+void MessageLogger::reset()
 {
     text_edit->clear();
 }
@@ -89,8 +104,8 @@ void MessageLogger::on_select_font()
 
         QSettings config_file("pstest.ini", QSettings::IniFormat, this);
 
-        config_file.setValue("tty_viewer/font_name", font.toString());
-        config_file.setValue("tty_viewer/font_size", font.pointSize());
+        config_file.setValue("message_logger/font_name", font.toString());
+        config_file.setValue("message_logger/font_size", font.pointSize());
     }
 }
 

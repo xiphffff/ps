@@ -121,14 +121,6 @@ static void dma_otc_process(struct libps_bus* bus)
 
     if (bus->dma_otc_channel.chcr != 0x11000002)
     {
-#ifdef LIBPS_DEBUG
-        if (bus->debug_unknown_dma_otc_channel_chcr)
-        {
-            bus->debug_unknown_dma_otc_channel_chcr
-            (bus->debug_user_data, bus->dma_otc_channel.chcr);
-        }
-#endif // LIBPS_DEBUG
-
         bus->dma_otc_channel.chcr &= ~(1 << 24);
         return;
     }
@@ -165,13 +157,8 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
     bios = bios_data_ptr;
 
 #ifdef LIBPS_DEBUG
-    bus->debug_unknown_byte_load            = NULL;
-    bus->debug_unknown_halfword_load        = NULL;
-    bus->debug_unknown_word_load            = NULL;
-    bus->debug_unknown_byte_store           = NULL;
-    bus->debug_unknown_halfword_store       = NULL;
-    bus->debug_unknown_word_store           = NULL;
-    bus->debug_unknown_dma_otc_channel_chcr = NULL;
+    bus->debug_unknown_memory_load  = NULL;
+    bus->debug_unknown_memory_store = NULL;
 #endif // LIBPS_DEBUG
 
     // XXX: It might be poor forward thinking to allocate 2MB straightaway, not
@@ -349,10 +336,10 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
 
                         default:
 #ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_word_load)
+                            if (bus->debug_unknown_memory_load)
                             {
-                                bus->debug_unknown_word_load
-                                (bus->debug_user_data, paddr);
+                                bus->debug_unknown_memory_load
+                                (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
                             }
 #endif // LIBPS_DEBUG
                             return 0x00000000;
@@ -361,10 +348,10 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
 
                 default:
 #ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_word_load)
+                    if (bus->debug_unknown_memory_load)
                     {
-                        bus->debug_unknown_word_load(bus->debug_user_data,
-                                                     paddr);
+                        bus->debug_unknown_memory_load
+                        (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
                     }
 #endif // LIBPS_DEBUG
                     return 0x00000000;
@@ -376,10 +363,10 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
 
         default:
 #ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_word_load)
+            if (bus->debug_unknown_memory_load)
             {
-                bus->debug_unknown_word_load(bus->debug_user_data,
-                    paddr);
+                bus->debug_unknown_memory_load
+                (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
             }
 #endif // LIBPS_DEBUG
             return 0x00000000;
@@ -434,10 +421,10 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
 
                         default:
 #ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_halfword_load)
+                            if (bus->debug_unknown_memory_load)
                             {
-                                bus->debug_unknown_halfword_load
-                                (bus->debug_user_data, paddr);
+                                bus->debug_unknown_memory_load
+                                (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
                             }
 #endif // LIBPS_DEBUG
                             return 0x0000;
@@ -446,10 +433,10 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
 
                 default:
 #ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_halfword_load)
+                    if (bus->debug_unknown_memory_load)
                     {
-                        bus->debug_unknown_halfword_load
-                        (bus->debug_user_data, paddr);
+                        bus->debug_unknown_memory_load
+                        (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
                     }
 #endif // LIBPS_DEBUG
                     return 0x0000;
@@ -458,10 +445,10 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
 
         default:
 #ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_halfword_load)
+            if (bus->debug_unknown_memory_load)
             {
-                bus->debug_unknown_halfword_load
-                (bus->debug_user_data, paddr);
+                bus->debug_unknown_memory_load
+                (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
             }
 #endif // LIBPS_DEBUG
             return 0x0000;
@@ -513,10 +500,10 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
 
                         default:
 #ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_byte_load)
+                            if (bus->debug_unknown_memory_load)
                             {
-                                bus->debug_unknown_byte_load
-                                (bus->debug_user_data, paddr);
+                                bus->debug_unknown_memory_load
+                                (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
                             }
 #endif // LIBPS_DEBUG
                             return 0x00;
@@ -525,10 +512,10 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
 
                 default:
 #ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_byte_load)
+                    if (bus->debug_unknown_memory_load)
                     {
-                        bus->debug_unknown_byte_load
-                        (bus->debug_user_data, paddr);
+                        bus->debug_unknown_memory_load
+                        (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
                     }
 #endif // LIBPS_DEBUG
                     return 0x00;
@@ -540,10 +527,10 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
 
         default:
 #ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_byte_load)
+            if (bus->debug_unknown_memory_load)
             {
-                bus->debug_unknown_byte_load
-                (bus->debug_user_data, paddr);
+                bus->debug_unknown_memory_load
+                (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
             }
 #endif // LIBPS_DEBUG
             return 0x00;
@@ -654,10 +641,10 @@ void libps_bus_store_word(struct libps_bus* bus,
 
                         default:
 #ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_word_store)
+                            if (bus->debug_unknown_memory_store)
                             {
-                                bus->debug_unknown_word_store
-                                (bus->debug_user_data, paddr, data);
+                                bus->debug_unknown_memory_store
+                                (bus->debug_user_data, paddr, data, LIBPS_DEBUG_WORD);
                             }
 #endif // LIBPS_DEBUG
                             break;
@@ -668,10 +655,10 @@ void libps_bus_store_word(struct libps_bus* bus,
 
         default:
 #ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_word_store)
+            if (bus->debug_unknown_memory_store)
             {
-                bus->debug_unknown_word_store
-                (bus->debug_user_data, paddr, data);
+                bus->debug_unknown_memory_store
+                (bus->debug_user_data, paddr, data, LIBPS_DEBUG_WORD);
             }
 #endif // LIBPS_DEBUG
             break;
@@ -773,10 +760,10 @@ void libps_bus_store_halfword(struct libps_bus* bus,
 
                         default:
 #ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_halfword_store)
+                            if (bus->debug_unknown_memory_store)
                             {
-                                bus->debug_unknown_halfword_store
-                                (bus->debug_user_data, paddr, data);
+                                bus->debug_unknown_memory_store
+                                (bus->debug_user_data, paddr, data, LIBPS_DEBUG_HALFWORD);
                             }
 #endif // LIBPS_DEBUG
                             break;
@@ -785,10 +772,10 @@ void libps_bus_store_halfword(struct libps_bus* bus,
 
                 default:
 #ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_halfword_store)
+                    if (bus->debug_unknown_memory_store)
                     {
-                        bus->debug_unknown_halfword_store
-                        (bus->debug_user_data, paddr, data);
+                        bus->debug_unknown_memory_store
+                        (bus->debug_user_data, paddr, data, LIBPS_DEBUG_HALFWORD);
                     }
 #endif // LIBPS_DEBUG
                     break;
@@ -797,10 +784,10 @@ void libps_bus_store_halfword(struct libps_bus* bus,
 
         default:
 #ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_halfword_store)
+            if (bus->debug_unknown_memory_store)
             {
-                bus->debug_unknown_halfword_store
-                (bus->debug_user_data, paddr, data);
+                bus->debug_unknown_memory_store
+                (bus->debug_user_data, paddr, data, LIBPS_DEBUG_HALFWORD);
             }
 #endif // LIBPS_DEBUG
             break;
@@ -869,10 +856,10 @@ void libps_bus_store_byte(struct libps_bus* bus,
 
                         default:
 #ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_byte_store)
+                            if (bus->debug_unknown_memory_store)
                             {
-                                bus->debug_unknown_byte_store
-                                (bus->debug_user_data, paddr, data);
+                                bus->debug_unknown_memory_store
+                                (bus->debug_user_data, paddr, data, LIBPS_DEBUG_BYTE);
                             }
 #endif // LIBPS_DEBUG
                             break;
@@ -881,10 +868,10 @@ void libps_bus_store_byte(struct libps_bus* bus,
 
                 default:
 #ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_byte_store)
+                    if (bus->debug_unknown_memory_store)
                     {
-                        bus->debug_unknown_byte_store
-                        (bus->debug_user_data, paddr, data);
+                        bus->debug_unknown_memory_store
+                        (bus->debug_user_data, paddr, data, LIBPS_DEBUG_BYTE);
                     }
 #endif // LIBPS_DEBUG
                     break;
@@ -893,10 +880,10 @@ void libps_bus_store_byte(struct libps_bus* bus,
 
         default:
 #ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_byte_store)
+            if (bus->debug_unknown_memory_store)
             {
-                bus->debug_unknown_byte_store
-                (bus->debug_user_data, paddr, data);
+                bus->debug_unknown_memory_store
+                (bus->debug_user_data, paddr, data, LIBPS_DEBUG_BYTE);
             }
 #endif // LIBPS_DEBUG
             break;

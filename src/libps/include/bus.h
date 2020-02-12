@@ -25,6 +25,12 @@ struct libps_gpu;
 struct libps_cdrom;
 struct libps_rcnt;
 
+#ifdef LIBPS_DEBUG
+#define LIBPS_DEBUG_WORD 0xFFFFFFFF
+#define LIBPS_DEBUG_HALFWORD 0xFFFF
+#define LIBPS_DEBUG_BYTE 0xFF
+#endif // LIBPS_DEBUG
+
 struct libps_dma_channel
 {
     // Base address
@@ -78,33 +84,16 @@ struct libps_bus
     // If using C++, it would probably be wise to set this to `this`.
     void* debug_user_data;
 
-    // Called when an unknown word load has been attempted
-    void (*debug_unknown_word_load)(void* user_data, const uint32_t vaddr);
-
-    // Called when an unknown halfword load has been attempted
-    void (*debug_unknown_halfword_load)(void* user_data, const uint32_t vaddr);
-
-    // Called when an unknown byte load has been attempted
-    void (*debug_unknown_byte_load)(void* user_data, const uint32_t vaddr);
+    // Called when an unknown memory load has been attempted
+    void (*debug_unknown_memory_load)(void* user_data,
+                                      const uint32_t paddr,
+                                      const unsigned int type);
 
     // Called when an unknown word store has been attempted
-    void (*debug_unknown_word_store)(void* user_data,
-                                     const uint32_t vaddr,
-                                     const uint32_t data);
-
-    // Called when an unknown halfword store has been attempted
-    void (*debug_unknown_halfword_store)(void* user_data,
-                                         const uint32_t vaddr,
-                                         const uint16_t data);
-
-    // Called when an unknown byte store has been attempted
-    void (*debug_unknown_byte_store)(void* user_data,
-                                     const uint32_t vaddr,
-                                     const uint8_t data);
-
-    // Called when DMA6 CHCR is not known
-    void (*debug_unknown_dma_otc_channel_chcr)(void* user_data,
-                                               const uint32_t chcr);
+    void (*debug_unknown_memory_store)(void* user_data,
+                                       const uint32_t paddr,
+                                       const unsigned int data,
+                                       const unsigned int type);
 #endif // LIBPS_DEBUG
 };
 

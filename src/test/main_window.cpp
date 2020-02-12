@@ -47,15 +47,8 @@ MainWindow::MainWindow()
 
     debug_menu = menuBar()->addMenu(tr("&Debug"));
 
-    display_tty_log = new QAction(tr("Display TTY log"), this);
-#ifdef LIBPS_DEBUG
     display_libps_log = new QAction(tr("Display libps log"), this);
     debug_menu->addAction(display_libps_log);
-#endif // LIBPS_DEBUG
-    display_bios_call_log = new QAction(tr("Display BIOS call log"), this);
-
-    debug_menu->addAction(display_tty_log);
-    debug_menu->addAction(display_bios_call_log);
 
     setWindowFlags(Qt::MSWindowsFixedSizeDialogHint);
     setCentralWidget(vram_image_view);

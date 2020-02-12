@@ -57,6 +57,8 @@ private:
     // Are we injecting a test EXE?
     bool injecting;
 
+    void handle_tty_string();
+
 signals:
 #ifdef LIBPS_DEBUG
     // Exception other than an interrupt or system call was raised by the CPU.
@@ -65,29 +67,14 @@ signals:
     // Illegal instruction occurred (Reserved Instruction exception).
     void illegal_instruction(const uint32_t instruction, const uint32_t pc);
 
-    // Called when an unknown word load has been attempted
-    void on_debug_unknown_word_load(const uint32_t paddr);
+    // Called when an unknown memory load has been attempted
+    void on_debug_unknown_memory_load(const uint32_t paddr,
+                                      const unsigned int type);
 
-    // Called when an unknown halfword load has been attempted
-    void on_debug_unknown_halfword_load(const uint32_t paddr);
-
-    // Called when an unknown byte load has been attempted
-    void on_debug_unknown_byte_load(const uint32_t paddr);
-
-    // Called when an unknown word store has been attempted
-    void on_debug_unknown_word_store(const uint32_t paddr,
-                                     const uint32_t data);
-
-    // Called when an unknown halfword store has been attempted
-    void on_debug_unknown_halfword_store(const uint32_t paddr,
-                                         const uint16_t data);
-
-    // Called when an unknown byte store has been attempted
-    void on_debug_unknown_byte_store(const uint32_t paddr,
-                                     const uint8_t data);
-
-    // Called when DMA6 CHCR is not known
-    void on_debug_unknown_dma_otc_channel_chcr(const uint32_t chcr);
+    // Called when an unknown memory store has been attempted
+    void on_debug_unknown_memory_store(const uint32_t paddr,
+                                       const unsigned int data,
+                                       const unsigned int type);
 #endif // LIBPS_DEBUG
 
     // SystemErrorUnresolvedException() was called by the BIOS.

@@ -33,12 +33,6 @@ public:
     // "Debug -> Display libps log"
     QAction* display_libps_log;
 
-    // "Debug -> "Display TTY Log"
-    QAction* display_tty_log;
-
-    // "Debug -> Display BIOS call log"
-    QAction* display_bios_call_log;
-
     // "Emulation -> Start" or "Emulation -> Resume" depending on the run state
     // of the emulator
     QAction* start_emu;

@@ -15,7 +15,7 @@
 #include "pstest.h"
 #include "../libps/include/ps.h"
 
-PSTest::PSTest() : bios_calls(nullptr)
+PSTest::PSTest()
 {
     goto staging;
 
@@ -46,7 +46,6 @@ staging:
             {
                 case QMessageBox::Retry:
                     goto staging;
-                    break;
 
                 case QMessageBox::Cancel:
                     exit(EXIT_FAILURE);
@@ -69,13 +68,8 @@ staging:
     connect(emulator, &Emulator::bios_call,    this,        &PSTest::emu_bios_call);
 
 #ifdef LIBPS_DEBUG
-    connect(emulator, &Emulator::on_debug_unknown_byte_load,            this, &PSTest::on_debug_unknown_byte_load);
-    connect(emulator, &Emulator::on_debug_unknown_halfword_load,        this, &PSTest::on_debug_unknown_halfword_load);
-    connect(emulator, &Emulator::on_debug_unknown_word_load,            this, &PSTest::on_debug_unknown_word_load);
-    connect(emulator, &Emulator::on_debug_unknown_byte_store,           this, &PSTest::on_debug_unknown_byte_store);
-    connect(emulator, &Emulator::on_debug_unknown_halfword_store,       this, &PSTest::on_debug_unknown_halfword_store);
-    connect(emulator, &Emulator::on_debug_unknown_word_store,           this, &PSTest::on_debug_unknown_word_store);
-    connect(emulator, &Emulator::on_debug_unknown_dma_otc_channel_chcr, this, &PSTest::on_debug_unknown_dma_otc_channel_chcr);
+    connect(emulator, &Emulator::on_debug_unknown_memory_load,  this, &PSTest::on_debug_unknown_memory_load);
+    connect(emulator, &Emulator::on_debug_unknown_memory_store, this, &PSTest::on_debug_unknown_memory_store);
 #endif // LIBPS_DEBUG
 
     // "File" menu
@@ -88,11 +82,7 @@ staging:
     connect(main_window->pause_emu, &QAction::triggered, this, &PSTest::pause_emu);
 
     // "Debug" menu
-    connect(main_window->display_tty_log, &QAction::triggered, this, &PSTest::display_tty_log);
-#ifdef LIBPS_DEBUG
     connect(main_window->display_libps_log, &QAction::triggered, this, &PSTest::display_libps_log);
-#endif // LIBPS_DEBUG
-    connect(main_window->display_bios_call_log, &QAction::triggered, this, &PSTest::display_bios_call_log);
 
     main_window->setWindowTitle("libps debugging station");
     main_window->resize(1024, 512);
@@ -116,53 +106,23 @@ void PSTest::emu_report_system_error()
 // Called when the emulator core reports that a BIOS call other than
 // A(0x40), A(0x3C), or B(0x3D) was reached.
 void PSTest::emu_bios_call(const quint32 pc, const quint32 fn)
-{
-    if (bios_calls)
-    {
-        bios_calls->add(pc, fn);
-    }
-}
+{ }
 
-// Called when the user clicks `Debug -> Display TTY Log`.
-void PSTest::display_tty_log()
+void PSTest::display_libps_log()
 {
-    tty_logger = new MessageLogger(main_window, "tty_logger");
-    tty_logger->setAttribute(Qt::WA_DeleteOnClose);
+    libps_log = new MessageLogger(main_window);
+    libps_log->setAttribute(Qt::WA_DeleteOnClose);
 
     connect(emulator,
             &Emulator::tty_string,
-            tty_logger,
-            &MessageLogger::append);
-
-    tty_logger->setWindowTitle(tr("libps TTY log"));
-    tty_logger->resize(500, 500);
-
-    tty_logger->show();
-}
-
-// Called when the user triggers `Debug -> Display BIOS call log`.
-void PSTest::display_bios_call_log()
-{
-    bios_calls = new BIOSCalls();
-
-    bios_calls->resize(640, 480);
-    bios_calls->setWindowTitle(tr("libps BIOS call log"));
-
-    bios_calls->show();
-}
-
-#ifdef LIBPS_DEBUG
-void PSTest::display_libps_log()
-{
-    libps_log = new LibraryLogger(main_window);
-    libps_log->setAttribute(Qt::WA_DeleteOnClose);
+            this,
+            &PSTest::on_tty_string);
 
     libps_log->setWindowTitle(tr("libps log"));
     libps_log->resize(500, 500);
 
     libps_log->show();
 }
-#endif // LIBPS_DEBUG
 
 // Called when the user triggers `Emulation -> Start`. This function is also
 // called upon startup, and is used also to resume emulation from a paused
@@ -207,86 +167,91 @@ void PSTest::pause_emu()
 // Called when the user triggers `Emulation -> Reset`.
 void PSTest::reset_emu()
 {
-    if (tty_logger)
+    if (libps_log)
     {
-        tty_logger->clear_log();
+        libps_log->reset();
     }
 
     emulator->stop_run_loop();
     emulator->begin_run_loop();
 }
 
+// Called when a TTY string has been generated
+void PSTest::on_tty_string(const QString& tty_string)
+{
+    if (libps_log && libps_log->tty_strings->isChecked())
+    {
+        libps_log->append("[TTY]: " + tty_string);
+    }
+}
+
 #ifdef LIBPS_DEBUG
-// Called when an unknown word load has been attempted
-void PSTest::on_debug_unknown_word_load(const uint32_t paddr)
+// Called when an unknown memory load has been attempted
+void PSTest::on_debug_unknown_memory_load(const uint32_t paddr,
+                                          const unsigned int type)
 {
-    if (libps_log && libps_log->unknown_word_load->isChecked())
+    if (libps_log && libps_log->unknown_memory_load->isChecked())
     {
-        libps_log->append(QString("Unknown word load: 0x%1\n").arg(QString::number(paddr, 16).toUpper()));
-    }
-}
+        QString m_type;
 
-// Called when an unknown halfword load has been attempted
-void PSTest::on_debug_unknown_halfword_load(const uint32_t paddr)
-{
-    if (libps_log && libps_log->unknown_halfword_load->isChecked())
-    {
-        libps_log->append(QString("Unknown halfword load: 0x%1\n").arg(QString::number(paddr, 16).toUpper()));
-    }
-}
+        switch (type)
+        {
+            case LIBPS_DEBUG_WORD:
+                m_type = "word";
+                break;
 
-// Called when an unknown byte load has been attempted
-void PSTest::on_debug_unknown_byte_load(const uint32_t paddr)
-{
-    if (libps_log && libps_log->unknown_byte_load->isChecked())
-    {
-        libps_log->append(QString("Unknown byte load: 0x%1\n").arg(QString::number(paddr, 16).toUpper()));
+            case LIBPS_DEBUG_HALFWORD:
+                m_type = "halfword";
+                break;
+
+            case LIBPS_DEBUG_BYTE:
+                m_type = "byte";
+                break;
+        }
+
+        libps_log->append(QString("Unknown %1 load: 0x%2\n")
+                          .arg(m_type)
+                          .arg(QString::number(paddr, 16).toUpper()));
     }
 }
 
 // Called when an unknown word store has been attempted
-void PSTest::on_debug_unknown_word_store(const uint32_t paddr,
-                                         const uint32_t data)
+void PSTest::on_debug_unknown_memory_store(const uint32_t paddr,
+                                           const unsigned int data,
+                                           const unsigned int type)
 {
-    if (libps_log && libps_log->unknown_word_store->isChecked())
+    if (libps_log && libps_log->unknown_memory_store->isChecked())
     {
-        libps_log->append(QString("Unknown word store: 0x%1 <- 0x%2\n")
-                          .arg(QString::number(paddr, 16).toUpper())
-                          .arg(QString::number(data, 16).toUpper()));
-    }
-}
+        QString m_type;
+        QString result;
 
-// Called when an unknown halfword store has been attempted
-void PSTest::on_debug_unknown_halfword_store(const uint32_t paddr,
-                                             const uint16_t data)
-{
-    if (libps_log && libps_log->unknown_halfword_store->isChecked())
-    {
-        libps_log->append(QString("Unknown halfword store: 0x%1 <- 0x%2\n")
-                         .arg(QString::number(paddr, 16).toUpper())
-                         .arg(QString::number(data, 16).toUpper()));
-    }
-}
+        switch (type)
+        {
+            case LIBPS_DEBUG_WORD:
+                m_type = "word";
+                result = QString("%1").arg(data & type, 8, 16, QChar('0')).toUpper();
 
-// Called when an unknown byte store has been attempted
-void PSTest::on_debug_unknown_byte_store(const uint32_t paddr,
-                                         const uint8_t data)
-{
-    if (libps_log && libps_log->unknown_byte_store->isChecked())
-    {
-        libps_log->append(QString("Unknown byte store: 0x%1 <- 0x%2\n")
-                          .arg(QString::number(paddr, 16).toUpper())
-                          .arg(QString::number(data, 16).toUpper()));
-    }
-}
+                break;
 
-// Called when DMA6 CHCR is not known
-void PSTest::on_debug_unknown_dma_otc_channel_chcr(const uint32_t chcr)
-{
-    if (libps_log && libps_log->unknown_dma_otc_channel_chcr->isChecked())
-    {
-        libps_log->append(QString("Unknown DMA6 OTC: Expected 0x11000002, got 0x%1\n")
-                          .arg(QString::number(chcr, 16).toUpper()));
+            case LIBPS_DEBUG_HALFWORD:
+                m_type = "halfword";
+                result = QString("%1").arg(data & type, 4, 16, QChar('0')).toUpper();
+
+                break;
+
+            case LIBPS_DEBUG_BYTE:
+                m_type = "byte";
+                result = QString("%1").arg(data & type, 2, 16, QChar('0')).toUpper();
+
+                break;
+        }
+
+        QString str = QString("Unknown %1 store: 0x%2 <- 0x%3\n")
+                      .arg(m_type)
+                      .arg(QString::number(paddr, 16).toUpper())
+                      .arg(result);
+
+        libps_log->append(str);
     }
 }
 #endif // LIBPS_DEBUG

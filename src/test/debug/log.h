@@ -21,11 +21,18 @@ class MessageLogger : public QMainWindow
     Q_OBJECT
 
 public:
-    MessageLogger(QWidget* parent, const QString& m_name);
+    MessageLogger(QWidget* parent);
     ~MessageLogger();
 
     void append(const QString& data);
-    void clear_log();
+    void reset();
+
+    QAction* tty_strings;
+    QAction* bios_calls;
+#ifdef LIBPS_DEBUG
+    QAction* unknown_memory_load;
+    QAction* unknown_memory_store;
+#endif
 
 private:
     void on_select_font();
@@ -34,14 +41,13 @@ private:
     // Name of the logger
     QString name;
 
-    QList<QString> breakpoints;
-
     QMenu* file_menu;
-    QMenu* view_menu;
-
     QAction* save_log;
-    QAction* clear;
-    QAction* select_font;
 
+    QMenu* view_menu;
+    QAction* select_font;
+    QAction* clear_log;
+
+    QMenu* events_menu;
     QPlainTextEdit* text_edit;
 };

@@ -25,10 +25,11 @@ endif()
 set(SRCS emulator.cpp main.cpp main_window.cpp pstest.cpp)
 set(HDRS emulator.h main_window.h pstest.h)
 
-set(DEBUG_SRCS debug/gpu.cpp
+set(DEBUG_SRCS debug/cpu.cpp
+               debug/gpu.cpp
                debug/log.cpp)
 
-set(DEBUG_HDRS debug/gpu.h debug/log.h)
+set(DEBUG_HDRS debug/cpu.h debug/gpu.h debug/log.h)
 
 source_group("Source Files\\debug" FILES ${DEBUG_SRCS})
 source_group("Header Files\\debug" FILES ${DEBUG_HDRS})

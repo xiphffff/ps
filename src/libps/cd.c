@@ -12,6 +12,8 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#include <stdio.h>
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +21,8 @@
 #include "cd.h"
 #include "utility/fifo.h"
 #include "utility/memory.h"
+
+#define FIRE_IMMEDIATELY 0
 
 // Queues an interrupt `interrupt`, delaying its firing by `delay_cycles`.
 static void queue_interrupt(struct libps_cdrom* cdrom,
@@ -28,6 +32,13 @@ static void queue_interrupt(struct libps_cdrom* cdrom,
                             ...)
 {
     assert(cdrom != NULL);
+
+    static unsigned int queue_pos = 0;
+
+    if (queue_pos > 1)
+    {
+        queue_pos = 0;
+    }
 
     va_list args;
     va_start(args, num_args);
@@ -41,9 +52,9 @@ static void queue_interrupt(struct libps_cdrom* cdrom,
     }
     va_end(args);
 
-    cdrom->interrupts[0].pending = true;
-    cdrom->interrupts[0].cycles = delay_cycles;
-    cdrom->interrupts[0].type = interrupt;
+    cdrom->interrupts[queue_pos].pending = true;
+    cdrom->interrupts[queue_pos].cycles  = (interrupt == INT3) ? 0 : delay_cycles;
+    cdrom->interrupts[queue_pos++].type  = interrupt;
 }
 
 // Allocates memory for a `libps_cdrom` structure and returns a pointer to it
@@ -78,6 +89,8 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
 
     memset(cdrom->interrupts, 0, sizeof(cdrom->interrupts));
 
+    cdrom->interrupt_flag = 0x00;
+
     cdrom->fire_interrupt = false;
     cdrom->status = 0x18;
 }
@@ -100,8 +113,9 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
                 cdrom->interrupts[i].pending = false;
                 cdrom->fire_interrupt = true;
 
-                cdrom->interrupt_flag = (cdrom->interrupt_flag & ~0x07) |
-                    (cdrom->interrupts[i].type & 0x07);
+                cdrom->interrupt_flag =
+                (cdrom->interrupt_flag & ~0x07) |
+                (cdrom->interrupts[i].type & 0x07);
             }
         }
     }
@@ -168,7 +182,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                     {
                         // Getstat
                         case 0x01:
-                            queue_interrupt(cdrom, INT3, 20000, 1, cdrom->status);
+                            queue_interrupt(cdrom, INT3, FIRE_IMMEDIATELY, 1, 0xFF);
                             break;
 
                         case 0x19:
@@ -176,7 +190,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
-                                    queue_interrupt(cdrom, INT3, 20000, 4,
+                                    queue_interrupt(cdrom, INT3, FIRE_IMMEDIATELY, 4,
                                                     0x94, 0x09, 0x19, 0xC0);
                                     break;
 
@@ -184,13 +198,6 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                                     __debugbreak();
                                     break;
                             }
-                            break;
-
-                        // GetID
-                        case 0x1A:
-                            queue_interrupt(cdrom, INT5, 20000, 8,
-                                            0x08, 0x40, 0x00, 0x00, 0x00,
-                                            0x00, 0x00, 0x00);
                             break;
 
                         default:
@@ -230,6 +237,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
             {
                 // 1F801803h.Index1 - Interrupt Flag Register (R/W)
                 case 1:
+                    libps_fifo_reset(cdrom->response_fifo);
                     break;
 
                 default:

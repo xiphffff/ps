@@ -45,7 +45,8 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
         emit ps->on_debug_unknown_memory_store(paddr, data, type);
     };
 #endif // LIBPS_DEBUG
-    running = false;
+    running   = false;
+    injecting = false;
 }
 
 Emulator::~Emulator()
@@ -64,6 +65,17 @@ void Emulator::run()
 
         for (unsigned int cycle = 0; cycle < 33868800 / 60; cycle += 2)
         {
+            if (tracing_bios_call && bios_call_trace_pc == sys->cpu->pc)
+            {
+                emit bios_call(&bios_trace);
+                tracing_bios_call = false;
+            }
+
+            if (injecting && sys->cpu->pc == 0x80030000)
+            {
+                inject_ps_exe();
+            }
+
             if (sys->cpu->pc == 0x000000A0)
             {
                 switch (sys->cpu->gpr[9])
@@ -79,7 +91,7 @@ void Emulator::run()
                         break;
 
                     default:
-                        emit bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                        trace_bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
                         break;
                 }
             }
@@ -93,14 +105,14 @@ void Emulator::run()
                         break;
 
                     default:
-                        emit bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                        trace_bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
                         break;
                 }
             }
 
             if (sys->cpu->pc == 0x000000C0)
             {
-                emit bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                trace_bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
             }
             libps_system_step(sys);
         }
@@ -117,6 +129,9 @@ void Emulator::run()
         }
     }
 }
+
+void Emulator::trace_bios_call(const uint32_t pc, const uint32_t fn)
+{ }
 
 void Emulator::handle_tty_string()
 {
@@ -165,15 +180,22 @@ void Emulator::pause_run_loop()
     }
 }
 
-void Emulator::inject_ps_exe(const QString& file_name)
+void Emulator::set_injection(const QString& file_name)
 {
-    FILE* test_file = fopen(qPrintable(file_name), "rb");
-    const auto test_file_size = std::filesystem::file_size(qPrintable(file_name));
+    test_exe = file_name;
+    injecting = true;
+
+    stop_run_loop();
+    begin_run_loop();
+}
+
+void Emulator::inject_ps_exe()
+{
+    FILE* test_file = fopen(qPrintable(test_exe), "rb");
+    const auto test_file_size = std::filesystem::file_size(qPrintable(test_exe));
     uint8_t* test_data = static_cast<uint8_t*>(malloc(test_file_size));
     fread(test_data, 1, test_file_size, test_file);
     fclose(test_file);
-
-    running = false;
 
     uint32_t dest = *(uint32_t *)(test_data + 0x10);
 
@@ -182,11 +204,9 @@ void Emulator::inject_ps_exe(const QString& file_name)
         *(uint32_t *)(sys->bus->ram + (dest++ & 0x1FFFFFFF)) = test_data[ptr];
     }
 
-    sys->cpu->pc      = *(uint32_t *)(test_data + 0x18);
-    sys->cpu->next_pc = *(uint32_t *)(test_data + 0x18);
+    sys->cpu->pc      = *(uint32_t*)(test_data + 0x18);
+    sys->cpu->next_pc = *(uint32_t*)(test_data + 0x18);
 
     sys->cpu->instruction = libps_bus_load_word(sys->bus, sys->cpu->pc);
     free(test_data);
-
-    running = true;
 }

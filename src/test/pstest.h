@@ -33,7 +33,7 @@ private:
 
     // Called when the emulator core reports that a BIOS call other than
     // A(0x40), A(0x3C), or B(0x3D) was reached.
-    void emu_bios_call(const quint32 pc, const quint32 fn);
+    void emu_bios_call(struct bios_trace_info* bios_trace);
 
     // Called when the user triggers `Debug -> Display libps log`.
     void display_libps_log();

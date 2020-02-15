@@ -73,7 +73,7 @@ staging:
 #endif // LIBPS_DEBUG
 
     // "File" menu
-    connect(main_window, &MainWindow::selected_ps_x_exe, emulator, &Emulator::inject_ps_exe);
+    connect(main_window, &MainWindow::selected_ps_x_exe, emulator, &Emulator::set_injection);
 
     // "Emulation" menu
     connect(main_window->start_emu, &QAction::triggered, this, &PSTest::start_emu);
@@ -105,7 +105,7 @@ void PSTest::emu_report_system_error()
 
 // Called when the emulator core reports that a BIOS call other than
 // A(0x40), A(0x3C), or B(0x3D) was reached.
-void PSTest::emu_bios_call(const quint32 pc, const quint32 fn)
+void PSTest::emu_bios_call(struct bios_trace_info* bios_trace)
 { }
 
 void PSTest::display_libps_log()

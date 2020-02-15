@@ -18,6 +18,21 @@
 
 struct libps_system;
 
+struct bios_trace_info
+{
+    // Function origin
+    uint32_t origin;
+
+    // Function
+    uint32_t func;
+
+    // Arguments to the BIOS call
+    QVector<uint32_t> args;
+
+    // BIOS call return value
+    uint32_t return_value;
+};
+
 class Emulator : public QThread
 {
     Q_OBJECT
@@ -40,9 +55,9 @@ public:
     // Thread entry point
     void run() override;
 
-    // Halts emulation, injects the PS-X EXE specified by `file_name` into RAM,
-    // and restarts emulation.
-    void inject_ps_exe(const QString& file_name);
+    void set_injection(const QString& file_name);
+
+    void inject_ps_exe();
 
     // Emulator instance
     struct libps_system* sys;
@@ -56,8 +71,20 @@ private:
 
     // Are we injecting a test EXE?
     bool injecting;
+    QString test_exe;
+
+    // Are we currently tracing a BIOS call?
+    bool tracing_bios_call;
+
+    // The PC to stop tracing a BIOS call on. This is the PC set by
+    // `jr $t2`
+    uint32_t bios_call_trace_pc;
+
+    struct bios_trace_info bios_trace;
 
     void handle_tty_string();
+
+    void trace_bios_call(const uint32_t pc, const uint32_t fn);
 
 signals:
 #ifdef LIBPS_DEBUG
@@ -80,8 +107,8 @@ signals:
     // SystemErrorUnresolvedException() was called by the BIOS.
     void system_error();
 
-    // A BIOS call was reached.
-    void bios_call(const uint32_t pc, const uint32_t fn);
+    // A BIOS call other than A(0x40), A(0x3C), or B(0x3D) was reached.
+    void bios_call(struct bios_trace_info* trace_info);
 
     // TTY string has been printed
     void tty_string(const QString& string);

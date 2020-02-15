@@ -75,7 +75,7 @@ static void raise_exception(struct libps_cpu* cpu,
     // 3a) Cause is setup so that software can see the reason for the
     //     exception.
     cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] =
-    (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] & ~0x0000007C) |
+    (cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] & ~0xFFFF00FF) |
     (exccode << 2);
 
 #ifdef LIBPS_DEBUG
@@ -220,6 +220,9 @@ void libps_cpu_step(struct libps_cpu* cpu)
                 {
                     const uint32_t target =
                     cpu->gpr[LIBPS_CPU_DECODE_RS(cpu->instruction)] - 4;
+
+                    cpu->gpr[LIBPS_CPU_DECODE_RD(cpu->instruction)] =
+                    cpu->pc + 8;
 #ifdef LIBPS_DEBUG
                     if ((target & 0x00000003) != 0)
                     {
@@ -227,9 +230,6 @@ void libps_cpu_step(struct libps_cpu* cpu)
                         break;
                     }
 #endif // LIBPS_DEBUG
-                    cpu->gpr[LIBPS_CPU_DECODE_RD(cpu->instruction)] =
-                    cpu->pc + 8;
-
                     cpu->next_pc = target;
                     in_delay_slot = true;
 
@@ -464,11 +464,11 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                     break;
 
-                default:
 #ifdef LIBPS_DEBUG
+                default:
                     raise_exception(cpu, LIBPS_CPU_EXCCODE_RI, UNUSED);
-#endif // LIBPS_DEBUG
                     break;
+#endif // LIBPS_DEBUG
             }
             break;
 

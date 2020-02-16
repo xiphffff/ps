@@ -76,7 +76,8 @@ staging:
 #endif // LIBPS_DEBUG
 
     // "File" menu
-    connect(main_window, &MainWindow::selected_ps_x_exe, emulator, &Emulator::set_injection);
+    connect(main_window, &MainWindow::selected_game_disc, emulator, &Emulator::handle_game_disc);
+    connect(main_window, &MainWindow::selected_ps_x_exe,  emulator, &Emulator::set_injection);
 
     // "Emulation" menu
     connect(main_window->start_emu, &QAction::triggered, this, &PSTest::start_emu);

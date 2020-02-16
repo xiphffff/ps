@@ -24,13 +24,20 @@ MainWindow::MainWindow()
 
     file_menu = menuBar()->addMenu(tr("&File"));
 
-    inject_ps_exe = new QAction(tr("Inject PS-X EXE..."), this);
+    insert_game_disc = new QAction(tr("Insert game disc..."), this);
+    inject_ps_exe    = new QAction(tr("Inject PS-X EXE..."), this);
+
+    connect(insert_game_disc,
+            &QAction::triggered,
+            this,
+            &MainWindow::on_insert_game_disc);
 
     connect(inject_ps_exe,
             &QAction::triggered,
             this,
             &MainWindow::on_inject_ps_exe);
 
+    file_menu->addAction(insert_game_disc);
     file_menu->addAction(inject_ps_exe);
 
     emulation_menu = menuBar()->addMenu(tr("&Emulation"));
@@ -56,6 +63,20 @@ MainWindow::MainWindow()
 
 MainWindow::~MainWindow()
 { }
+
+// Called when the user triggers "File -> Insert game disc..."
+void MainWindow::on_insert_game_disc()
+{
+    QString file_name = QFileDialog::getOpenFileName(this,
+                                                     tr("Select game disc"),
+                                                     "",
+                                                     tr("Game disc (*.bin)"));
+
+    if (!file_name.isEmpty())
+    {
+        emit selected_game_disc(file_name);
+    }
+}
 
 // Called when the user triggers "File -> Inject PS-X EXE..."
 void MainWindow::on_inject_ps_exe()

@@ -69,11 +69,33 @@ struct libps_cdrom
     // 1F801803h.Index1 - Interrupt Flag Register (R/W)
     uint8_t interrupt_flag;
 
+    // The 8-bit status code is returned by Getstat command (and many other
+    // commands), the meaning of the separate stat bits is:
+    //
+    // 7 - Play:          Playing CD-DA
+    // 6 - Seek:          Seeking
+    // 5 - Read:          Reading data sectors
+    // 4 - ShellOpen:     Once shell open (0=Closed, 1=Is/was open)
+    // 3 - IdError:       (0=Okay, 1=GetID denied) (also set when Setmode.Bit4=1)
+    // 2 - SeekError:     (0=Okay, 1=Seek error)   (followed by Error Byte)
+    // 1 - Spindle Motor: (0=Motor off, or in spin-up phase, 1=Motor on)
+    // 0 - Error          Invalid Command/parameters (followed by Error Byte)
+    uint8_t stat_code;
+
     struct libps_fifo* parameter_fifo;
     struct libps_fifo* response_fifo;
 
     bool fire_interrupt;
     struct libps_cdrom_interrupt interrupts[2];
+
+    void* user_data;
+
+    // Set this to `NULL` if there's no disc inserted, otherwise set to a
+    // function.
+    uint8_t (*read_cb)(void* user_data,
+                       const uint8_t minute,
+                       const uint8_t second,
+                       const uint8_t sector);
 };
 
 // Allocates memory for a `libps_cdrom` structure and returns a pointer to it

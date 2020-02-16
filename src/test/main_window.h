@@ -27,6 +27,9 @@ public:
     // Renders the VRAM data.
     void render_frame(const uint16_t* vram);
 
+    // "File -> Insert game disc..."
+    QAction* insert_game_disc;
+
     // "File -> Inject PS-X EXE..."
     QAction* inject_ps_exe;
 
@@ -57,10 +60,16 @@ private:
     QMenu* emulation_menu;
     QMenu* debug_menu;
 
+    // Called when the user triggers "File -> Insert game disc..."
+    void on_insert_game_disc();
+
     // Called when the user triggers "File -> Inject PS-X EXE..."
     void on_inject_ps_exe();
 
 signals:
+    // Called when the user triggers "File -> Insert game disc..."
+    void selected_game_disc(const QString& file_name);
+
     // Emitted when the user selects a PS-X EXE.
     void selected_ps_x_exe(const QString& exe_file);
 };

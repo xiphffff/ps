@@ -65,6 +65,9 @@ struct libps_cdrom* libps_cdrom_create(void)
     cdrom->response_fifo  = libps_fifo_create(16);
     cdrom->parameter_fifo = libps_fifo_create(16);
 
+    cdrom->user_data = NULL;
+    cdrom->read_cb   = NULL;
+
     return cdrom;
 }
 
@@ -88,6 +91,8 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
     memset(cdrom->interrupts, 0, sizeof(cdrom->interrupts));
 
     cdrom->interrupt_flag = 0x00;
+
+    cdrom->stat_code = 0x00;
 
     cdrom->fire_interrupt = false;
     cdrom->status = 0x18;
@@ -180,7 +185,32 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                     {
                         // Getstat
                         case 0x01:
-                            queue_interrupt(cdrom, INT3, 4500, 1, 0xFF);
+                            queue_interrupt(cdrom, INT3, 20000, 1, cdrom->stat_code);
+                            break;
+
+                        // Setloc
+                        case 0x02:
+                            queue_interrupt(cdrom, INT3, 20000, 1, cdrom->stat_code);
+                            break;
+
+                        // ReadN
+                        case 0x06:
+                            // lockup here
+                            queue_interrupt(cdrom, INT3, 20000, 1, cdrom->stat_code);
+                            queue_interrupt(cdrom, INT1, 20000, 1, cdrom->stat_code);
+
+                            break;
+
+                        // Setmode
+                        case 0x0E:
+                            queue_interrupt(cdrom, INT3, 20000, 1, cdrom->stat_code);
+                            break;
+
+                        // SeekL
+                        case 0x15:
+                            queue_interrupt(cdrom, INT3, 20000, 1, cdrom->stat_code);
+                            queue_interrupt(cdrom, INT2, 20000, 1, cdrom->stat_code);
+
                             break;
 
                         case 0x19:
@@ -195,6 +225,27 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                                 default:
                                     __debugbreak();
                                     break;
+                            }
+                            break;
+
+                        // GetID
+                        case 0x1A:
+                            // Is there a disc?
+                            if (cdrom->read_cb)
+                            {
+                                // Yes.
+                                queue_interrupt(cdrom, INT3, 20000, 1, cdrom->stat_code);
+                                queue_interrupt(cdrom, INT2, 25000, 8,
+                                                0x02, 0x00, 0x20, 0x00,
+                                                'S', 'C', 'E', 'A');
+                            }
+                            else
+                            {
+                                // No.
+                                queue_interrupt(cdrom, INT3, 20000, 1, cdrom->stat_code);
+                                queue_interrupt(cdrom, INT5, 20000, 8,
+                                                0x08, 0x40, 0x00, 0x00,
+                                                0x00, 0x00, 0x00, 0x00);
                             }
                             break;
 

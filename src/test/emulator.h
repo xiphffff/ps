@@ -56,6 +56,7 @@ public:
     void run() override;
 
     void set_injection(const QString& file_name);
+    void handle_game_disc(const QString& file_name);
 
     void inject_ps_exe();
 
@@ -87,6 +88,12 @@ private:
     void handle_tty_string();
 
     void trace_bios_call(const uint32_t pc, const uint32_t fn);
+
+    uint8_t handle_game_read(const uint8_t minute,
+                             const uint8_t second,
+                             const uint8_t sector);
+
+    FILE* game_disc_file;
 
 signals:
 #ifdef LIBPS_DEBUG

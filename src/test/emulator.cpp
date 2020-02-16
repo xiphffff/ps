@@ -235,3 +235,27 @@ void Emulator::inject_ps_exe()
     sys->cpu->instruction = libps_bus_load_word(sys->bus, sys->cpu->pc);
     free(test_data);
 }
+
+void Emulator::handle_game_disc(const QString& file_name)
+{
+    game_disc_file = fopen(qPrintable(file_name), "rb");
+
+    sys->bus->cdrom->user_data = this;
+
+    sys->bus->cdrom->read_cb = [](void* user_data,
+                                  const uint8_t minute,
+                                  const uint8_t second,
+                                  const uint8_t sector) -> uint8_t
+    {
+        Emulator* emu = reinterpret_cast<Emulator*>(user_data);
+        return emu->handle_game_read(minute, second, sector);
+    };
+}
+
+uint8_t Emulator::handle_game_read(const uint8_t minute,
+                                   const uint8_t second,
+                                   const uint8_t sector)
+{
+    __debugbreak();
+    return 0xFF;
+}

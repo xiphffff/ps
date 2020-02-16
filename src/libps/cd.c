@@ -22,8 +22,6 @@
 #include "utility/fifo.h"
 #include "utility/memory.h"
 
-#define FIRE_IMMEDIATELY 0
-
 // Queues an interrupt `interrupt`, delaying its firing by `delay_cycles`.
 static void queue_interrupt(struct libps_cdrom* cdrom,
                             const enum libps_cdrom_interrupt_type interrupt,
@@ -53,7 +51,7 @@ static void queue_interrupt(struct libps_cdrom* cdrom,
     va_end(args);
 
     cdrom->interrupts[queue_pos].pending = true;
-    cdrom->interrupts[queue_pos].cycles  = (interrupt == INT3) ? 0 : delay_cycles;
+    cdrom->interrupts[queue_pos].cycles  = delay_cycles;
     cdrom->interrupts[queue_pos++].type  = interrupt;
 }
 
@@ -182,7 +180,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                     {
                         // Getstat
                         case 0x01:
-                            queue_interrupt(cdrom, INT3, FIRE_IMMEDIATELY, 1, 0xFF);
+                            queue_interrupt(cdrom, INT3, 4500, 1, 0xFF);
                             break;
 
                         case 0x19:
@@ -190,7 +188,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
-                                    queue_interrupt(cdrom, INT3, FIRE_IMMEDIATELY, 4,
+                                    queue_interrupt(cdrom, INT3, 20000, 4,
                                                     0x94, 0x09, 0x19, 0xC0);
                                     break;
 

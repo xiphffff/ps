@@ -640,11 +640,11 @@ void libps_cpu_step(struct libps_cpu* cpu)
 
                             break;
 
-                        default:
 #ifdef LIBPS_DEBUG
+                        default:
                             raise_exception(cpu, LIBPS_CPU_EXCCODE_RI, UNUSED);
-#endif // LIBPS_DEBUG
                             break;
+#endif // LIBPS_DEBUG
                     }
                     break;
             }
@@ -921,11 +921,11 @@ void libps_cpu_step(struct libps_cpu* cpu)
             break;
         }
 
-        default:
 #ifdef LIBPS_DEBUG
+        default:
             raise_exception(cpu, LIBPS_CPU_EXCCODE_RI, UNUSED);
-#endif // LIBPS_DEBUG
             break;
+#endif // LIBPS_DEBUG
     }
 
     cpu->instruction = libps_bus_load_word(bus, cpu->pc += 4);

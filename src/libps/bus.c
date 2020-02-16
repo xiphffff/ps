@@ -157,8 +157,10 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
     bios = bios_data_ptr;
 
 #ifdef LIBPS_DEBUG
-    bus->debug_unknown_memory_load  = NULL;
-    bus->debug_unknown_memory_store = NULL;
+    bus->debug_unknown_memory_load    = NULL;
+    bus->debug_unknown_memory_store   = NULL;
+    bus->debug_interrupt_requested    = NULL;
+    bus->debug_interrupt_acknowledged = NULL;
 #endif // LIBPS_DEBUG
 
     // XXX: It might be poor forward thinking to allocate 2MB straightaway, not
@@ -263,7 +265,15 @@ void libps_bus_step(struct libps_bus* bus)
     if (bus->cdrom->fire_interrupt)
     {
         bus->cdrom->fire_interrupt = false;
-        bus->i_stat |= (1 << 2);
+        bus->i_stat |= LIBPS_IRQ_CDROM;
+
+#ifdef LIBPS_DEBUG
+        if (bus->debug_interrupt_requested)
+        {
+            bus->debug_interrupt_requested(bus->debug_user_data,
+                                           2);
+        }
+#endif // LIBPS_DEBUG
     }
 
     libps_cdrom_step(bus->cdrom);
@@ -570,6 +580,19 @@ void libps_bus_store_word(struct libps_bus* bus,
                         // 0x1F801070 - I_STAT - Interrupt status register
                         // (R=Status, W=Acknowledge)
                         case 0x070:
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_interrupt_acknowledged)
+                            {
+                                for (unsigned int bit = 0; bit < 11; ++bit)
+                                {
+                                    if ((bus->i_stat & (1 << bit)) &&
+                                        !(data & (1 << bit)))
+                                    {
+                                        bus->debug_interrupt_acknowledged(bus->debug_user_data, bit);
+                                    }
+                                }
+                            }
+#endif // LIBPS_DEBUG
                             bus->i_stat &= data;
                             break;
 

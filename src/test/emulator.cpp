@@ -44,9 +44,25 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
         Emulator* ps = reinterpret_cast<Emulator*>(user_data);
         emit ps->on_debug_unknown_memory_store(paddr, data, type);
     };
+
+    sys->bus->debug_interrupt_requested = [](void* user_data,
+                                             const unsigned int interrupt)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_interrupt_requested(interrupt);
+    };
+
+    sys->bus->debug_interrupt_acknowledged = [](void* user_data,
+                                                const unsigned int interrupt)
+    {
+        Emulator* ps = reinterpret_cast<Emulator*>(user_data);
+        emit ps->on_debug_interrupt_acknowledged(interrupt);
+    };
 #endif // LIBPS_DEBUG
     running   = false;
     injecting = false;
+
+    total_cycles = 0;
 }
 
 Emulator::~Emulator()
@@ -63,7 +79,7 @@ void Emulator::run()
         QElapsedTimer timer;
         timer.start();
 
-        for (unsigned int cycle = 0; cycle < 33868800 / 60; cycle += 2)
+        for (unsigned int cycle = 0; cycle < 33868800 / 60; cycle+=2, total_cycles+=2)
         {
             if (tracing_bios_call && bios_call_trace_pc == sys->cpu->pc)
             {
@@ -91,7 +107,10 @@ void Emulator::run()
                         break;
 
                     default:
-                        trace_bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                        bios_trace.func = sys->cpu->gpr[9];
+                        bios_trace.origin = sys->cpu->pc;
+
+                        emit bios_call(&bios_trace);
                         break;
                 }
             }
@@ -105,14 +124,20 @@ void Emulator::run()
                         break;
 
                     default:
-                        trace_bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                        bios_trace.func   = sys->cpu->gpr[9];
+                        bios_trace.origin = sys->cpu->pc;
+
+                        emit bios_call(&bios_trace);
                         break;
                 }
             }
 
             if (sys->cpu->pc == 0x000000C0)
             {
-                trace_bios_call(sys->cpu->pc, sys->cpu->gpr[9]);
+                bios_trace.func   = sys->cpu->gpr[9];
+                bios_trace.origin = sys->cpu->pc;
+
+                emit bios_call(&bios_trace);
             }
             libps_system_step(sys);
         }

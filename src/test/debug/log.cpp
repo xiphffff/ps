@@ -44,20 +44,32 @@ MessageLogger::MessageLogger(QWidget* parent) : QMainWindow(parent)
 
     events_menu = menuBar()->addMenu(tr("&Events"));
 
-    tty_strings          = new QAction(tr("TTY output"),           this);
-    bios_calls           = new QAction(tr("BIOS calls"),           this);
+    tty_strings = new QAction(tr("TTY output"), this);
+    bios_calls  = new QAction(tr("BIOS calls"), this);
+
+#ifdef LIBPS_DEBUG
     unknown_memory_load  = new QAction(tr("Unknown memory load"),  this);
     unknown_memory_store = new QAction(tr("Unknown memory store"), this);
+    irqs                 = new QAction(tr("IRQs"),                 this);
+#endif // LIBPS_DEBUG
 
     tty_strings->setCheckable(true);
     bios_calls->setCheckable(true);
+
+#ifdef LIBPS_DEBUG
     unknown_memory_load->setCheckable(true);
     unknown_memory_store->setCheckable(true);
+    irqs->setCheckable(true);
+#endif // LIBPS_DEBUG
 
     events_menu->addAction(tty_strings);
     events_menu->addAction(bios_calls);
+
+#ifdef LIBPS_DEBUG
     events_menu->addAction(unknown_memory_load);
     events_menu->addAction(unknown_memory_store);
+    events_menu->addAction(irqs);
+#endif // LIBPS_DEBUG
 
     text_edit = new QPlainTextEdit(this);
     text_edit->setReadOnly(true);

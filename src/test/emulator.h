@@ -59,6 +59,8 @@ public:
 
     void inject_ps_exe();
 
+    unsigned int total_cycles;
+
     // Emulator instance
     struct libps_system* sys;
 
@@ -102,6 +104,12 @@ signals:
     void on_debug_unknown_memory_store(const uint32_t paddr,
                                        const unsigned int data,
                                        const unsigned int type);
+
+    // Called when an interrupt has been requested
+    void on_debug_interrupt_requested(const unsigned int interrupt);
+
+    // Called when an interrupt has been acknowledged
+    void on_debug_interrupt_acknowledged(const unsigned int interrupt);
 #endif // LIBPS_DEBUG
 
     // SystemErrorUnresolvedException() was called by the BIOS.

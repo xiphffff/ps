@@ -32,6 +32,7 @@ public:
 #ifdef LIBPS_DEBUG
     QAction* unknown_memory_load;
     QAction* unknown_memory_store;
+    QAction* irqs;
 #endif
 
 private:

@@ -24,6 +24,8 @@ struct libps_fifo;
 #include <stdbool.h>
 #include <stdint.h>
 
+#define LIBPS_IRQ_CDROM (1 << 2)
+
 enum libps_cdrom_interrupt_type
 {
     // No response received (no interrupt request)

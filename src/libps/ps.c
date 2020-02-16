@@ -82,6 +82,7 @@ void libps_system_step(struct libps_system* ps)
 
     // Step 1: Check for DMAs and tick the hardware.
     libps_bus_step(ps->bus);
+    libps_bus_step(ps->bus);
 
     // Step 2: Check to see if the interrupt line needs to be enabled.
     if ((ps->bus->i_mask & ps->bus->i_stat) != 0)

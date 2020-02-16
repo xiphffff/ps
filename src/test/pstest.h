@@ -61,6 +61,9 @@ private:
     void on_debug_unknown_memory_store(const uint32_t paddr,
                                        const unsigned int data,
                                        const unsigned int type);
+
+    void on_debug_interrupt_requested(const unsigned int interrupt);
+    void on_debug_interrupt_acknowledged(const unsigned int interrupt);
 #endif // LIBPS_DEBUG
 
     // Called when a TTY string has been generated

@@ -94,6 +94,14 @@ struct libps_bus
                                        const uint32_t paddr,
                                        const unsigned int data,
                                        const unsigned int type);
+
+    // Interrupt has been requested
+    void (*debug_interrupt_requested)(void* user_data,
+                                      const unsigned int interrupt);
+
+    // Interrupt has been acknowledged
+    void (*debug_interrupt_acknowledged)(void* user_data,
+                                         const unsigned int interrupt);
 #endif // LIBPS_DEBUG
 };
 

@@ -12,6 +12,7 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#include <array>
 #include "pstest.h"
 #include "../libps/include/ps.h"
 
@@ -68,8 +69,10 @@ staging:
     connect(emulator, &Emulator::bios_call,    this,        &PSTest::emu_bios_call);
 
 #ifdef LIBPS_DEBUG
-    connect(emulator, &Emulator::on_debug_unknown_memory_load,  this, &PSTest::on_debug_unknown_memory_load);
-    connect(emulator, &Emulator::on_debug_unknown_memory_store, this, &PSTest::on_debug_unknown_memory_store);
+    connect(emulator, &Emulator::on_debug_unknown_memory_load,    this, &PSTest::on_debug_unknown_memory_load);
+    connect(emulator, &Emulator::on_debug_unknown_memory_store,   this, &PSTest::on_debug_unknown_memory_store);
+    connect(emulator, &Emulator::on_debug_interrupt_requested,    this, &PSTest::on_debug_interrupt_requested);
+    connect(emulator, &Emulator::on_debug_interrupt_acknowledged, this, &PSTest::on_debug_interrupt_acknowledged);
 #endif // LIBPS_DEBUG
 
     // "File" menu
@@ -106,7 +109,14 @@ void PSTest::emu_report_system_error()
 // Called when the emulator core reports that a BIOS call other than
 // A(0x40), A(0x3C), or B(0x3D) was reached.
 void PSTest::emu_bios_call(struct bios_trace_info* bios_trace)
-{ }
+{
+    if (libps_log && libps_log->bios_calls->isChecked())
+    {
+        libps_log->append(QString("[BIOS CALL]: %1(%2)\n")
+                          .arg(QString::number(bios_trace->origin, 16).toUpper())
+                          .arg(QString::number(bios_trace->func, 16).toUpper()));
+    }
+}
 
 void PSTest::display_libps_log()
 {
@@ -254,4 +264,55 @@ void PSTest::on_debug_unknown_memory_store(const uint32_t paddr,
         libps_log->append(str);
     }
 }
+
+void PSTest::on_debug_interrupt_requested(const unsigned int interrupt)
+{
+    static const std::array<const QString, 16> irq_as_string =
+    {
+        "IRQ0 VBLANK",
+        "IRQ1 GPU",
+        "IRQ2 CDROM",
+        "IRQ3 DMA",
+        "IRQ4 TMR0",
+        "IRQ5 TMR1",
+        "IRQ6 TMR2",
+        "IRQ7 Controller and Memory Card",
+        "IRQ8 SIO",
+        "IRQ9 SPU",
+        "IRQ10 Controller"
+    };
+
+    if (libps_log && libps_log->irqs->isChecked())
+    {
+        libps_log->append(QString("[total_cycles=%1], %2 requested\n")
+                          .arg(QString::number(emulator->total_cycles, 10))
+                          .arg(irq_as_string[interrupt]));
+    }
+}
+
+void PSTest::on_debug_interrupt_acknowledged(const unsigned int interrupt)
+{
+    static const std::array<const QString, 16> irq_as_string =
+    {
+        "IRQ0 VBLANK",
+        "IRQ1 GPU",
+        "IRQ2 CDROM",
+        "IRQ3 DMA",
+        "IRQ4 TMR0",
+        "IRQ5 TMR1",
+        "IRQ6 TMR2",
+        "IRQ7 Controller and Memory Card",
+        "IRQ8 SIO",
+        "IRQ9 SPU",
+        "IRQ10 Controller"
+    };
+
+    if (libps_log && libps_log->irqs->isChecked())
+    {
+        libps_log->append(QString("[total_cycles=%1], %2 acknowledged\n")
+                          .arg(QString::number(emulator->total_cycles, 10))
+                          .arg(irq_as_string[interrupt]));
+    }
+}
+
 #endif // LIBPS_DEBUG

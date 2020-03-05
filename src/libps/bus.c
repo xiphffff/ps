@@ -280,273 +280,6 @@ void libps_bus_step(struct libps_bus* bus)
     libps_rcnt_step(bus->rcnt);
 }
 
-// Returns a word from memory referenced by virtual address `vaddr`.
-uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
-{
-    assert(bus != NULL);
-
-    // This technically isn't accurate as it clobbers the Cache Control register
-    // (0xFFFE0130), but for now it works.
-    const uint32_t paddr = vaddr & 0x1FFFFFFF;
-
-    switch ((paddr & 0xFFFF0000) >> 16)
-    {
-        case 0x0000 ... 0x001F:
-            return *(uint32_t *)(bus->ram + (paddr & 0x1FFFFFFF));
-
-        case 0x1F80:
-            switch ((paddr & 0x0000F000) >> 12)
-            {
-                // Scratchpad
-                case 0x0:
-                    return *(uint32_t *)(bus->scratch_pad +
-                                        (paddr & 0x00000FFF));
-
-                // I/O Ports
-                case 0x1:
-                    switch (paddr & 0x00000FFF)
-                    {
-                        // 0x1F801070 - I_STAT - Interrupt status register
-                        // (R=Status, W=Acknowledge)
-                        case 0x070:
-                            return bus->i_stat;
-
-                        // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
-                        case 0x074:
-                            return bus->i_mask;
-
-                        // 0x1F8010A8 - DMA Channel 2 (GPU) control (R/W)
-                        case 0x0A8:
-                            return bus->dma_gpu_channel.chcr;
-
-                        // 0x1F8010E8 - DMA Channel 6 (OTC) control (R/W)
-                        case 0x0E8:
-                            return bus->dma_otc_channel.chcr;
-
-                        // 0x1F8010F0 - DMA Control Register (R/W)
-                        case 0x0F0:
-                            return bus->dpcr;
-
-                        // 0x1F8010F4 - DMA Interrupt Register (R/W)
-                        case 0x0F4:
-                            return bus->dicr;
-
-                        // 0x1F801110 - Timer 1 Counter Value (R/W)
-                        case 0x110:
-                            return bus->rcnt->rcnts[1].value;
-
-                        // 0x1F801810 - Read responses to GP0(C0h) and GP1(10h)
-                        // commands
-                        case 0x810:
-                            return bus->gpu->gpuread;
-
-                        // 0x1F801814 - GPU Status Register (R)
-                        case 0x814:
-                            return 0x1FF00000;
-
-                        default:
-#ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_memory_load)
-                            {
-                                bus->debug_unknown_memory_load
-                                (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
-                            }
-#endif // LIBPS_DEBUG
-                            return 0x00000000;
-                    }
-                    break;
-
-                default:
-#ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_memory_load)
-                    {
-                        bus->debug_unknown_memory_load
-                        (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
-                    }
-#endif // LIBPS_DEBUG
-                    return 0x00000000;
-            }
-            break;
-
-        case 0x1FC0 ... 0x1FC7:
-            return *(uint32_t *)(bios + (paddr & 0x000FFFFF));
-
-        default:
-#ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_memory_load)
-            {
-                bus->debug_unknown_memory_load
-                (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
-            }
-#endif // LIBPS_DEBUG
-            return 0x00000000;
-    }
-}
-
-// Returns a halfword from memory referenced by virtual address `vaddr`.
-uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
-{
-    assert(bus != NULL);
-
-    // This technically isn't accurate as it clobbers the Cache Control register
-    // (0xFFFE0130), but for now it works.
-    const uint32_t paddr = vaddr & 0x1FFFFFFF;
-
-    switch ((paddr & 0xFFFF0000) >> 16)
-    {
-        case 0x0000 ... 0x001F:
-            return *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF));
-
-        case 0x1F80:
-            switch ((paddr & 0x0000F000) >> 12)
-            {
-                // Scratchpad
-                case 0x0:
-                    return *(uint16_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
-
-                // I/O Ports
-                case 0x1:
-                    switch (paddr & 0x00000FFF)
-                    {
-                        // 0x1F801044 - JOY_STAT (R)
-                        case 0x044:
-                            return 0xFFFF;
-
-                        // 1F80104Ah JOY_CTRL(R / W) (usually 1003h, 3003h, 0000h)
-                        case 0x04A:
-                            return bus->joy_ctrl;
-
-                        // 0x1F801070 - I_STAT - Interrupt status register
-                        // (R=Status, W=Acknowledge)
-                        case 0x070:
-                            return bus->i_stat & 0xFFFF;
-
-                        // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
-                        case 0x074:
-                            return bus->i_mask & 0xFFFF;
-
-                        // 0x1F801120 - Timer 2 (1/8 system clock) value
-                        case 0x120:
-                            return bus->rcnt->rcnts[2].value & 0x0000FFFF;
-
-                        default:
-#ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_memory_load)
-                            {
-                                bus->debug_unknown_memory_load
-                                (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
-                            }
-#endif // LIBPS_DEBUG
-                            return 0x0000;
-                    }
-                    break;
-
-                default:
-#ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_memory_load)
-                    {
-                        bus->debug_unknown_memory_load
-                        (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
-                    }
-#endif // LIBPS_DEBUG
-                    return 0x0000;
-            }
-            break;
-
-        default:
-#ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_memory_load)
-            {
-                bus->debug_unknown_memory_load
-                (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
-            }
-#endif // LIBPS_DEBUG
-            return 0x0000;
-    }
-}
-
-// Returns a byte from memory referenced by virtual address `vaddr`.
-uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
-{
-    assert(bus != NULL);
-
-    // This technically isn't accurate as it clobbers the Cache Control register
-    // (0xFFFE0130), but for now it works.
-    const uint32_t paddr = vaddr & 0x1FFFFFFF;
-
-    // XXX: I think the handling of this can be a bit more sound.
-    switch ((paddr & 0xFFFF0000) >> 16)
-    {
-        // Main RAM(first 64K reserved for BIOS)
-        case 0x0000 ... 0x001F:
-            return *(uint8_t *)(bus->ram + (paddr & 0x1FFFFFFF));
-
-        case 0x1F80:
-            switch ((paddr & 0x0000F000) >> 12)
-            {
-                // Scratchpad
-                case 0x0:
-                    return *(uint8_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
-
-                // I/O Ports
-                case 0x1:
-                    switch (paddr & 0x00000FFF)
-                    {
-                        // 0x1F801040 - JOY_RX_DATA (R)
-                        case 0x040:
-                            return 0x01;
-
-                        // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
-                        case 0x800:
-                            return bus->cdrom->status;
-
-                        // 0x1F801801 - Indexed CD-ROM register load
-                        case 0x801:
-                            return libps_cdrom_indexed_register_load(bus->cdrom, 1);
-
-                        // 0x1F801803 - Indexed CD-ROM register load
-                        case 0x803:
-                            return libps_cdrom_indexed_register_load(bus->cdrom, 3);
-
-                        default:
-#ifdef LIBPS_DEBUG
-                            if (bus->debug_unknown_memory_load)
-                            {
-                                bus->debug_unknown_memory_load
-                                (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
-                            }
-#endif // LIBPS_DEBUG
-                            return 0x00;
-                    }
-                    break;
-
-                default:
-#ifdef LIBPS_DEBUG
-                    if (bus->debug_unknown_memory_load)
-                    {
-                        bus->debug_unknown_memory_load
-                        (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
-                    }
-#endif // LIBPS_DEBUG
-                    return 0x00;
-            }
-            break;
-
-        case 0x1FC0 ... 0x1FC7:
-            return *(uint8_t *)(bios + (paddr & 0x000FFFFF));
-
-        default:
-#ifdef LIBPS_DEBUG
-            if (bus->debug_unknown_memory_load)
-            {
-                bus->debug_unknown_memory_load
-                (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
-            }
-#endif // LIBPS_DEBUG
-            return 0x00;
-    }
-}
-
 // Stores word `data` into memory referenced by virtual address `vaddr`.
 void libps_bus_store_word(struct libps_bus* bus,
                           const uint32_t vaddr,
@@ -910,5 +643,272 @@ void libps_bus_store_byte(struct libps_bus* bus,
             }
 #endif // LIBPS_DEBUG
             break;
+    }
+}
+
+// Returns a word from memory referenced by virtual address `vaddr`.
+uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
+{
+    assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
+
+    switch ((paddr & 0xFFFF0000) >> 16)
+    {
+        case 0x0000 ... 0x001F:
+            return *(uint32_t *)(bus->ram + (paddr & 0x1FFFFFFF));
+
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // Scratchpad
+                case 0x0:
+                    return *(uint32_t *)(bus->scratch_pad +
+                                        (paddr & 0x00000FFF));
+
+                // I/O Ports
+                case 0x1:
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801070 - I_STAT - Interrupt status register
+                        // (R=Status, W=Acknowledge)
+                        case 0x070:
+                            return bus->i_stat;
+
+                        // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
+                        case 0x074:
+                            return bus->i_mask;
+
+                        // 0x1F8010A8 - DMA Channel 2 (GPU) control (R/W)
+                        case 0x0A8:
+                            return bus->dma_gpu_channel.chcr;
+
+                        // 0x1F8010E8 - DMA Channel 6 (OTC) control (R/W)
+                        case 0x0E8:
+                            return bus->dma_otc_channel.chcr;
+
+                        // 0x1F8010F0 - DMA Control Register (R/W)
+                        case 0x0F0:
+                            return bus->dpcr;
+
+                        // 0x1F8010F4 - DMA Interrupt Register (R/W)
+                        case 0x0F4:
+                            return bus->dicr;
+
+                        // 0x1F801110 - Timer 1 Counter Value (R/W)
+                        case 0x110:
+                            return bus->rcnt->rcnts[1].value;
+
+                        // 0x1F801810 - Read responses to GP0(C0h) and GP1(10h)
+                        // commands
+                        case 0x810:
+                            return bus->gpu->gpuread;
+
+                        // 0x1F801814 - GPU Status Register (R)
+                        case 0x814:
+                            return 0x1FF00000;
+
+                        default:
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_memory_load)
+                            {
+                                bus->debug_unknown_memory_load
+                                (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
+                            }
+#endif // LIBPS_DEBUG
+                            return 0x00000000;
+                    }
+                    break;
+
+                default:
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_memory_load)
+                    {
+                        bus->debug_unknown_memory_load
+                        (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
+                    }
+#endif // LIBPS_DEBUG
+                    return 0x00000000;
+            }
+            break;
+
+        case 0x1FC0 ... 0x1FC7:
+            return *(uint32_t *)(bios + (paddr & 0x000FFFFF));
+
+        default:
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_memory_load)
+            {
+                bus->debug_unknown_memory_load
+                (bus->debug_user_data, paddr, LIBPS_DEBUG_WORD);
+            }
+#endif // LIBPS_DEBUG
+            return 0x00000000;
+    }
+}
+
+// Returns a halfword from memory referenced by virtual address `vaddr`.
+uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
+{
+    assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
+
+    switch ((paddr & 0xFFFF0000) >> 16)
+    {
+        case 0x0000 ... 0x001F:
+            return *(uint16_t *)(bus->ram + (paddr & 0x1FFFFFFF));
+
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // Scratchpad
+                case 0x0:
+                    return *(uint16_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
+
+                // I/O Ports
+                case 0x1:
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801044 - JOY_STAT (R)
+                        case 0x044:
+                            return 0xFFFF;
+
+                        // 1F80104Ah JOY_CTRL(R / W) (usually 1003h, 3003h, 0000h)
+                        case 0x04A:
+                            return bus->joy_ctrl;
+
+                        // 0x1F801070 - I_STAT - Interrupt status register
+                        // (R=Status, W=Acknowledge)
+                        case 0x070:
+                            return bus->i_stat & 0xFFFF;
+
+                        // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
+                        case 0x074:
+                            return bus->i_mask & 0xFFFF;
+
+                        // 0x1F801120 - Timer 2 (1/8 system clock) value
+                        case 0x120:
+                            return bus->rcnt->rcnts[2].value & 0x0000FFFF;
+
+                        default:
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_memory_load)
+                            {
+                                bus->debug_unknown_memory_load
+                                (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
+                            }
+#endif // LIBPS_DEBUG
+                            return 0x0000;
+                    }
+                    break;
+
+                default:
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_memory_load)
+                    {
+                        bus->debug_unknown_memory_load
+                        (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
+                    }
+#endif // LIBPS_DEBUG
+                    return 0x0000;
+            }
+            break;
+
+        default:
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_memory_load)
+            {
+                bus->debug_unknown_memory_load
+                (bus->debug_user_data, paddr, LIBPS_DEBUG_HALFWORD);
+            }
+#endif // LIBPS_DEBUG
+            return 0x0000;
+    }
+}
+
+// Returns a byte from memory referenced by virtual address `vaddr`.
+uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
+{
+    assert(bus != NULL);
+
+    // This technically isn't accurate as it clobbers the Cache Control register
+    // (0xFFFE0130), but for now it works.
+    const uint32_t paddr = vaddr & 0x1FFFFFFF;
+
+    // XXX: I think the handling of this can be a bit more sound.
+    switch ((paddr & 0xFFFF0000) >> 16)
+    {
+        // Main RAM(first 64K reserved for BIOS)
+        case 0x0000 ... 0x001F:
+            return *(uint8_t *)(bus->ram + (paddr & 0x1FFFFFFF));
+
+        case 0x1F80:
+            switch ((paddr & 0x0000F000) >> 12)
+            {
+                // Scratchpad
+                case 0x0:
+                    return *(uint8_t *)(bus->scratch_pad + (paddr & 0x00000FFF));
+
+                // I/O Ports
+                case 0x1:
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801040 - JOY_RX_DATA (R)
+                        case 0x040:
+                            return 0x01;
+
+                        // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
+                        case 0x800:
+                            return bus->cdrom->status;
+
+                        // 0x1F801801 - Indexed CD-ROM register load
+                        case 0x801:
+                            return libps_cdrom_indexed_register_load(bus->cdrom, 1);
+
+                        // 0x1F801803 - Indexed CD-ROM register load
+                        case 0x803:
+                            return libps_cdrom_indexed_register_load(bus->cdrom, 3);
+
+                        default:
+#ifdef LIBPS_DEBUG
+                            if (bus->debug_unknown_memory_load)
+                            {
+                                bus->debug_unknown_memory_load
+                                (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
+                            }
+#endif // LIBPS_DEBUG
+                            return 0x00;
+                    }
+                    break;
+
+                default:
+#ifdef LIBPS_DEBUG
+                    if (bus->debug_unknown_memory_load)
+                    {
+                        bus->debug_unknown_memory_load
+                        (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
+                    }
+#endif // LIBPS_DEBUG
+                    return 0x00;
+            }
+            break;
+
+        case 0x1FC0 ... 0x1FC7:
+            return *(uint8_t *)(bios + (paddr & 0x000FFFFF));
+
+        default:
+#ifdef LIBPS_DEBUG
+            if (bus->debug_unknown_memory_load)
+            {
+                bus->debug_unknown_memory_load
+                (bus->debug_user_data, paddr, LIBPS_DEBUG_BYTE);
+            }
+#endif // LIBPS_DEBUG
+            return 0x00;
     }
 }

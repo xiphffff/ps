@@ -27,11 +27,11 @@ public:
     // Renders the VRAM data.
     void render_frame(const uint16_t* vram);
 
-    // "File -> Insert game disc..."
-    QAction* insert_game_disc;
+    // "File -> Insert CD-ROM image..."
+    QAction* insert_cdrom_image;
 
-    // "File -> Inject PS-X EXE..."
-    QAction* inject_ps_exe;
+    // "File -> Run PS-X EXE..."
+    QAction* run_ps_exe;
 
     // "Debug -> Display libps log"
     QAction* display_libps_log;
@@ -60,15 +60,15 @@ private:
     QMenu* emulation_menu;
     QMenu* debug_menu;
 
-    // Called when the user triggers "File -> Insert game disc..."
-    void on_insert_game_disc();
+    // Called when the user triggers "File -> Insert CD-ROM image..."
+    void on_insert_cdrom_image();
 
-    // Called when the user triggers "File -> Inject PS-X EXE..."
-    void on_inject_ps_exe();
+    // Called when the user triggers "File -> Run PS-X EXE..."
+    void on_run_ps_x_exe();
 
 signals:
-    // Called when the user triggers "File -> Insert game disc..."
-    void selected_game_disc(const QString& file_name);
+    // Called when the user triggers "File -> Insert CD-ROM image..."
+    void selected_cdrom_image(const QString& file_name);
 
     // Emitted when the user selects a PS-X EXE.
     void selected_ps_x_exe(const QString& exe_file);

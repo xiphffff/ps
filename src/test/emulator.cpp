@@ -18,10 +18,10 @@
 
 Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 {
-    FILE* handle = fopen(qPrintable(bios_file), "rb");
+    FILE* bios_file_handle = fopen(qPrintable(bios_file), "rb");
     bios = new uint8_t[0x80000];
-    fread(bios, 1, 0x80000, handle);
-    fclose(handle);
+    fread(bios, 1, 0x80000, bios_file_handle);
+    fclose(bios_file_handle);
 
     sys = libps_system_create(bios);
 
@@ -59,16 +59,146 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
         emit ps->on_debug_interrupt_acknowledged(interrupt);
     };
 #endif // LIBPS_DEBUG
-    running   = false;
-    injecting = false;
+    running            = false;
+    injecting_ps_x_exe = false;
 
     total_cycles = 0;
 }
 
 Emulator::~Emulator()
 {
-    delete[] bios;
     libps_system_destroy(sys);
+}
+
+// Starts the emulation if it is not running.
+void Emulator::start_run_loop()
+{
+    if (!running)
+    {
+        running = true;
+        start();
+    }
+}
+
+// Stops the emulation if it is running, resetting the emulator to the
+// startup state.
+void Emulator::stop_run_loop()
+{
+    if (running)
+    {
+        running = false;
+        libps_system_reset(sys);
+
+        total_cycles = 0;
+        exit();
+    }
+}
+
+// Pauses the emulation if it is running, but *does not* reset the emulator to
+// the startup state.
+void Emulator::pause_run_loop()
+{
+    if (running)
+    {
+        running = false;
+        exit();
+    }
+}
+
+// Called when the user selects a game image to load after triggering
+// "File -> Insert CD-ROM image..." on the main window.
+void Emulator::insert_cdrom_image(const QString& file_name)
+{
+    struct libps_cdrom_info cdrom_info;
+
+    cdrom_info.read_cb = [](void* user_data) -> uint8_t
+    {
+        Emulator* emu = reinterpret_cast<Emulator*>(user_data);
+        return emu->handle_cdrom_image_read();
+    };
+
+    cdrom_info.seek_cb = [](void* user_data,
+                            const struct libps_cdrom_seek_target* seek_target)
+    {
+        Emulator* emu = reinterpret_cast<Emulator*>(user_data);
+        emu->handle_cdrom_image_seek(seek_target);
+    };
+
+    libps_system_set_cdrom(sys, &cdrom_info);
+}
+
+// Called when the user selects a PS-X EXE to inject after triggering
+// "File -> Run PS-X EXE..." on the main window.
+void Emulator::run_ps_x_exe(const QString& file_name)
+{
+    ps_x_exe = file_name;
+
+    injecting_ps_x_exe = true;
+
+    // Restart emulation.
+    stop_run_loop();
+    start_run_loop();
+}
+
+// Returns the number of total cycles taken by the emulator.
+unsigned int Emulator::total_cycles_taken() noexcept
+{
+    return total_cycles;
+}
+
+// Called when it is time to inject the PS-X EXE specified by `run_ps_x_exe()`.
+void Emulator::inject_ps_x_exe()
+{
+    const auto file_name{ qPrintable(ps_x_exe) };
+
+    FILE* ps_x_exe_handle = fopen(file_name, "rb");
+    const auto file_size = std::filesystem::file_size(file_name);
+    uint8_t* ps_x_exe_data = static_cast<uint8_t*>(malloc(file_size));
+    fread(ps_x_exe_data, 1, file_size, ps_x_exe_handle);
+    fclose(ps_x_exe_handle);
+
+    uint32_t dest = *(uint32_t *)(ps_x_exe_data + 0x10);
+
+    for (unsigned int ptr = 0x800;
+         ptr != (file_size - 0x800);
+         ++ptr)
+    {
+        *(uint32_t *)(sys->bus->ram + (dest++ & 0x1FFFFFFF)) =
+        ps_x_exe_data[ptr];
+    }
+
+    sys->cpu->pc      = *(uint32_t *)(ps_x_exe_data + 0x18);
+    sys->cpu->next_pc = sys->cpu->pc;
+
+    sys->cpu->instruction = libps_bus_load_word(sys->bus, sys->cpu->pc);
+
+    injecting_ps_x_exe = false;
+    ps_x_exe           = nullptr;
+}
+
+// Called when `std_out_putchar` has been called by the BIOS.
+void Emulator::handle_tty_string()
+{
+    static QString tty_str;
+
+    tty_str += sys->cpu->gpr[4];
+
+    if (sys->cpu->gpr[4] == '\n')
+    {
+        emit tty_string(tty_str);
+        tty_str.clear();
+    }
+}
+
+// Initiates a trace of a BIOS call.
+void Emulator::trace_bios_call(const uint32_t pc, const uint32_t fn)
+{ }
+
+// Called when it is time to seek to a specified position on the CD-ROM image.
+void Emulator::handle_cdrom_image_seek
+(const struct libps_cdrom_seek_target* seek_target)
+{
+
 }
 
 // Thread entry point
@@ -79,7 +209,10 @@ void Emulator::run()
         QElapsedTimer timer;
         timer.start();
 
-        for (unsigned int cycle = 0; cycle < 33868800 / 60; cycle+=2, total_cycles+=2)
+        for (unsigned int cycle = 0;
+             cycle < 33868800 / 60;
+             cycle++,
+             total_cycles++)
         {
             if (tracing_bios_call && bios_call_trace_pc == sys->cpu->pc)
             {
@@ -87,9 +220,12 @@ void Emulator::run()
                 tracing_bios_call = false;
             }
 
-            if (injecting && sys->cpu->pc == 0x80030000)
+            // We can only inject a PS-X EXE at this point. This is the
+            // earliest point during boot-up where the kernel is initialized
+            // far enough to allow execution of PS-X EXEs.
+            if (injecting_ps_x_exe && sys->cpu->pc == 0x80030000)
             {
-                inject_ps_exe();
+                inject_ps_x_exe();
             }
 
             if (sys->cpu->pc == 0x000000A0)
@@ -155,107 +291,8 @@ void Emulator::run()
     }
 }
 
-void Emulator::trace_bios_call(const uint32_t pc, const uint32_t fn)
-{ }
-
-void Emulator::handle_tty_string()
+// Called when it is time to read data off of the CD-ROM image.
+uint8_t Emulator::handle_cdrom_image_read()
 {
-    static QString tty_str;
-
-    tty_str += sys->cpu->gpr[4];
-
-    if (sys->cpu->gpr[4] == '\n')
-    {
-        emit tty_string(tty_str);
-        tty_str.clear();
-    }
-}
-
-// Starts the emulation if it is not running.
-void Emulator::begin_run_loop()
-{
-    if (!running)
-    {
-        running = true;
-        start();
-    }
-}
-
-// Stops the emulation if it is running, resetting the emulator to the
-// startup state.
-void Emulator::stop_run_loop()
-{
-    if (running)
-    {
-        running = false;
-        libps_system_reset(sys);
-
-        exit();
-    }
-}
-
-// Pauses the emulation if it is running, but *does not* reset the emulator to
-// the startup state.
-void Emulator::pause_run_loop()
-{
-    if (running)
-    {
-        running = false;
-        exit();
-    }
-}
-
-void Emulator::set_injection(const QString& file_name)
-{
-    test_exe = file_name;
-    injecting = true;
-
-    stop_run_loop();
-    begin_run_loop();
-}
-
-void Emulator::inject_ps_exe()
-{
-    FILE* test_file = fopen(qPrintable(test_exe), "rb");
-    const auto test_file_size = std::filesystem::file_size(qPrintable(test_exe));
-    uint8_t* test_data = static_cast<uint8_t*>(malloc(test_file_size));
-    fread(test_data, 1, test_file_size, test_file);
-    fclose(test_file);
-
-    uint32_t dest = *(uint32_t *)(test_data + 0x10);
-
-    for (unsigned int ptr = 0x800; ptr != (test_file_size - 0x800); ++ptr)
-    {
-        *(uint32_t *)(sys->bus->ram + (dest++ & 0x1FFFFFFF)) = test_data[ptr];
-    }
-
-    sys->cpu->pc      = *(uint32_t*)(test_data + 0x18);
-    sys->cpu->next_pc = *(uint32_t*)(test_data + 0x18);
-
-    sys->cpu->instruction = libps_bus_load_word(sys->bus, sys->cpu->pc);
-    free(test_data);
-}
-
-void Emulator::handle_game_disc(const QString& file_name)
-{
-    game_disc_file = fopen(qPrintable(file_name), "rb");
-
-    sys->bus->cdrom->user_data = this;
-
-    sys->bus->cdrom->read_cb = [](void* user_data,
-                                  const uint8_t minute,
-                                  const uint8_t second,
-                                  const uint8_t sector) -> uint8_t
-    {
-        Emulator* emu = reinterpret_cast<Emulator*>(user_data);
-        return emu->handle_game_read(minute, second, sector);
-    };
-}
-
-uint8_t Emulator::handle_game_read(const uint8_t minute,
-                                   const uint8_t second,
-                                   const uint8_t sector)
-{
-    __debugbreak();
     return 0xFF;
 }

@@ -76,8 +76,8 @@ staging:
 #endif // LIBPS_DEBUG
 
     // "File" menu
-    connect(main_window, &MainWindow::selected_game_disc, emulator, &Emulator::handle_game_disc);
-    connect(main_window, &MainWindow::selected_ps_x_exe,  emulator, &Emulator::set_injection);
+    connect(main_window, &MainWindow::selected_cdrom_image, emulator, &Emulator::insert_cdrom_image);
+    connect(main_window, &MainWindow::selected_ps_x_exe,    emulator, &Emulator::run_ps_x_exe);
 
     // "Emulation" menu
     connect(main_window->start_emu, &QAction::triggered, this, &PSTest::start_emu);
@@ -149,7 +149,7 @@ void PSTest::start_emu()
     main_window->stop_emu->setEnabled(true);
     main_window->pause_emu->setEnabled(true);
 
-    emulator->begin_run_loop();
+    emulator->start_run_loop();
 }
 
 // Called when the user triggers `Emulation -> Stop`.
@@ -184,7 +184,7 @@ void PSTest::reset_emu()
     }
 
     emulator->stop_run_loop();
-    emulator->begin_run_loop();
+    emulator->start_run_loop();
 }
 
 // Called when a TTY string has been generated
@@ -286,7 +286,7 @@ void PSTest::on_debug_interrupt_requested(const unsigned int interrupt)
     if (libps_log && libps_log->irqs->isChecked())
     {
         libps_log->append(QString("[total_cycles=%1], %2 requested\n")
-                          .arg(QString::number(emulator->total_cycles, 10))
+                          .arg(QString::number(emulator->total_cycles_taken(), 10))
                           .arg(irq_as_string[interrupt]));
     }
 }
@@ -311,7 +311,7 @@ void PSTest::on_debug_interrupt_acknowledged(const unsigned int interrupt)
     if (libps_log && libps_log->irqs->isChecked())
     {
         libps_log->append(QString("[total_cycles=%1], %2 acknowledged\n")
-                          .arg(QString::number(emulator->total_cycles, 10))
+                          .arg(QString::number(emulator->total_cycles_taken(), 10))
                           .arg(irq_as_string[interrupt]));
     }
 }

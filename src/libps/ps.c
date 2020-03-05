@@ -27,26 +27,6 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
         return NULL;
     }
 
-    // XXX: I don't like the notion of passing a pointer to the BIOS data,
-    // loaded entirely by the caller. That's 512KB just sitting in RAM and I'm
-    // not okay with that. There are a few possibilities to avoid this:
-    //
-    // 1) doing file I/O on every BIOS read (slow, garbage solution)
-    // 
-    // 2) splitting the BIOS into x number of yKB blocks and loading a block
-    //    when a read falls within a certain range. The more blocks we have,
-    //    the more memory will be used and file I/O will be less frequent,
-    //    whereas if we have fewer blocks, less memory will be used, but file
-    //    I/O will become more frequent. The amount of blocks and their size
-    //    should be configurable at runtime.
-    //
-    // 3) HLE of the BIOS, the most complicated option but possibly the most
-    //    effective one, worst case.
-    //
-    // This may not be worth it however, I don't think there's a single system
-    // that will fail to allocate 512KB outright or will suffer from
-    // detrimental effects for doing so. We'll have to see. If no system falls
-    // under this circumstance, this idea will be discarded.
     struct libps_system* ps = libps_safe_malloc(sizeof(struct libps_system));
 
     ps->bus = libps_bus_create(bios_data);
@@ -96,4 +76,28 @@ void libps_system_step(struct libps_system* ps)
 
     // Step 3: Execute one instruction.
     libps_cpu_step(ps->cpu);
+}
+
+// "Inserts" a CD-ROM `cdrom_info` into a PlayStation emulator `ps`. If
+// `cdrom_info` is `NULL`, the CD-ROM, if any will be removed.
+//
+// Returns `true` if `cdrom_info` is valid and a CD-ROM has been inserted, or
+// `false` otherwise.
+bool libps_system_set_cdrom(struct libps_system* ps,
+                            struct libps_cdrom_info* cdrom_info)
+{
+    assert(ps != NULL);
+
+    if (cdrom_info)
+    {
+        if (cdrom_info->seek_cb && cdrom_info->read_cb)
+        {
+            ps->bus->cdrom->cdrom_info = cdrom_info;
+            return true;
+        }
+        return false;
+    }
+
+    ps->bus->cdrom->cdrom_info = NULL;
+    return true;
 }

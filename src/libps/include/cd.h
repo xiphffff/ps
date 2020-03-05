@@ -51,6 +51,8 @@ struct libps_fifo;
 #define LIBPS_CDROM_RESPONSE_STATUS_READING (1 << 5)
 #define LIBPS_CDROM_RESPONSE_STATUS_SEEKING (1 << 6)
 
+#define LIBPS_CDROM_STATUS_DRQSTS (1 << 6)
+
 struct libps_cdrom_interrupt
 {
     // Does this interrupt need to be fired?
@@ -66,11 +68,18 @@ struct libps_cdrom_interrupt
     unsigned int type;
 };
 
+struct libps_cdrom_seek_target
+{
+    uint8_t minute;
+    uint8_t second;
+    uint8_t sector;
+};
+
 // Pass this structure to `libps_system_set_cdrom()`.
 struct libps_cdrom_info
 {
     // Function call when it is time to seek
-    void (*seek_cb)(void* user_data, const struct libps_cdrom_seek_target* seek_target);
+    void (*seek_cb)(void* user_data);
 
     // Function to call when it is time to read a sector
     uint8_t (*read_cb)(void* user_data);
@@ -88,6 +97,10 @@ struct libps_cdrom
     // 6:     DRQSTS  Data fifo empty(0 = Empty); triggered after reading LAST byte
     // 7:     BUSYSTS Command / parameter transmission busy(1 = Busy)
     uint8_t status;
+
+    // 1F801802h.Index1 - Interrupt Enable Register (W)
+    // 1F801803h.Index0 - Interrupt Enable Register (R)
+    uint8_t interrupt_enable;
 
     // 0x1F801803.Index1 - Interrupt Flag Register (R/W)
     uint8_t interrupt_flag;
@@ -124,17 +137,12 @@ struct libps_cdrom
     struct libps_cdrom_interrupt* first_interrupt;
     struct libps_cdrom_interrupt* second_interrupt;
 
-    struct libps_cdrom_seek_target
-    {
-        uint8_t minute;
-        uint8_t second;
-        uint8_t sector;
-    } seek_target;
+    struct libps_cdrom_seek_target seek_target;
 
     bool fire_interrupt;
 
     // This should not be set directly; use `libps_system_set_cdrom()`.
-    struct libps_cdrom_info* cdrom_info;
+    struct libps_cdrom_info cdrom_info;
 
     void* user_data;
 };

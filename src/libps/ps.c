@@ -92,12 +92,16 @@ bool libps_system_set_cdrom(struct libps_system* ps,
     {
         if (cdrom_info->seek_cb && cdrom_info->read_cb)
         {
-            ps->bus->cdrom->cdrom_info = cdrom_info;
+            ps->bus->cdrom->cdrom_info.seek_cb = cdrom_info->seek_cb;
+            ps->bus->cdrom->cdrom_info.read_cb = cdrom_info->read_cb;
+
             return true;
         }
         return false;
     }
 
-    ps->bus->cdrom->cdrom_info = NULL;
+    ps->bus->cdrom->cdrom_info.seek_cb = NULL;
+    ps->bus->cdrom->cdrom_info.read_cb = NULL;
+
     return true;
 }

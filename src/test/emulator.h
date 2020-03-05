@@ -77,8 +77,7 @@ private:
 
     // Called when it is time to seek to a specified position on the CD-ROM
     // image.
-    void handle_cdrom_image_seek
-    (const struct libps_cdrom_seek_target* seek_target);
+    void handle_cdrom_image_seek();
 
     // Thread entry point
     void run() override;
@@ -87,7 +86,7 @@ private:
     uint8_t handle_cdrom_image_read();
 
     // The file handle of the CD-ROM image, if any.
-    QFile cdrom_image_file;
+    FILE* cdrom_image_file;
 
     // Is the emulator running?
     bool running;

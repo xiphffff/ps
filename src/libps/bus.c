@@ -19,6 +19,7 @@
 #include "cd.h"
 #include "gpu.h"
 #include "rcnt.h"
+#include "utility/fifo.h"
 #include "utility/memory.h"
 
 // `libps_bus` doesn't need to know about this, since the operator of the
@@ -105,6 +106,34 @@ static void dma_gpu_linked_list_process(struct libps_bus* bus)
         }
         bus->dma_gpu_channel.madr = header & 0x001FFFFC;
     }
+}
+
+// Handles processing of DMA channel 3 - CDROM in normal mode.
+static void dma_cdrom(struct libps_bus* bus)
+{
+    assert(bus != NULL);
+
+    unsigned int num_words = bus->dma_cdrom_channel.bcr & 0x0000FFFF;
+    uint32_t address = bus->dma_cdrom_channel.madr;
+
+    while (num_words != 0)
+    {
+        for (unsigned int i = 0; i < 4; ++i)
+        {
+            const uint8_t data = libps_fifo_dequeue(bus->cdrom->data_fifo);
+            libps_bus_store_byte(bus, address + i, data);
+        }
+
+        address += 4;
+        num_words--;
+    }
+}
+
+// Handles processing of DMA channel 3 - CDROM in chopping mode.
+static void dma_cdrom_chopped(struct libps_bus* bus)
+{
+    assert(bus != NULL);
+    __debugbreak();
 }
 
 // Handles processing of DMA channel 6 - OTC (reverse clear OT).
@@ -255,6 +284,21 @@ void libps_bus_step(struct libps_bus* bus)
                 bus->dma_gpu_channel.chcr &= ~(1 << 24);
                 break;
 
+            case 15:
+                switch (bus->dma_cdrom_channel.chcr)
+                {
+                    case 0x11000000:
+                        dma_cdrom(bus);
+                        break;
+
+                    case 0x11400100:
+                        dma_cdrom_chopped(bus);
+                        break;
+                }
+
+                bus->dma_cdrom_channel.chcr &= ~(1 << 24);
+                break;
+
             // DMA channel 6 - OTC (reverse clear OT)
             case 27:
                 dma_otc_process(bus);
@@ -347,6 +391,21 @@ void libps_bus_store_word(struct libps_bus* bus,
                         // 0x1F8010A8 - DMA Channel 2 (GPU) control (R/W)
                         case 0x0A8:
                             bus->dma_gpu_channel.chcr = data;
+                            break;
+
+                        // 0x1F8010B0 - DMA Channel 3 (CDROM) base address (R/W)
+                        case 0x0B0:
+                            bus->dma_cdrom_channel.madr = data;
+                            break;
+
+                        // 0x1F8010B4 - DMA Channel 3 (CDROM) block control (R/W)
+                        case 0x0B4:
+                            bus->dma_cdrom_channel.bcr = data;
+                            break;
+
+                        // 0x1F8010B8 - DMA Channel 3 (CDROM) control (R/W)
+                        case 0x0B8:
+                            bus->dma_cdrom_channel.chcr = data;
                             break;
 
                         // 0x1F8010E0 - DMA Channel 6 (OTC) base address (R/W)

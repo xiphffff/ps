@@ -25,6 +25,8 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 
     sys = libps_system_create(bios);
 
+    sys->bus->cdrom->user_data = this;
+
 #ifdef LIBPS_DEBUG
     sys->bus->debug_user_data = this;
 
@@ -111,17 +113,18 @@ void Emulator::insert_cdrom_image(const QString& file_name)
 {
     struct libps_cdrom_info cdrom_info;
 
+    cdrom_image_file = fopen(qPrintable(file_name), "rb");
+
     cdrom_info.read_cb = [](void* user_data) -> uint8_t
     {
         Emulator* emu = reinterpret_cast<Emulator*>(user_data);
         return emu->handle_cdrom_image_read();
     };
 
-    cdrom_info.seek_cb = [](void* user_data,
-                            const struct libps_cdrom_seek_target* seek_target)
+    cdrom_info.seek_cb = [](void* user_data)
     {
         Emulator* emu = reinterpret_cast<Emulator*>(user_data);
-        emu->handle_cdrom_image_seek(seek_target);
+        emu->handle_cdrom_image_seek();
     };
 
     libps_system_set_cdrom(sys, &cdrom_info);
@@ -195,10 +198,15 @@ void Emulator::trace_bios_call(const uint32_t pc, const uint32_t fn)
 { }
 
 // Called when it is time to seek to a specified position on the CD-ROM image.
-void Emulator::handle_cdrom_image_seek
-(const struct libps_cdrom_seek_target* seek_target)
+void Emulator::handle_cdrom_image_seek()
 {
+    const unsigned int seconds = sys->bus->cdrom->seek_target.second - 2;
 
+    fseek(cdrom_image_file,
+         (sys->bus->cdrom->seek_target.minute +
+         (75 * seconds) +
+         sys->bus->cdrom->seek_target.sector),
+         SEEK_SET);
 }
 
 // Thread entry point

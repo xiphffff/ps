@@ -53,7 +53,7 @@ struct libps_cdrom* libps_cdrom_create(void)
     libps_safe_malloc(sizeof(struct libps_cdrom));
 
     cdrom->parameter_fifo = libps_fifo_create(16);
-    cdrom->data_fifo      = libps_fifo_create(16);
+    cdrom->data_fifo      = libps_fifo_create(4096);
 
     cdrom->first_interrupt =
     libps_safe_malloc(sizeof(struct libps_cdrom_interrupt));
@@ -64,9 +64,7 @@ struct libps_cdrom* libps_cdrom_create(void)
     cdrom->first_interrupt->response  = libps_fifo_create(16);
     cdrom->second_interrupt->response = libps_fifo_create(16);
 
-    cdrom->user_data  = NULL;
-    cdrom->cdrom_info = NULL;
-
+    cdrom->user_data = NULL;
     return cdrom;
 }
 
@@ -182,6 +180,10 @@ uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
         case 3:
             switch (cdrom->status & 0x03)
             {
+                // 1F801803h.Index0 - Interrupt Enable Register (R)
+                case 0:
+                    return cdrom->interrupt_enable;
+
                 // 1F801803h.Index1 - Interrupt Flag Register (R/W)
                 case 1:
                     return cdrom->interrupt_flag;
@@ -244,10 +246,36 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
 
                         // ReadN
                         case 0x06:
-                            // freeze here
                             push_response(cdrom->first_interrupt,
                                           LIBPS_CDROM_INT3,
                                           20000,
+                                          1,
+                                          cdrom->response_status);
+
+                            cdrom->response_status |=
+                            LIBPS_CDROM_RESPONSE_STATUS_READING;
+
+                            push_response(cdrom->second_interrupt,
+                                          LIBPS_CDROM_INT1,
+                                          25000,
+                                          1,
+                                          cdrom->response_status);
+                            break;
+
+                        // Pause
+                        case 0x09:
+                            push_response(cdrom->first_interrupt,
+                                          LIBPS_CDROM_INT3,
+                                          20000,
+                                          1,
+                                          cdrom->response_status);
+
+                            cdrom->response_status &=
+                            ~LIBPS_CDROM_RESPONSE_STATUS_READING;
+
+                            push_response(cdrom->second_interrupt,
+                                          LIBPS_CDROM_INT2,
+                                          25000,
                                           1,
                                           cdrom->response_status);
                             break;
@@ -275,7 +303,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                                           1,
                                           cdrom->response_status);
 
-                            cdrom->cdrom_info->seek_cb(cdrom->user_data, &cdrom->seek_target);
+                            cdrom->cdrom_info.seek_cb(cdrom->user_data);
 
                             cdrom->response_status &=
                             ~LIBPS_CDROM_RESPONSE_STATUS_SEEKING;
@@ -308,7 +336,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                         // GetID
                         case 0x1A:
                             // Is there a disc?
-                            if (cdrom->cdrom_info)
+                            if (cdrom->cdrom_info.seek_cb && cdrom->cdrom_info.read_cb)
                             {
                                 // Yes.
                                 push_response(cdrom->first_interrupt,
@@ -365,6 +393,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
 
                 // 1F801802h.Index1 - Interrupt Enable Register (W)
                 case 1:
+                    cdrom->interrupt_enable = data;
                     break;
 
                 default:
@@ -377,6 +406,12 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
         case 3:
             switch (cdrom->status & 0x03)
             {
+                // 1F801803h.Index0 - Request Register (W)
+                case 0:
+                    // Transfer the sector data to the data FIFO
+                    cdrom->status |= LIBPS_CDROM_STATUS_DRQSTS;
+                    break;
+
                 // 1F801803h.Index1 - Interrupt Flag Register (R/W)
                 case 1:
                     // Has an interrupt that we care about been acknowledged?

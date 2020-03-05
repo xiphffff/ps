@@ -78,6 +78,9 @@ struct libps_bus
     // DMA channel 2 - GPU (lists + image data)
     struct libps_dma_channel dma_gpu_channel;
 
+    // DMA channel 3 - CDROM
+    struct libps_dma_channel dma_cdrom_channel;
+
     // DMA channel 6 - OTC (reverse clear OT)
     struct libps_dma_channel dma_otc_channel;
 

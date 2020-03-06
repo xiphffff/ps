@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <array>
 #include <QtCore>
 
 // Forward declaration
@@ -83,7 +84,7 @@ private:
     void run() override;
 
     // Called when it is time to read data off of the CD-ROM image.
-    uint8_t handle_cdrom_image_read();
+    void handle_cdrom_image_read(const unsigned int offset);
 
     // The file handle of the CD-ROM image, if any.
     FILE* cdrom_image_file;
@@ -107,8 +108,14 @@ private:
     // `jr $t2`
     quint32 bios_call_trace_pc;
 
+    // Current sector data
+    uint8_t sector_data[2352];
+
     // The total number of cycles taken by the emulator.
     unsigned int total_cycles;
+
+    // Current position in the game image
+    unsigned int cdrom_image_pos;
 
     // BIOS trace information
     struct bios_trace_info bios_trace;

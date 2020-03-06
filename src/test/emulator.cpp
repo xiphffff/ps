@@ -27,6 +27,8 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 
     sys->bus->cdrom->user_data = this;
 
+    sys->bus->cdrom->sector_data = sector_data;
+
 #ifdef LIBPS_DEBUG
     sys->bus->debug_user_data = this;
 
@@ -115,18 +117,11 @@ void Emulator::insert_cdrom_image(const QString& file_name)
 
     cdrom_image_file = fopen(qPrintable(file_name), "rb");
 
-    cdrom_info.read_cb = [](void* user_data) -> uint8_t
+    cdrom_info.read_cb = [](void* user_data, const unsigned int address)
     {
         Emulator* emu = reinterpret_cast<Emulator*>(user_data);
-        return emu->handle_cdrom_image_read();
+        emu->handle_cdrom_image_read(address);
     };
-
-    cdrom_info.seek_cb = [](void* user_data)
-    {
-        Emulator* emu = reinterpret_cast<Emulator*>(user_data);
-        emu->handle_cdrom_image_seek();
-    };
-
     libps_system_set_cdrom(sys, &cdrom_info);
 }
 
@@ -197,19 +192,6 @@ void Emulator::handle_tty_string()
 void Emulator::trace_bios_call(const uint32_t pc, const uint32_t fn)
 { }
 
-// Called when it is time to seek to a specified position on the CD-ROM image.
-void Emulator::handle_cdrom_image_seek()
-{
-    const unsigned int seconds = sys->bus->cdrom->seek_target.second - 2;
-
-    const unsigned int pos =
-    sys->bus->cdrom->seek_target.sector +
-    (seconds * 75) +
-    (sys->bus->cdrom->seek_target.minute * 60 * 75);
-
-    fseek(cdrom_image_file, pos, SEEK_SET);
-}
-
 // Thread entry point
 void Emulator::run()
 {
@@ -223,6 +205,11 @@ void Emulator::run()
              cycle++,
              total_cycles++)
         {
+            if (!running)
+            {
+                break;
+            }
+
             if (tracing_bios_call && bios_call_trace_pc == sys->cpu->pc)
             {
                 emit bios_call(&bios_trace);
@@ -247,7 +234,7 @@ void Emulator::run()
 
                     case 0x40:
                         emit system_error();
-                        running = false;
+                        pause_run_loop();
 
                         break;
 
@@ -301,10 +288,10 @@ void Emulator::run()
 }
 
 // Called when it is time to read data off of the CD-ROM image.
-uint8_t Emulator::handle_cdrom_image_read()
+void Emulator::handle_cdrom_image_read(const unsigned int address)
 {
-    uint8_t result;
-    fread(&result, 1, 1, cdrom_image_file);
+    printf("%lu\n", address);
 
-    return result;
+    fseek(cdrom_image_file, address, SEEK_SET);
+    fread(sector_data, LIBPS_SECTOR_SIZE, 1, cdrom_image_file);
 }

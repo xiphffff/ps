@@ -108,7 +108,7 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
     cdrom->second_interrupt->cycles  = 0;
     cdrom->second_interrupt->type    = 0;
 
-    cdrom->sector_count                = 0;
+    cdrom->sector_count                = 1;
     cdrom->sector_read_cycle_count     = 0;
     cdrom->sector_read_cycle_threshold = 0;
     cdrom->sector_threshold            = 0;
@@ -132,7 +132,15 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
                 cdrom->sector_count = 0;
             }
 
-            cdrom->sector_data = cdrom->cdrom_info.read_cb(cdrom->user_data);
+            // Read a new sector
+            unsigned int address =
+            ((cdrom->seek_target.sector + cdrom->sector_count) +
+            (cdrom->seek_target.second * 75) +
+            (cdrom->seek_target.minute * 60 * 75)) - 150;
+
+            address *= LIBPS_SECTOR_SIZE;
+
+            cdrom->cdrom_info.read_cb(cdrom->user_data, address + 24);
 
             push_response(cdrom->second_interrupt,
                           LIBPS_CDROM_INT1,
@@ -284,7 +292,8 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->response_status |=
                             LIBPS_CDROM_RESPONSE_STATUS_READING;
 
-                            cdrom->sector_threshold = threshold;
+                            cdrom->sector_count = 0;
+                            cdrom->sector_threshold = threshold - 1;
                             
                             cdrom->sector_read_cycle_threshold =
                             33868800 / cdrom->sector_threshold;
@@ -313,6 +322,19 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
 
                         // Init
                         case 0x0A:
+                            push_response(cdrom->first_interrupt,
+                                          LIBPS_CDROM_INT3,
+                                          20000,
+                                          1,
+                                          cdrom->response_status);
+
+                            cdrom->mode = 0x00;
+
+                            push_response(cdrom->second_interrupt,
+                                          LIBPS_CDROM_INT5,
+                                          25000,
+                                          1,
+                                          cdrom->response_status);
                             break;
 
                         // Setmode
@@ -337,8 +359,6 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                                           20000,
                                           1,
                                           cdrom->response_status);
-
-                            cdrom->cdrom_info.seek_cb(cdrom->user_data);
 
                             cdrom->response_status &=
                             ~LIBPS_CDROM_RESPONSE_STATUS_SEEKING;
@@ -371,7 +391,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                         // GetID
                         case 0x1A:
                             // Is there a disc?
-                            if (cdrom->cdrom_info.seek_cb && cdrom->cdrom_info.read_cb)
+                            if (cdrom->cdrom_info.read_cb)
                             {
                                 // Yes.
                                 push_response(cdrom->first_interrupt,
@@ -443,8 +463,10 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
             {
                 // 1F801803h.Index0 - Request Register (W)
                 case 0:
-                    libps_fifo_enqueue(cdrom->data_fifo, cdrom->sector_data);
-
+                    for (unsigned int i = 0; i < 2352; ++i)
+                    {
+                        libps_fifo_enqueue(cdrom->data_fifo, cdrom->sector_data[i]);
+                    }
                     cdrom->status |= LIBPS_CDROM_STATUS_DRQSTS;
                     break;
 

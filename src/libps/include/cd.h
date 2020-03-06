@@ -55,6 +55,8 @@ struct libps_fifo;
 
 #define LIBPS_CDROM_MODE_SPEED (1 << 7)
 
+#define LIBPS_SECTOR_SIZE 2352
+
 struct libps_cdrom_interrupt
 {
     // Does this interrupt need to be fired?
@@ -80,11 +82,8 @@ struct libps_cdrom_seek_target
 // Pass this structure to `libps_system_set_cdrom()`.
 struct libps_cdrom_info
 {
-    // Function call when it is time to seek
-    void (*seek_cb)(void* user_data);
-
     // Function to call when it is time to read a sector
-    uint8_t (*read_cb)(void* user_data);
+    void (*read_cb)(void* user_data, const unsigned int address);
 };
 
 struct libps_cdrom
@@ -158,8 +157,8 @@ struct libps_cdrom
     // The number of sectors we can read
     unsigned int sector_threshold;
 
-    // Current sector data
-    uint8_t sector_data;
+    // Pointer to the current sector data
+    uint8_t* sector_data;
 
     void* user_data;
 };

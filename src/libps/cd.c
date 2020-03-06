@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include "cd.h"
 #include "utility/fifo.h"
+#include "utility/math.h"
 #include "utility/memory.h"
 
 // Queues an interrupt `interrupt`, delaying its firing by `delay_cycles`.
@@ -107,6 +108,11 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
     cdrom->second_interrupt->cycles  = 0;
     cdrom->second_interrupt->type    = 0;
 
+    cdrom->sector_count                = 0;
+    cdrom->sector_read_cycle_count     = 0;
+    cdrom->sector_read_cycle_threshold = 0;
+    cdrom->sector_threshold            = 0;
+
     cdrom->fire_interrupt = false;
 }
 
@@ -118,19 +124,29 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
     // This takes priority over everything else.
     if (cdrom->response_status & LIBPS_CDROM_RESPONSE_STATUS_READING)
     {
-#if 0
-        if (num_sectors != 0)
+        if (cdrom->sector_read_cycle_count >=
+            cdrom->sector_read_cycle_threshold)
         {
-            uint8_t sector = cdrom->cdrom_info->read_cb(cdrom->user_data);
-            queue_interrupt(cdrom, INT1, 20000, 1, sector);
+            if (cdrom->sector_count >= cdrom->sector_threshold)
+            {
+                cdrom->sector_count = 0;
+            }
 
-            num_sectors--;
+            cdrom->sector_data = cdrom->cdrom_info.read_cb(cdrom->user_data);
+
+            push_response(cdrom->second_interrupt,
+                          LIBPS_CDROM_INT1,
+                          20000,
+                          1,
+                          cdrom->response_status);
+
+            cdrom->sector_count++;
+            cdrom->sector_read_cycle_count = 0;
         }
         else
         {
-            cdrom->response_status &= ~LIBPS_CDROM_RESPONSE_STATUS_READING;
+            cdrom->sector_read_cycle_count++;
         }
-#endif
     }
 
     // Is there an interrupt pending?
@@ -237,6 +253,15 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->seek_target.sector =
                             libps_fifo_dequeue(cdrom->parameter_fifo);
 
+                            cdrom->seek_target.minute =
+                            LIBPS_BCD_TO_DEC(cdrom->seek_target.minute);
+
+                            cdrom->seek_target.second =
+                            LIBPS_BCD_TO_DEC(cdrom->seek_target.second);
+
+                            cdrom->seek_target.sector =
+                            LIBPS_BCD_TO_DEC(cdrom->seek_target.sector);
+
                             push_response(cdrom->first_interrupt,
                                           LIBPS_CDROM_INT3,
                                           20000,
@@ -246,6 +271,10 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
 
                         // ReadN
                         case 0x06:
+                        {
+                            const unsigned int threshold =
+                            (cdrom->mode & LIBPS_CDROM_MODE_SPEED) ? 150 : 75;
+                            
                             push_response(cdrom->first_interrupt,
                                           LIBPS_CDROM_INT3,
                                           20000,
@@ -255,12 +284,14 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->response_status |=
                             LIBPS_CDROM_RESPONSE_STATUS_READING;
 
-                            push_response(cdrom->second_interrupt,
-                                          LIBPS_CDROM_INT1,
-                                          25000,
-                                          1,
-                                          cdrom->response_status);
+                            cdrom->sector_threshold = threshold;
+                            
+                            cdrom->sector_read_cycle_threshold =
+                            33868800 / cdrom->sector_threshold;
+
+                            // Second response comes in `libps_cdrom_step()`.
                             break;
+                        }
 
                         // Pause
                         case 0x09:
@@ -278,6 +309,10 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                                           25000,
                                           1,
                                           cdrom->response_status);
+                            break;
+
+                        // Init
+                        case 0x0A:
                             break;
 
                         // Setmode
@@ -408,7 +443,8 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
             {
                 // 1F801803h.Index0 - Request Register (W)
                 case 0:
-                    // Transfer the sector data to the data FIFO
+                    libps_fifo_enqueue(cdrom->data_fifo, cdrom->sector_data);
+
                     cdrom->status |= LIBPS_CDROM_STATUS_DRQSTS;
                     break;
 

@@ -202,11 +202,12 @@ void Emulator::handle_cdrom_image_seek()
 {
     const unsigned int seconds = sys->bus->cdrom->seek_target.second - 2;
 
-    fseek(cdrom_image_file,
-         (sys->bus->cdrom->seek_target.minute +
-         (75 * seconds) +
-         sys->bus->cdrom->seek_target.sector),
-         SEEK_SET);
+    const unsigned int pos =
+    sys->bus->cdrom->seek_target.sector +
+    (seconds * 75) +
+    (sys->bus->cdrom->seek_target.minute * 60 * 75);
+
+    fseek(cdrom_image_file, pos, SEEK_SET);
 }
 
 // Thread entry point
@@ -302,5 +303,8 @@ void Emulator::run()
 // Called when it is time to read data off of the CD-ROM image.
 uint8_t Emulator::handle_cdrom_image_read()
 {
-    return 0xFF;
+    uint8_t result;
+    fread(&result, 1, 1, cdrom_image_file);
+
+    return result;
 }

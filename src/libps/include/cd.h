@@ -53,6 +53,8 @@ struct libps_fifo;
 
 #define LIBPS_CDROM_STATUS_DRQSTS (1 << 6)
 
+#define LIBPS_CDROM_MODE_SPEED (1 << 7)
+
 struct libps_cdrom_interrupt
 {
     // Does this interrupt need to be fired?
@@ -143,6 +145,21 @@ struct libps_cdrom
 
     // This should not be set directly; use `libps_system_set_cdrom()`.
     struct libps_cdrom_info cdrom_info;
+
+    // The number of cycles to wait before reading another sector
+    unsigned int sector_read_cycle_threshold;
+
+    // Current sector read cycle count
+    unsigned int sector_read_cycle_count;
+
+    // Current sector count
+    unsigned int sector_count;
+
+    // The number of sectors we can read
+    unsigned int sector_threshold;
+
+    // Current sector data
+    uint8_t sector_data;
 
     void* user_data;
 };

@@ -202,8 +202,8 @@ void Emulator::run()
 
         for (unsigned int cycle = 0;
              cycle < 33868800 / 60;
-             cycle++,
-             total_cycles++)
+             cycle += 2,
+             total_cycles += 2)
         {
             if (!running)
             {
@@ -290,8 +290,6 @@ void Emulator::run()
 // Called when it is time to read data off of the CD-ROM image.
 void Emulator::handle_cdrom_image_read(const unsigned int address)
 {
-    printf("%lu\n", address);
-
     fseek(cdrom_image_file, address, SEEK_SET);
     fread(sector_data, LIBPS_SECTOR_SIZE, 1, cdrom_image_file);
 }

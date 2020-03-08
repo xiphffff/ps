@@ -70,6 +70,9 @@ struct libps_cdrom_interrupt
 
     // The type of interrupt
     unsigned int type;
+
+    // The next interrupt to fire, if any
+    struct libps_cdrom_interrupt* next_interrupt;
 };
 
 struct libps_cdrom_seek_target
@@ -135,9 +138,12 @@ struct libps_cdrom
     struct libps_fifo* response_fifo;
     struct libps_fifo* data_fifo;
 
-    struct libps_cdrom_interrupt* first_interrupt;
-    struct libps_cdrom_interrupt* second_interrupt;
+    struct libps_cdrom_interrupt* int1;
+    struct libps_cdrom_interrupt* int2;
+    struct libps_cdrom_interrupt* int3;
+    struct libps_cdrom_interrupt* int5;
 
+    struct libps_cdrom_interrupt* current_interrupt;
     struct libps_cdrom_seek_target seek_target;
 
     bool fire_interrupt;

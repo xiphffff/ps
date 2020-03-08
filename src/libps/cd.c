@@ -22,9 +22,20 @@
 #include "utility/math.h"
 #include "utility/memory.h"
 
+static void reset_interrupt(struct libps_cdrom_interrupt* interrupt)
+{
+    assert(interrupt != NULL);
+
+    interrupt->next_interrupt = NULL;
+
+    libps_fifo_reset(interrupt->response);
+
+    interrupt->pending = false;
+    interrupt->cycles  = 0;
+}
+
 // Queues an interrupt `interrupt`, delaying its firing by `delay_cycles`.
 static void push_response(struct libps_cdrom_interrupt* interrupt,
-                          const unsigned int type,
                           const unsigned int delay_cycles,
                           const unsigned int num_args,
                           ...)
@@ -42,7 +53,6 @@ static void push_response(struct libps_cdrom_interrupt* interrupt,
     va_end(args);
 
     interrupt->pending = true;
-    interrupt->type    = type;
     interrupt->cycles  = delay_cycles;
 }
 
@@ -56,14 +66,20 @@ struct libps_cdrom* libps_cdrom_create(void)
     cdrom->parameter_fifo = libps_fifo_create(16);
     cdrom->data_fifo      = libps_fifo_create(4096);
 
-    cdrom->first_interrupt =
-    libps_safe_malloc(sizeof(struct libps_cdrom_interrupt));
+    cdrom->int1 = libps_safe_malloc(sizeof(struct libps_cdrom_interrupt));
+    cdrom->int2 = libps_safe_malloc(sizeof(struct libps_cdrom_interrupt));
+    cdrom->int3 = libps_safe_malloc(sizeof(struct libps_cdrom_interrupt));
+    cdrom->int5 = libps_safe_malloc(sizeof(struct libps_cdrom_interrupt));
 
-    cdrom->second_interrupt =
-    libps_safe_malloc(sizeof(struct libps_cdrom_interrupt));
+    cdrom->int1->type = LIBPS_CDROM_INT1;
+    cdrom->int2->type = LIBPS_CDROM_INT2;
+    cdrom->int3->type = LIBPS_CDROM_INT3;
+    cdrom->int5->type = LIBPS_CDROM_INT5;
 
-    cdrom->first_interrupt->response  = libps_fifo_create(16);
-    cdrom->second_interrupt->response = libps_fifo_create(16);
+    cdrom->int1->response = libps_fifo_create(16);
+    cdrom->int2->response = libps_fifo_create(16);
+    cdrom->int3->response = libps_fifo_create(16);
+    cdrom->int5->response = libps_fifo_create(16);
 
     cdrom->user_data = NULL;
     return cdrom;
@@ -75,11 +91,15 @@ void libps_cdrom_destroy(struct libps_cdrom* cdrom)
     libps_fifo_destroy(cdrom->parameter_fifo);
     libps_fifo_destroy(cdrom->data_fifo);
 
-    libps_fifo_destroy(cdrom->first_interrupt->response);
-    libps_fifo_destroy(cdrom->second_interrupt->response);
+    libps_fifo_destroy(cdrom->int1->response);
+    libps_fifo_destroy(cdrom->int2->response);
+    libps_fifo_destroy(cdrom->int3->response);
+    libps_fifo_destroy(cdrom->int5->response);
 
-    libps_safe_free(cdrom->first_interrupt);
-    libps_safe_free(cdrom->second_interrupt);
+    libps_safe_free(cdrom->int1);
+    libps_safe_free(cdrom->int2);
+    libps_safe_free(cdrom->int3);
+    libps_safe_free(cdrom->int5);
 
     libps_safe_free(cdrom);
 }
@@ -92,21 +112,17 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
     libps_fifo_reset(cdrom->parameter_fifo);
     libps_fifo_reset(cdrom->data_fifo);
 
-    libps_fifo_reset(cdrom->first_interrupt->response);
-    libps_fifo_reset(cdrom->second_interrupt->response);
+    reset_interrupt(cdrom->int1);
+    reset_interrupt(cdrom->int2);
+    reset_interrupt(cdrom->int3);
+    reset_interrupt(cdrom->int5);
+
+    cdrom->current_interrupt = NULL;
 
     cdrom->interrupt_flag = 0x00;
 
     cdrom->status          = 0x18;
     cdrom->response_status = 0x00;
-
-    cdrom->first_interrupt->pending = false;
-    cdrom->first_interrupt->cycles  = 0;
-    cdrom->first_interrupt->type    = 0;
-
-    cdrom->second_interrupt->pending = false;
-    cdrom->second_interrupt->cycles  = 0;
-    cdrom->second_interrupt->type    = 0;
 
     cdrom->sector_count                = 1;
     cdrom->sector_read_cycle_count     = 0;
@@ -142,11 +158,13 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
 
             cdrom->cdrom_info.read_cb(cdrom->user_data, address + 24);
 
-            push_response(cdrom->second_interrupt,
-                          LIBPS_CDROM_INT1,
+            push_response(cdrom->int1,
                           20000,
                           1,
                           cdrom->response_status);
+
+            cdrom->int1->next_interrupt = cdrom->int1;
+            cdrom->current_interrupt = cdrom->int1;
 
             cdrom->sector_count++;
             cdrom->sector_read_cycle_count = 0;
@@ -158,22 +176,24 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
     }
 
     // Is there an interrupt pending?
-    if (cdrom->first_interrupt->pending)
+    if ((cdrom->current_interrupt != NULL) && cdrom->current_interrupt->pending)
     {
-        if (cdrom->first_interrupt->cycles != 0)
+        if (cdrom->current_interrupt->cycles != 0)
         {
-            cdrom->first_interrupt->cycles--;
+            cdrom->current_interrupt->cycles--;
         }
         else
         {
-            cdrom->response_fifo = cdrom->first_interrupt->response;
+            cdrom->response_fifo = cdrom->current_interrupt->response;
 
-            cdrom->first_interrupt->pending = false;
+            cdrom->current_interrupt->pending = false;
             cdrom->fire_interrupt = true;
 
             cdrom->interrupt_flag =
             (cdrom->interrupt_flag & ~0x07) |
-            (cdrom->first_interrupt->type & 0x07);
+            (cdrom->current_interrupt->type & 0x07);
+
+            printf("INT%d done, IF=0x%02X\n", cdrom->current_interrupt->type, cdrom->interrupt_flag);
         }
     }
 }
@@ -239,15 +259,19 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
             {
                 // 1F801801h.Index0 - Command Register (W)
                 case 0:
+                    printf("Command is 0x%02X\n", data);
                     switch (data)
                     {
                         // Getstat
                         case 0x01:
-                            push_response(cdrom->first_interrupt,
-                                          LIBPS_CDROM_INT3,
+                            push_response(cdrom->int3,
                                           20000,
                                           1,
                                           cdrom->response_status);
+
+                            cdrom->int3->next_interrupt = NULL;
+
+                            cdrom->current_interrupt = cdrom->int3;
                             break;
 
                         // Setloc
@@ -270,11 +294,14 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->seek_target.sector =
                             LIBPS_BCD_TO_DEC(cdrom->seek_target.sector);
 
-                            push_response(cdrom->first_interrupt,
-                                          LIBPS_CDROM_INT3,
+                            push_response(cdrom->int3,
                                           20000,
                                           1,
                                           cdrom->response_status);
+
+                            cdrom->int3->next_interrupt = NULL;
+
+                            cdrom->current_interrupt = cdrom->int3;
                             break;
 
                         // ReadN
@@ -283,8 +310,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             const unsigned int threshold =
                             (cdrom->mode & LIBPS_CDROM_MODE_SPEED) ? 150 : 75;
                             
-                            push_response(cdrom->first_interrupt,
-                                          LIBPS_CDROM_INT3,
+                            push_response(cdrom->int3,
                                           20000,
                                           1,
                                           cdrom->response_status);
@@ -304,8 +330,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
 
                         // Pause
                         case 0x09:
-                            push_response(cdrom->first_interrupt,
-                                          LIBPS_CDROM_INT3,
+                            push_response(cdrom->int3,
                                           20000,
                                           1,
                                           cdrom->response_status);
@@ -313,28 +338,34 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->response_status &=
                             ~LIBPS_CDROM_RESPONSE_STATUS_READING;
 
-                            push_response(cdrom->second_interrupt,
-                                          LIBPS_CDROM_INT2,
+                            push_response(cdrom->int2,
                                           25000,
                                           1,
                                           cdrom->response_status);
+
+                            cdrom->int3->next_interrupt = cdrom->int2;
+                            cdrom->int2->next_interrupt = NULL;
+
+                            cdrom->current_interrupt = cdrom->int3;
                             break;
 
                         // Init
                         case 0x0A:
-                            push_response(cdrom->first_interrupt,
-                                          LIBPS_CDROM_INT3,
+                            push_response(cdrom->int3,
                                           20000,
                                           1,
                                           cdrom->response_status);
 
                             cdrom->mode = 0x00;
 
-                            push_response(cdrom->second_interrupt,
-                                          LIBPS_CDROM_INT5,
+                            push_response(cdrom->int5,
                                           25000,
                                           1,
                                           cdrom->response_status);
+
+                            cdrom->int3->next_interrupt = cdrom->int5;
+                            cdrom->int5->next_interrupt = NULL;
+
                             break;
 
                         // Setmode
@@ -342,11 +373,14 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->mode =
                             libps_fifo_dequeue(cdrom->parameter_fifo);
 
-                            push_response(cdrom->first_interrupt,
-                                          LIBPS_CDROM_INT3,
+                            push_response(cdrom->int3,
                                           20000,
                                           1,
                                           cdrom->response_status);
+
+                            cdrom->int3->next_interrupt = NULL;
+
+                            cdrom->current_interrupt = cdrom->int3;
                             break;
 
                         // SeekL
@@ -354,8 +388,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->response_status |=
                             LIBPS_CDROM_RESPONSE_STATUS_SEEKING;
                             
-                            push_response(cdrom->first_interrupt,
-                                          LIBPS_CDROM_INT3,
+                            push_response(cdrom->int3,
                                           20000,
                                           1,
                                           cdrom->response_status);
@@ -363,11 +396,15 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->response_status &=
                             ~LIBPS_CDROM_RESPONSE_STATUS_SEEKING;
                             
-                            push_response(cdrom->second_interrupt,
-                                          LIBPS_CDROM_INT2,
+                            push_response(cdrom->int2,
                                           25000,
                                           1,
                                           cdrom->response_status);
+
+                            cdrom->int3->next_interrupt = cdrom->int2;
+                            cdrom->int2->next_interrupt = NULL;
+
+                            cdrom->current_interrupt = cdrom->int3;
                             break;
 
                         case 0x19:
@@ -375,11 +412,14 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case 0x20:
-                                    push_response(cdrom->first_interrupt,
-                                                  LIBPS_CDROM_INT3,
+                                    push_response(cdrom->int3,
                                                   20000,
                                                   4,
                                                   0x94, 0x09, 0x19, 0xC0);
+
+                                    cdrom->current_interrupt = cdrom->int3;
+                                    cdrom->int3->next_interrupt = NULL;
+
                                     break;
 
                                 default:
@@ -394,34 +434,38 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             if (cdrom->cdrom_info.read_cb)
                             {
                                 // Yes.
-                                push_response(cdrom->first_interrupt,
-                                              LIBPS_CDROM_INT3,
+                                push_response(cdrom->int3,
                                               20000,
                                               1,
                                               cdrom->response_status);
 
-                                push_response(cdrom->second_interrupt,
-                                              LIBPS_CDROM_INT2,
+                                push_response(cdrom->int2,
                                               25000,
                                               8,
                                               0x02, 0x00, 0x20, 0x00,
                                               'S', 'C', 'E', 'A');
+
+                                cdrom->int3->next_interrupt = cdrom->int2;
+                                cdrom->int2->next_interrupt = NULL;
+
+                                cdrom->current_interrupt = cdrom->int3;
                             }
                             else
                             {
                                 // No.
-                                push_response(cdrom->first_interrupt,
-                                              LIBPS_CDROM_INT3,
+                                push_response(cdrom->int3,
                                               20000,
                                               1,
                                               cdrom->response_status);
 
-                                push_response(cdrom->second_interrupt,
-                                              LIBPS_CDROM_INT5,
+                                push_response(cdrom->int5,
                                               20000,
                                               8,
                                               0x08, 0x40, 0x00, 0x00,
                                               0x00, 0x00, 0x00, 0x00);
+
+                                cdrom->int3->next_interrupt = cdrom->int5;
+                                cdrom->int5->next_interrupt = NULL;
                             }
                             break;
 
@@ -429,6 +473,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             __debugbreak();
                             break;
                     }
+                    libps_fifo_reset(cdrom->parameter_fifo);
                     break;
 
                 default:
@@ -473,10 +518,19 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                 // 1F801803h.Index1 - Interrupt Flag Register (R/W)
                 case 1:
                     // Has an interrupt that we care about been acknowledged?
-                    if ((data & 0x07) == cdrom->first_interrupt->type)
+                    if ((cdrom->current_interrupt != NULL) && (data & 0x07) & cdrom->current_interrupt->type)
                     {
                         // It has, send the next one, if any.
-                        cdrom->first_interrupt = cdrom->second_interrupt;
+                        if (cdrom->current_interrupt->next_interrupt == NULL)
+                        {
+                            printf("INT%d acknowledged, no further interrupts\n", cdrom->current_interrupt->type);
+                            reset_interrupt(cdrom->current_interrupt);
+                        }
+                        else
+                        {
+                            printf("INT%d acknowledged, next interrupt is INT%d\n", cdrom->current_interrupt->type, cdrom->current_interrupt->next_interrupt->type);
+                            cdrom->current_interrupt = cdrom->current_interrupt->next_interrupt;
+                        }
                     }
 
                     cdrom->interrupt_flag = data;

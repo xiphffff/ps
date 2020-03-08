@@ -137,6 +137,15 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
 {
     assert(cdrom != NULL);
 
+    if (libps_fifo_is_empty(cdrom->data_fifo))
+    {
+        cdrom->status &= ~LIBPS_CDROM_STATUS_DRQSTS;
+    }
+    else
+    {
+        cdrom->status |= LIBPS_CDROM_STATUS_DRQSTS;
+    }
+
     // This takes priority over everything else.
     if (cdrom->response_status & LIBPS_CDROM_RESPONSE_STATUS_READING)
     {
@@ -159,7 +168,7 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
             cdrom->cdrom_info.read_cb(cdrom->user_data, address + 24);
 
             push_response(cdrom->int1,
-                          0x0036cd2,
+                          25000,
                           1,
                           cdrom->response_status);
 
@@ -184,8 +193,6 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
         }
         else
         {
-            printf("IE=0x%02X\n", cdrom->interrupt_enable);
-
             cdrom->response_fifo = cdrom->current_interrupt->response;
 
             cdrom->current_interrupt->pending = false;
@@ -259,8 +266,6 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
             {
                 // 1F801801h.Index0 - Command Register (W)
                 case 0:
-                    printf("Command is 0x%02X\n", data);
-
                     switch (data)
                     {
                         // Getstat
@@ -303,8 +308,6 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             cdrom->int3->next_interrupt = NULL;
 
                             cdrom->current_interrupt = cdrom->int3;
-
-                            printf("sector=%d\n", cdrom->seek_target.sector);
                             break;
 
                         // ReadN
@@ -328,6 +331,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                             33868800 / cdrom->sector_threshold;
 
                             // Second response comes in `libps_cdrom_step()`.
+                            cdrom->current_interrupt = cdrom->int3;
                             break;
                         }
 
@@ -376,6 +380,8 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                         case 0x0E:
                             cdrom->mode =
                             libps_fifo_dequeue(cdrom->parameter_fifo);
+
+                            cdrom->sector_size = (cdrom->mode & (1 << 5) ? 0x924 : 0x800);
 
                             push_response(cdrom->int3,
                                           20000,
@@ -451,8 +457,6 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
 
                                 cdrom->int3->next_interrupt = cdrom->int2;
                                 cdrom->int2->next_interrupt = NULL;
-
-                                cdrom->current_interrupt = cdrom->int3;
                             }
                             else
                             {
@@ -471,6 +475,7 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
                                 cdrom->int3->next_interrupt = cdrom->int5;
                                 cdrom->int5->next_interrupt = NULL;
                             }
+                            cdrom->current_interrupt = cdrom->int3;
                             break;
 
                         default:
@@ -512,11 +517,15 @@ void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
             {
                 // 1F801803h.Index0 - Request Register (W)
                 case 0:
-                    for (unsigned int i = 0; i < 2352; ++i)
+                    if (data & (1 << 7))
                     {
-                        libps_fifo_enqueue(cdrom->data_fifo, cdrom->sector_data[i]);
+                        libps_fifo_reset(cdrom->data_fifo);
+
+                        for (unsigned int i = 0; i < cdrom->sector_size; ++i)
+                        {
+                            libps_fifo_enqueue(cdrom->data_fifo, cdrom->sector_data[i]);
+                        }
                     }
-                    cdrom->status |= LIBPS_CDROM_STATUS_DRQSTS;
                     break;
 
                 // 1F801803h.Index1 - Interrupt Flag Register (R/W)

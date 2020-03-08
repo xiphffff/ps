@@ -42,7 +42,10 @@ void libps_fifo_reset(struct libps_fifo* fifo)
     fifo->head		   = 0;
     fifo->tail		   = fifo->max_size - 1;
 
-    memset(fifo->entries, 0, sizeof(*fifo->entries));
+    for (unsigned int i = 0; i < fifo->max_size; ++i)
+    {
+        fifo->entries[i] = 0;
+    }
 }
 
 // Returns `true` if the FIFO is empty, or `false` otherwise.

@@ -163,6 +163,8 @@ struct libps_cdrom
     // The number of sectors we can read
     unsigned int sector_threshold;
 
+    unsigned int sector_size;
+
     // Pointer to the current sector data
     uint8_t* sector_data;
 

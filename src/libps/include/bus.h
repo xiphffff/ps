@@ -20,6 +20,7 @@ extern "C"
 #endif // __cplusplus
 
 #include <stdint.h>
+#include <stdio.h>
 
 // Forward declarations
 struct libps_gpu;
@@ -106,6 +107,8 @@ struct libps_bus
     // Interrupt has been acknowledged
     void (*debug_interrupt_acknowledged)(void* user_data,
                                          const unsigned int interrupt);
+
+    FILE* debug_file;
 #endif // LIBPS_DEBUG
 };
 

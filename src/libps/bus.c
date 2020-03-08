@@ -22,6 +22,8 @@
 #include "utility/fifo.h"
 #include "utility/memory.h"
 
+#include <stdio.h>
+
 // `libps_bus` doesn't need to know about this, since the operator of the
 // library has the BIOS data loaded already and no other part of the system
 // needs to know or care.
@@ -113,18 +115,17 @@ static void dma_cdrom(struct libps_bus* bus)
 {
     assert(bus != NULL);
 
-    unsigned int num_words = bus->dma_cdrom_channel.bcr & 0x0000FFFF;
+    unsigned int num_words = (bus->dma_cdrom_channel.bcr & 0x0000FFFF) * 4;
     uint32_t address = bus->dma_cdrom_channel.madr;
 
     while (num_words != 0)
     {
-        for (unsigned int i = 0; i < 4; ++i)
-        {
-            const uint8_t data = libps_fifo_dequeue(bus->cdrom->data_fifo);
-            libps_bus_store_byte(bus, address + i, data);
-        }
+        const uint8_t data = libps_fifo_dequeue(bus->cdrom->data_fifo);
 
-        address += 4;
+        fprintf(bus->debug_file, "word=%d, data=0x%02X, address=0x%08X\n", num_words, data, address);
+        fflush(bus->debug_file);
+
+        libps_bus_store_byte(bus, address++, data);
         num_words--;
     }
 }
@@ -204,6 +205,8 @@ struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
     bus->gpu   = libps_gpu_create();
     bus->cdrom = libps_cdrom_create();
     bus->rcnt  = libps_rcnt_create();
+
+    bus->debug_file = fopen("debug.txt", "w");
 
     return bus;
 }

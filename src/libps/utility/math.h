@@ -19,7 +19,10 @@ extern "C"
 {
 #endif // __cplusplus
 
-#define LIBPS_BCD_TO_DEC(x) x - 6 * (x >> 4)
+#include <assert.h>
+#include <stdint.h>
+
+#define LIBPS_BCD_TO_DEC(x) (x - (6 * (x >> 4)))
 
 #ifdef __cplusplus
 }

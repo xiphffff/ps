@@ -120,19 +120,7 @@ struct libps_cdrom
     // 2 - SeekError:     (0=Okay, 1=Seek error)   (followed by Error Byte)
     // 1 - Spindle Motor: (0=Motor off, or in spin-up phase, 1=Motor on)
     // 0 - Error          Invalid Command/parameters (followed by Error Byte)
-    union
-    {
-        struct
-        {
-            unsigned int               : 1;
-            unsigned int spindle_motor : 1;
-            unsigned int               : 3;
-            unsigned int reading       : 1;
-            unsigned int seeking       : 1;
-            unsigned int               : 1;
-        };
-        uint8_t raw;
-    } response_status;
+    uint8_t response_status;
 
     // Set by the Setmode command
     //
@@ -144,16 +132,7 @@ struct libps_cdrom
     // 2   Report(0 = Off, 1 = Enable Report - Interrupts for Audio Play)
     // 1   AutoPause(0 = Off, 1 = Auto Pause upon End of Track); for Audio Play
     // 0   CDDA(0 = Off, 1 = Allow to Read CD - DA Sectors; ignore missing EDC)
-    union
-    {
-        struct
-        {
-            unsigned int : 6;
-            unsigned int double_speed : 1;
-            unsigned int sector_size : 1;
-        };
-        uint8_t raw;
-    } mode;
+    uint8_t mode;
 
     struct libps_fifo parameter_fifo;
     struct libps_fifo data_fifo;

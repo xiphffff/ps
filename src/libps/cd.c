@@ -109,7 +109,7 @@ void libps_cdrom_reset(struct libps_cdrom* cdrom)
     cdrom->interrupt_flag = 0x00;
 
     cdrom->status.raw          = 0x18;
-    cdrom->response_status.raw = 0x00;
+    cdrom->response_status     = 0x00;
 
     cdrom->sector_count                = 0;
     cdrom->sector_count_max            = 0;
@@ -125,7 +125,7 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
     assert(cdrom != NULL);
 
     // This takes priority over everything else.
-    if (cdrom->response_status.reading)
+    if (cdrom->response_status & (1 << 5))
     {
         if (cdrom->sector_read_cycle_count >=
             cdrom->sector_read_cycle_count_max)
@@ -146,10 +146,10 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
             push_response(&cdrom->int1,
                           100000,
                           1,
-                          cdrom->response_status.raw);
+                          cdrom->response_status);
 
             cdrom->int1.next_interrupt = &cdrom->int1;
-            cdrom->current_interrupt = &cdrom->int1;
+            cdrom->current_interrupt   = &cdrom->int1;
 
             cdrom->sector_count++;
             cdrom->sector_read_cycle_count = 0;
@@ -249,7 +249,7 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
                             push_response(&cdrom->int3,
                                           20000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
                             cdrom->int3.next_interrupt = NULL;
 
@@ -279,7 +279,7 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
                             push_response(&cdrom->int3,
                                           20000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
                             cdrom->int3.next_interrupt = NULL;
 
@@ -290,15 +290,15 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
                         case 0x06:
                         {
                             const unsigned int threshold =
-                            cdrom->mode.double_speed ? 150 : 75;
+                            cdrom->mode ? 150 : 75;
                             
                             push_response(&cdrom->int3,
                                           20000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
-                            cdrom->response_status.reading       = 1;
-                            cdrom->response_status.spindle_motor = 1;
+                            cdrom->response_status |= (1 << 5);
+                            cdrom->response_status |= (1 << 1);
 
                             cdrom->sector_count     = 0;
                             cdrom->sector_count_max = threshold - 1;
@@ -316,15 +316,15 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
                             push_response(&cdrom->int3,
                                           20000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
-                            cdrom->response_status.reading       = 0;
-                            cdrom->response_status.spindle_motor = 0;
+                            cdrom->response_status &= ~(1 << 5);
+                            cdrom->response_status &= ~(1 << 1);
 
                             push_response(&cdrom->int2,
                                           25000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
                             cdrom->int3.next_interrupt = &cdrom->int2;
                             cdrom->int2.next_interrupt = NULL;
@@ -337,14 +337,14 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
                             push_response(&cdrom->int3,
                                           20000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
-                            cdrom->mode.raw = 0x02;
+                            cdrom->mode = 0x02;
 
                             push_response(&cdrom->int2,
                                           25000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
                             cdrom->int3.next_interrupt = &cdrom->int2;
                             cdrom->int2.next_interrupt = NULL;
@@ -354,16 +354,16 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
 
                         // Setmode
                         case 0x0E:
-                            cdrom->mode.raw =
+                            cdrom->mode =
                             libps_fifo_dequeue(&cdrom->parameter_fifo);
 
                             cdrom->sector_size =
-                            (cdrom->mode.sector_size ? 0x924 : 0x800);
+                            ((cdrom->mode & (1 << 5)) ? 0x924 : 0x800);
 
                             push_response(&cdrom->int3,
                                           20000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
                             cdrom->int3.next_interrupt = NULL;
 
@@ -372,21 +372,21 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
 
                         // SeekL
                         case 0x15:
-                            cdrom->response_status.seeking       = 1;
-                            cdrom->response_status.spindle_motor = 1;
+                            cdrom->response_status |= (1 << 6);
+                            cdrom->response_status |= (1 << 1);
                             
                             push_response(&cdrom->int3,
                                           20000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
-                            cdrom->response_status.seeking       = 0;
-                            cdrom->response_status.spindle_motor = 0;
+                            cdrom->response_status &= ~(1 << 6);
+                            cdrom->response_status &= ~(1 << 1);
                             
                             push_response(&cdrom->int2,
                                           25000,
                                           1,
-                                          cdrom->response_status.raw);
+                                          cdrom->response_status);
 
                             cdrom->int3.next_interrupt = &cdrom->int2;
                             cdrom->int2.next_interrupt = NULL;
@@ -424,7 +424,7 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
                                 push_response(&cdrom->int3,
                                               20000,
                                               1,
-                                              cdrom->response_status.raw);
+                                              cdrom->response_status);
 
                                 push_response(&cdrom->int2,
                                               25000,
@@ -441,7 +441,7 @@ void libps_cdrom_register_store(struct libps_cdrom* cdrom,
                                 push_response(&cdrom->int3,
                                               20000,
                                               1,
-                                              cdrom->response_status.raw);
+                                              cdrom->response_status);
 
                                 push_response(&cdrom->int5,
                                               20000,

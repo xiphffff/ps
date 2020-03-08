@@ -55,7 +55,7 @@ static void dma_gpu_vram_read_process(struct libps_bus* bus)
         // Hack (state should be `LIBPS_GPU_TRANSFERRING_DATA`)
         libps_gpu_process_gp0(&bus->gpu, 0);
 
-        *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x00FFFFFF)) =
+        *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x1FFFFFFF)) =
         bus->gpu.gpuread;
 
         bus->dma_gpu_channel.madr += 4;

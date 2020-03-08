@@ -33,10 +33,10 @@ struct libps_fifo
 };
 
 // Creates a fixed-size FIFO.
-struct libps_fifo* libps_fifo_create(const unsigned int size);
+void libps_fifo_setup(struct libps_fifo* fifo, const unsigned int size);
 
 // Destroys a FIFO.
-void libps_fifo_destroy(struct libps_fifo* fifo);
+void libps_fifo_cleanup(struct libps_fifo* fifo);
 
 // Clears a FIFO.
 void libps_fifo_reset(struct libps_fifo* fifo);

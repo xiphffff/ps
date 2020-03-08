@@ -31,8 +31,8 @@ extern "C"
 // Defines the structure of a PlayStation emulator.
 struct libps_system
 {
-    struct libps_bus* bus;
-    struct libps_cpu* cpu;
+    struct libps_bus bus;
+    struct libps_cpu cpu;
 };
 
 // Creates a PlayStation emulator. `bios_data` is a pointer to the BIOS data

@@ -91,21 +91,10 @@ static void raise_exception(struct libps_cpu* cpu,
     cpu->pc      = 0x80000080 - 4;
 }
 
-// Allocates memory for a `libps_cpu` structure and returns a pointer to it if
-// memory allocation was successful, `NULL` otherwise. This function does not
-// automatically initialize initial state.
-struct libps_cpu* libps_cpu_create(struct libps_bus* b)
+// Sets the pointer to the system bus to `b`.
+void libps_cpu_set_bus(struct libps_bus* b)
 {
-    struct libps_cpu* cpu = libps_safe_malloc(sizeof(struct libps_cpu));
     bus = b;
-
-    return cpu;
-}
-
-// Deallocates the memory held by `cpu`.
-void libps_cpu_destroy(struct libps_cpu* cpu)
-{
-    libps_safe_free(cpu);
 }
 
 // Triggers a reset exception, thereby initializing the CPU to the predefined

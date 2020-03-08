@@ -38,12 +38,6 @@ struct libps_rcnt
     } rcnts[3];
 };
 
-// Creates the root counters.
-struct libps_rcnt* libps_rcnt_create(void);
-
-// Destroys the root counters.
-void libps_rcnt_destroy(struct libps_rcnt* rcnt);
-
 // Resets the timers to their initial state.
 void libps_rcnt_reset(struct libps_rcnt* rcnt);
 

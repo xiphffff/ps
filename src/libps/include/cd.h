@@ -19,8 +19,7 @@ extern "C"
 {
 #endif // __cplusplus
 
-// Forward declarations
-struct libps_fifo;
+#include "../utility/fifo.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -47,16 +46,10 @@ struct libps_fifo;
 // Interrupts
 #define LIBPS_IRQ_CDROM (1 << 2)
 
-// Bits for the response status (see `struct libps_cdrom::response_status`)
-#define LIBPS_CDROM_RESPONSE_STATUS_READING (1 << 5)
-#define LIBPS_CDROM_RESPONSE_STATUS_SEEKING (1 << 6)
+// Defines the absolute size of a sector in bytes.
+#define LIBPS_CDROM_SECTOR_SIZE 2352
 
-#define LIBPS_CDROM_STATUS_DRQSTS (1 << 6)
-
-#define LIBPS_CDROM_MODE_SPEED (1 << 7)
-
-#define LIBPS_SECTOR_SIZE 2352
-
+// Defines the structure of an interrupt.
 struct libps_cdrom_interrupt
 {
     // Does this interrupt need to be fired?
@@ -65,27 +58,21 @@ struct libps_cdrom_interrupt
     // How many cycles to wait before firing this interrupt?
     unsigned int cycles;
 
-    // Response parameters
-    struct libps_fifo* response;
-
     // The type of interrupt
     unsigned int type;
+
+    // Response parameters
+    struct libps_fifo response;
 
     // The next interrupt to fire, if any
     struct libps_cdrom_interrupt* next_interrupt;
 };
 
-struct libps_cdrom_seek_target
-{
-    uint8_t minute;
-    uint8_t second;
-    uint8_t sector;
-};
-
 // Pass this structure to `libps_system_set_cdrom()`.
 struct libps_cdrom_info
 {
-    // Function to call when it is time to read a sector
+    // Function to call when it is time to read a sector. `address` is an
+    // absolute address.
     void (*read_cb)(void* user_data, const unsigned int address);
 };
 
@@ -100,7 +87,20 @@ struct libps_cdrom
     // 5:     RSLRRDY Response fifo empty(0 = Empty); triggered after reading LAST byte
     // 6:     DRQSTS  Data fifo empty(0 = Empty); triggered after reading LAST byte
     // 7:     BUSYSTS Command / parameter transmission busy(1 = Busy)
-    uint8_t status;
+    union
+    {
+        struct
+        {
+            unsigned int index                : 1;
+            unsigned int                      : 1;
+            unsigned int parameter_fifo_empty : 1;
+            //unsigned int parameter_fifo_empty : 1;
+            unsigned int response_fifo_full   : 1;
+            unsigned int data_fifo_full       : 1;
+            unsigned int busy                 : 1;
+        };
+        uint8_t raw;
+    } status;
 
     // 1F801802h.Index1 - Interrupt Enable Register (W)
     // 1F801803h.Index0 - Interrupt Enable Register (R)
@@ -120,7 +120,19 @@ struct libps_cdrom
     // 2 - SeekError:     (0=Okay, 1=Seek error)   (followed by Error Byte)
     // 1 - Spindle Motor: (0=Motor off, or in spin-up phase, 1=Motor on)
     // 0 - Error          Invalid Command/parameters (followed by Error Byte)
-    uint8_t response_status;
+    union
+    {
+        struct
+        {
+            unsigned int               : 1;
+            unsigned int spindle_motor : 1;
+            unsigned int               : 3;
+            unsigned int reading       : 1;
+            unsigned int seeking       : 1;
+            unsigned int               : 1;
+        };
+        uint8_t raw;
+    } response_status;
 
     // Set by the Setmode command
     //
@@ -132,37 +144,57 @@ struct libps_cdrom
     // 2   Report(0 = Off, 1 = Enable Report - Interrupts for Audio Play)
     // 1   AutoPause(0 = Off, 1 = Auto Pause upon End of Track); for Audio Play
     // 0   CDDA(0 = Off, 1 = Allow to Read CD - DA Sectors; ignore missing EDC)
-    uint8_t mode;
+    union
+    {
+        struct
+        {
+            unsigned int : 6;
+            unsigned int double_speed : 1;
+            unsigned int sector_size : 1;
+        };
+        uint8_t raw;
+    } mode;
 
-    struct libps_fifo* parameter_fifo;
+    struct libps_fifo parameter_fifo;
+    struct libps_fifo data_fifo;
     struct libps_fifo* response_fifo;
-    struct libps_fifo* data_fifo;
 
-    struct libps_cdrom_interrupt* int1;
-    struct libps_cdrom_interrupt* int2;
-    struct libps_cdrom_interrupt* int3;
-    struct libps_cdrom_interrupt* int5;
+    // Interrupt lines
+    struct libps_cdrom_interrupt int1;
+    struct libps_cdrom_interrupt int2;
+    struct libps_cdrom_interrupt int3;
+    struct libps_cdrom_interrupt int5;
 
+    // The current interrupt we're processing.
     struct libps_cdrom_interrupt* current_interrupt;
-    struct libps_cdrom_seek_target seek_target;
+
+    // The current CD-ROM position.
+    struct
+    {
+        uint8_t minute;
+        uint8_t second;
+        uint8_t sector;
+    } position;
 
     bool fire_interrupt;
 
     // This should not be set directly; use `libps_system_set_cdrom()`.
     struct libps_cdrom_info cdrom_info;
 
-    // The number of cycles to wait before reading another sector
-    unsigned int sector_read_cycle_threshold;
-
     // Current sector read cycle count
     unsigned int sector_read_cycle_count;
 
-    // Current sector count
+    // The number of cycles to wait before reading another sector
+    unsigned int sector_read_cycle_count_max;
+
+    // Current sector we're reading
     unsigned int sector_count;
 
-    // The number of sectors we can read
-    unsigned int sector_threshold;
+    // The number of sectors we can read. This will only ever be 74 or 149.
+    unsigned int sector_count_max;
 
+    // The sector of a sector as defined by the `Setmode` command. This can
+    // only ever be 0x800 (2048) or 0x924 (2340).
     unsigned int sector_size;
 
     // Pointer to the current sector data
@@ -171,28 +203,17 @@ struct libps_cdrom
     void* user_data;
 };
 
-// Allocates memory for a `libps_cdrom` structure and returns a pointer to it
-// if memory allocation was successful, or `NULL` otherwise.
-struct libps_cdrom* libps_cdrom_create(void);
-
-// Deallocates the memory held by `cdrom`.
-void libps_cdrom_destroy(struct libps_cdrom* cdrom);
-
-// Resets the CD-ROM drive to its initial state.
+void libps_cdrom_setup(struct libps_cdrom* cdrom);
+void libps_cdrom_cleanup(struct libps_cdrom* cdrom);
 void libps_cdrom_reset(struct libps_cdrom* cdrom);
-
-// Checks to see if interrupts needs to be fired.
 void libps_cdrom_step(struct libps_cdrom* cdrom);
 
-// Loads indexed CD-ROM register `reg`.
-uint8_t libps_cdrom_indexed_register_load(struct libps_cdrom* cdrom,
-                                          const unsigned int reg);
+uint8_t libps_cdrom_register_load(struct libps_cdrom* cdrom,
+                                  const unsigned int reg);
 
-// Stores `data` into indexed CD-ROM register `reg`.
-void libps_cdrom_indexed_register_store(struct libps_cdrom* cdrom,
-                                        const unsigned int reg,
-                                        const uint8_t data);
-
+void libps_cdrom_register_store(struct libps_cdrom* cdrom,
+                                const unsigned int reg,
+                                const uint8_t data);
 #ifdef __cplusplus
 }
 #endif // __cplusplus

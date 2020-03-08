@@ -29,8 +29,8 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
 
     struct libps_system* ps = libps_safe_malloc(sizeof(struct libps_system));
 
-    ps->bus = libps_bus_create(bios_data);
-    ps->cpu = libps_cpu_create(ps->bus);
+    libps_bus_setup(&ps->bus, bios_data);
+    libps_cpu_set_bus(&ps->bus);
 
     libps_system_reset(ps);
     return ps;
@@ -39,9 +39,7 @@ struct libps_system* libps_system_create(uint8_t* const bios_data)
 // Destroys a PlayStation emulator.
 void libps_system_destroy(struct libps_system* ps)
 {
-    libps_cpu_destroy(ps->cpu);
-    libps_bus_destroy(ps->bus);
-
+    libps_bus_cleanup(&ps->bus);
     libps_safe_free(ps);
 }
 
@@ -51,8 +49,8 @@ void libps_system_reset(struct libps_system* ps)
 {
     assert(ps != NULL);
 
-    libps_bus_reset(ps->bus);
-    libps_cpu_reset(ps->cpu);
+    libps_bus_reset(&ps->bus);
+    libps_cpu_reset(&ps->cpu);
 }
 
 // Executes one full system step.
@@ -61,21 +59,21 @@ void libps_system_step(struct libps_system* ps)
     assert(ps != NULL);
 
     // Step 1: Check for DMAs and tick the hardware.
-    libps_bus_step(ps->bus);
-    libps_bus_step(ps->bus);
+    libps_bus_step(&ps->bus);
+    libps_bus_step(&ps->bus);
 
     // Step 2: Check to see if the interrupt line needs to be enabled.
-    if ((ps->bus->i_mask & ps->bus->i_stat) != 0)
+    if ((ps->bus.i_mask & ps->bus.i_stat) != 0)
     {
-        ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] |= (1 << 10);
+        ps->cpu.cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] |= (1 << 10);
     }
     else
     {
-        ps->cpu->cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] &= ~(1 << 10);
+        ps->cpu.cop0_cpr[LIBPS_CPU_COP0_REG_CAUSE] &= ~(1 << 10);
     }
 
     // Step 3: Execute one instruction.
-    libps_cpu_step(ps->cpu);
+    libps_cpu_step(&ps->cpu);
 }
 
 // "Inserts" a CD-ROM `cdrom_info` into a PlayStation emulator `ps`. If
@@ -92,12 +90,12 @@ bool libps_system_set_cdrom(struct libps_system* ps,
     {
         if (cdrom_info->read_cb)
         {
-            ps->bus->cdrom->cdrom_info.read_cb = cdrom_info->read_cb;
+            ps->bus.cdrom.cdrom_info.read_cb = cdrom_info->read_cb;
             return true;
         }
         return false;
     }
 
-    ps->bus->cdrom->cdrom_info.read_cb = NULL;
+    ps->bus.cdrom.cdrom_info.read_cb = NULL;
     return true;
 }

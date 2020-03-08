@@ -16,13 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bus.h"
-#include "cd.h"
-#include "gpu.h"
-#include "rcnt.h"
 #include "utility/fifo.h"
 #include "utility/memory.h"
-
-#include <stdio.h>
 
 // `libps_bus` doesn't need to know about this, since the operator of the
 // library has the BIOS data loaded already and no other part of the system
@@ -39,9 +34,9 @@ static void dma_gpu_vram_write_process(struct libps_bus* bus)
     for (uint32_t count = 0; count != (ba * bs); ++count)
     {
         const uint32_t data =
-        *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x00FFFFFF));
+        *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x1FFFFFFF));
 
-        libps_gpu_process_gp0(bus->gpu, data);
+        libps_gpu_process_gp0(&bus->gpu, data);
         bus->dma_gpu_channel.madr += 4;
     }
 }
@@ -58,10 +53,10 @@ static void dma_gpu_vram_read_process(struct libps_bus* bus)
     for (uint32_t count = 0; count != (ba * bs); ++count)
     {
         // Hack (state should be `LIBPS_GPU_TRANSFERRING_DATA`)
-        libps_gpu_process_gp0(bus->gpu, 0);
+        libps_gpu_process_gp0(&bus->gpu, 0);
 
         *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x00FFFFFF)) =
-        bus->gpu->gpuread;
+        bus->gpu.gpuread;
 
         bus->dma_gpu_channel.madr += 4;
     }
@@ -93,7 +88,7 @@ static void dma_gpu_linked_list_process(struct libps_bus* bus)
             const uint32_t entry =
             *(uint32_t *)(bus->ram + (bus->dma_gpu_channel.madr & 0x00FFFFFF));
 
-            libps_gpu_process_gp0(bus->gpu, entry);
+            libps_gpu_process_gp0(&bus->gpu, entry);
             packet_size--;
         }
 
@@ -120,10 +115,7 @@ static void dma_cdrom(struct libps_bus* bus)
 
     while (num_words != 0)
     {
-        const uint8_t data = libps_fifo_dequeue(bus->cdrom->data_fifo);
-
-        fprintf(bus->debug_file, "word=%d, data=0x%02X, address=0x%08X\n", num_words, data, address);
-        fflush(bus->debug_file);
+        const uint8_t data = libps_fifo_dequeue(&bus->cdrom.data_fifo);
 
         libps_bus_store_byte(bus, address++, data);
         num_words--;
@@ -172,56 +164,40 @@ static void dma_otc_process(struct libps_bus* bus)
     bus->dma_otc_channel.chcr &= ~(1 << 24);
 }
 
-// Creates the system bus. The system bus is the interconnect between the CPU
-// and devices, and accordingly has primary ownership of devices. The system
-// bus does not directly know about the CPU, however.
+// Initializes the system bus. The system bus is the interconnect between the
+// CPU and devices, and accordingly has primary ownership of devices. The
+// system bus does not directly know about the CPU, however.
 //
 // `bios_data_ptr` is a pointer to the BIOS data loaded by the caller, passed
 // by `libps_system_create()`.
 //
 // Do not call this function directly.
-struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr)
+void libps_bus_setup(struct libps_bus* bus, uint8_t* const bios_data_ptr)
 {
-    struct libps_bus* bus = libps_safe_malloc(sizeof(struct libps_bus));
+    assert(bus != NULL);
 
     bios = bios_data_ptr;
-
 #ifdef LIBPS_DEBUG
     bus->debug_unknown_memory_load    = NULL;
     bus->debug_unknown_memory_store   = NULL;
     bus->debug_interrupt_requested    = NULL;
     bus->debug_interrupt_acknowledged = NULL;
 #endif // LIBPS_DEBUG
-
-    // XXX: It might be poor forward thinking to allocate 2MB straightaway, not
-    // really okay with that. Counting the BIOS (512KB) and this, we've already
-    // used ~2.51MB. Nonsense. See notes in `libps_system_create()`.
-    //
-    // Only thing I can think of to counteract this is to use `realloc()`
-    // whenever the emulated RAM exceeds a runtime specified threshold, but for
-    // now it doesn't matter. It may not matter period, we'll see.
     bus->ram = libps_safe_malloc(0x200000);
 
-    bus->gpu   = libps_gpu_create();
-    bus->cdrom = libps_cdrom_create();
-    bus->rcnt  = libps_rcnt_create();
-
-    bus->debug_file = fopen("debug.txt", "w");
-
-    return bus;
+    libps_gpu_setup(&bus->gpu);
+    libps_cdrom_setup(&bus->cdrom);
 }
 
 // Destroys the system bus, destroying all memory and devices. Please note that
 // connected peripherals WILL NOT BE DESTROYED with this function; refer to the
 // peripherals' own destroy functions and use them accordingly.
-void libps_bus_destroy(struct libps_bus* bus)
+void libps_bus_cleanup(struct libps_bus* bus)
 {
-    libps_gpu_destroy(bus->gpu);
-    libps_cdrom_destroy(bus->cdrom);
-    libps_rcnt_destroy(bus->rcnt);
+    libps_gpu_cleanup(&bus->gpu);
+    libps_cdrom_cleanup(&bus->cdrom);
 
     libps_safe_free(bus->ram);
-    libps_safe_free(bus);
 }
 
 // Resets the system bus, which resets the peripherals to their startup state
@@ -240,9 +216,9 @@ void libps_bus_reset(struct libps_bus* bus)
     memset(&bus->dma_gpu_channel, 0, sizeof(bus->dma_gpu_channel));
     memset(&bus->dma_otc_channel, 0, sizeof(bus->dma_otc_channel));
 
-    libps_gpu_reset(bus->gpu);
-    libps_cdrom_reset(bus->cdrom);
-    libps_rcnt_reset(bus->rcnt);
+    libps_gpu_reset(&bus->gpu);
+    libps_cdrom_reset(&bus->cdrom);
+    libps_rcnt_reset(&bus->rcnt);
 }
 
 // Handles DMA requests.
@@ -309,9 +285,9 @@ void libps_bus_step(struct libps_bus* bus)
         }
     }
 
-    if (bus->cdrom->fire_interrupt)
+    if (bus->cdrom.fire_interrupt)
     {
-        bus->cdrom->fire_interrupt = false;
+        bus->cdrom.fire_interrupt = false;
         bus->i_stat |= LIBPS_IRQ_CDROM;
 
 #ifdef LIBPS_DEBUG
@@ -323,8 +299,8 @@ void libps_bus_step(struct libps_bus* bus)
 #endif // LIBPS_DEBUG
     }
 
-    libps_cdrom_step(bus->cdrom);
-    libps_rcnt_step(bus->rcnt);
+    libps_cdrom_step(&bus->cdrom);
+    libps_rcnt_step(&bus->rcnt);
 }
 
 // Stores word `data` into memory referenced by virtual address `vaddr`.
@@ -438,48 +414,46 @@ void libps_bus_store_word(struct libps_bus* bus,
 
                         // 0x1F801114 - Timer 1 Counter Mode (R/W)
                         case 0x114:
-                            libps_rcnt_set_mode(bus->rcnt, 1, data);
+                            libps_rcnt_set_mode(&bus->rcnt, 1, data);
                             break;
 
                         // 0x1F801118 - Timer 1 Counter Target Value (R/W)
                         case 0x118:
-                            bus->rcnt->rcnts[1].target = data;
+                            bus->rcnt.rcnts[1].target = data;
                             break;
 
                         // 0x1F801810 - GP0 Commands/Packets (Rendering and
                         // VRAM Access)
                         case 0x810:
-                            libps_gpu_process_gp0(bus->gpu, data);
+                            libps_gpu_process_gp0(&bus->gpu, data);
                             break;
 
                         // 0x1F801814 - GP1 Commands (Display Control)
                         case 0x814:
-                            libps_gpu_process_gp1(bus->gpu, data);
+                            libps_gpu_process_gp1(&bus->gpu, data);
                             break;
-
-                        default:
 #ifdef LIBPS_DEBUG
+                        default:
                             if (bus->debug_unknown_memory_store)
                             {
                                 bus->debug_unknown_memory_store
                                 (bus->debug_user_data, paddr, data, LIBPS_DEBUG_WORD);
                             }
-#endif // LIBPS_DEBUG
                             break;
+#endif // LIBPS_DEBUG
                     }
                     break;
             }
             break;
-
-        default:
 #ifdef LIBPS_DEBUG
+        default:
             if (bus->debug_unknown_memory_store)
             {
                 bus->debug_unknown_memory_store
                 (bus->debug_user_data, paddr, data, LIBPS_DEBUG_WORD);
             }
-#endif // LIBPS_DEBUG
             break;
+#endif // LIBPS_DEBUG
     }
 }
 
@@ -515,11 +489,6 @@ void libps_bus_store_halfword(struct libps_bus* bus,
                 case 0x1:
                     switch (paddr & 0x00000FFF)
                     {
-                        // 1F80104Ah JOY_CTRL(R / W) (usually 1003h, 3003h, 0000h)
-                        case 0x04A:
-                            bus->joy_ctrl = data;
-                            break;
-
                         // 0x1F801070 - I_STAT - Interrupt status register
                         // (R=Status, W=Acknowledge)
                         case 0x070:
@@ -533,63 +502,64 @@ void libps_bus_store_halfword(struct libps_bus* bus,
 
                         // 0x1F801100 - Timer 0 Counter Value (R/W)
                         case 0x100:
-                            bus->rcnt->rcnts[0].value = data;
+                            bus->rcnt.rcnts[0].value = data;
                             break;
 
                         // 0x1F801104 - Timer 0 Counter Mode (R/W)
                         case 0x104:
-                            libps_rcnt_set_mode(bus->rcnt, 0, data);
+                            libps_rcnt_set_mode(&bus->rcnt, 0, data);
                             break;
 
                         // 0x1F801108 - Timer 0 Counter Target Value (R/W)
                         case 0x108:
-                            bus->rcnt->rcnts[0].target = data;
+                            bus->rcnt.rcnts[0].target = data;
                             break;
 
                         // 0x1F801110 - Timer 1 Counter Value (R/W)
                         case 0x110:
-                            bus->rcnt->rcnts[1].value = data;
+                            bus->rcnt.rcnts[1].value = data;
                             break;
 
                         // 0x1F801114 - Timer 1 Counter Mode (R/W)
                         case 0x114:
-                            libps_rcnt_set_mode(bus->rcnt, 1, data);
+                            libps_rcnt_set_mode(&bus->rcnt, 1, data);
                             break;
 
                         // 0x1F801118 - Timer 1 Counter Target Value (R/W)
                         case 0x118:
-                            bus->rcnt->rcnts[1].target = data;
+                            bus->rcnt.rcnts[1].target = data;
                             break;
 
                         // 0x1F801120 - Timer 2 Counter Value (R/W)
                         case 0x120:
-                            bus->rcnt->rcnts[2].value = data;
+                            bus->rcnt.rcnts[2].value = data;
                             break;
 
                         // 0x1F801124 - Timer 2 Counter Mode (R/W)
                         case 0x124:
-                            libps_rcnt_set_mode(bus->rcnt, 2, data);
+                            libps_rcnt_set_mode(&bus->rcnt, 2, data);
                             break;
 
                         // 0x1F801128 - Timer 2 Counter Target Value (R/W)
                         case 0x128:
-                            bus->rcnt->rcnts[2].target = data;
+                            bus->rcnt.rcnts[2].target = data;
                             break;
-
-                        default:
 #ifdef LIBPS_DEBUG
+                        default:
                             if (bus->debug_unknown_memory_store)
                             {
                                 bus->debug_unknown_memory_store
-                                (bus->debug_user_data, paddr, data, LIBPS_DEBUG_HALFWORD);
+                                (bus->debug_user_data,
+                                 paddr,
+                                 data,
+                                 LIBPS_DEBUG_HALFWORD);
                             }
-#endif // LIBPS_DEBUG
                             break;
+#endif // LIBPS_DEBUG
                     }
                     break;
-
-                default:
 #ifdef LIBPS_DEBUG
+                default:
                     if (bus->debug_unknown_memory_store)
                     {
                         bus->debug_unknown_memory_store
@@ -599,16 +569,15 @@ void libps_bus_store_halfword(struct libps_bus* bus,
                     break;
             }
             break;
-
-        default:
 #ifdef LIBPS_DEBUG
+        default:
             if (bus->debug_unknown_memory_store)
             {
                 bus->debug_unknown_memory_store
                 (bus->debug_user_data, paddr, data, LIBPS_DEBUG_HALFWORD);
             }
-#endif // LIBPS_DEBUG
             break;
+#endif // LIBPS_DEBUG
     }
 }
 
@@ -647,29 +616,24 @@ void libps_bus_store_byte(struct libps_bus* bus,
                         // 0x1F801800 - Index/Status Register (Bit0-1 R/W)
                         // (Bit2-7 Read Only)
                         case 0x800:
-                            bus->cdrom->status = (bus->cdrom->status & ~0x03) |
-                                                 (data & 0x03);
+                            bus->cdrom.status.raw =
+                            (bus->cdrom.status.raw & ~0x03) | (data & 0x03);
+
                             break;
 
-                        // 0x1F801801 - Indexed CD-ROM register store
+                        // 0x1F801801 - CD-ROM register store
                         case 0x801:
-                            libps_cdrom_indexed_register_store(bus->cdrom,
-                                                               1,
-                                                               data);
+                            libps_cdrom_register_store(&bus->cdrom, 1, data);
                             break;
 
-                        // 0x1F801802 - Indexed CD-ROM register store
+                        // 0x1F801802 - CD-ROM register store
                         case 0x802:
-                            libps_cdrom_indexed_register_store(bus->cdrom,
-                                                               2,
-                                                               data);
+                            libps_cdrom_register_store(&bus->cdrom, 2, data);
                             break;
 
-                        // 0x1F801803 - Indexed CD-ROM register store
+                        // 0x1F801803 - CD-ROM register store
                         case 0x803:
-                            libps_cdrom_indexed_register_store(bus->cdrom,
-                                                               3,
-                                                               data);
+                            libps_cdrom_register_store(&bus->cdrom, 3, data);
                             break;
 
                         default:
@@ -761,12 +725,12 @@ uint32_t libps_bus_load_word(struct libps_bus* bus, const uint32_t vaddr)
 
                         // 0x1F801110 - Timer 1 Counter Value (R/W)
                         case 0x110:
-                            return bus->rcnt->rcnts[1].value;
+                            return bus->rcnt.rcnts[1].value;
 
                         // 0x1F801810 - Read responses to GP0(C0h) and GP1(10h)
                         // commands
                         case 0x810:
-                            return bus->gpu->gpuread;
+                            return bus->gpu.gpuread;
 
                         // 0x1F801814 - GPU Status Register (R)
                         case 0x814:
@@ -836,26 +800,18 @@ uint16_t libps_bus_load_halfword(struct libps_bus* bus, const uint32_t vaddr)
                 case 0x1:
                     switch (paddr & 0x00000FFF)
                     {
-                        // 0x1F801044 - JOY_STAT (R)
-                        case 0x044:
-                            return 0xFFFF;
-
-                        // 1F80104Ah JOY_CTRL(R / W) (usually 1003h, 3003h, 0000h)
-                        case 0x04A:
-                            return bus->joy_ctrl;
-
                         // 0x1F801070 - I_STAT - Interrupt status register
                         // (R=Status, W=Acknowledge)
                         case 0x070:
-                            return bus->i_stat & 0xFFFF;
+                            return bus->i_stat & 0x0000FFFF;
 
                         // 0x1F801074 - I_MASK - Interrupt mask register (R/W)
                         case 0x074:
-                            return bus->i_mask & 0xFFFF;
+                            return bus->i_mask & 0x0000FFFF;
 
                         // 0x1F801120 - Timer 2 (1/8 system clock) value
                         case 0x120:
-                            return bus->rcnt->rcnts[2].value & 0x0000FFFF;
+                            return bus->rcnt.rcnts[2].value & 0x0000FFFF;
 
                         default:
 #ifdef LIBPS_DEBUG
@@ -920,21 +876,17 @@ uint8_t libps_bus_load_byte(struct libps_bus* bus, const uint32_t vaddr)
                 case 0x1:
                     switch (paddr & 0x00000FFF)
                     {
-                        // 0x1F801040 - JOY_RX_DATA (R)
-                        case 0x040:
-                            return 0x01;
-
                         // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
                         case 0x800:
-                            return bus->cdrom->status;
+                            return bus->cdrom.status.raw;
 
-                        // 0x1F801801 - Indexed CD-ROM register load
+                        // 0x1F801801 - CD-ROM register load
                         case 0x801:
-                            return libps_cdrom_indexed_register_load(bus->cdrom, 1);
+                            return libps_cdrom_register_load(&bus->cdrom, 1);
 
-                        // 0x1F801803 - Indexed CD-ROM register load
+                        // 0x1F801803 - CD-ROM register load
                         case 0x803:
-                            return libps_cdrom_indexed_register_load(bus->cdrom, 3);
+                            return libps_cdrom_register_load(&bus->cdrom, 3);
 
                         default:
 #ifdef LIBPS_DEBUG

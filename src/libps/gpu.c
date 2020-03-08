@@ -375,25 +375,25 @@ static void draw_rect_helper(struct libps_gpu* gpu)
     gpu->state = LIBPS_GPU_AWAITING_COMMAND;
 }
 
-// Creates a PlayStation GPU.
-struct libps_gpu* libps_gpu_create(void)
+// Initializes a GPU.
+void libps_gpu_setup(struct libps_gpu* gpu)
 {
-    struct libps_gpu* gpu = libps_safe_malloc(sizeof(struct libps_gpu));
+    assert(gpu != NULL);
 
     gpu->draw_polygon = &libps_renderer_sw_draw_polygon;
     gpu->draw_rect    = &libps_renderer_sw_draw_rect;
 
-    gpu->vram = libps_safe_malloc(LIBPS_GPU_VRAM_WIDTH * LIBPS_GPU_VRAM_HEIGHT * sizeof(uint16_t));
-    return gpu;
+    gpu->vram =
+    libps_safe_malloc(LIBPS_GPU_VRAM_WIDTH  *
+                      LIBPS_GPU_VRAM_HEIGHT *
+                      sizeof(uint16_t));
 }
 
 // Destroys the PlayStation GPU.
-void libps_gpu_destroy(struct libps_gpu* gpu)
+void libps_gpu_cleanup(struct libps_gpu* gpu)
 {
     assert(gpu != NULL);
-
     libps_safe_free(gpu->vram);
-    libps_safe_free(gpu);
 }
 
 // Resets the GPU to the initial state.

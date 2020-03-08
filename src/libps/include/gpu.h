@@ -110,11 +110,11 @@ struct libps_gpu
     uint32_t received_data;
 };
 
-// Creates the PlayStation GPU.
-struct libps_gpu* libps_gpu_create(void);
+// Initializes a GPU.
+void libps_gpu_setup(struct libps_gpu* gpu);
 
 // Destroys the PlayStation GPU.
-void libps_gpu_destroy(struct libps_gpu* gpu);
+void libps_gpu_cleanup(struct libps_gpu* gpu);
 
 // Resets the GPU to the initial state.
 void libps_gpu_reset(struct libps_gpu* gpu);

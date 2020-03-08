@@ -17,27 +17,27 @@
 #include "fifo.h"
 #include "memory.h"
 
-// Creates a fixed-sized FIFO.
-struct libps_fifo* libps_fifo_create(const unsigned int size)
+// Sets up a fixed-sized FIFO.
+void libps_fifo_setup(struct libps_fifo* fifo, const unsigned int size)
 {
-    struct libps_fifo* fifo = libps_safe_malloc(sizeof(struct libps_fifo));
     fifo->entries = libps_safe_malloc(sizeof(int) * size);
-
     fifo->max_size = size;
 
     libps_fifo_reset(fifo);
-    return fifo;
 }
 
 // Destroys a FIFO.
-void libps_fifo_destroy(struct libps_fifo* fifo)
+void libps_fifo_cleanup(struct libps_fifo* fifo)
 {
-    libps_safe_free(fifo);
+    fifo->current_size = 0;
+    libps_safe_free(fifo->entries);
 }
 
 // Clears a FIFO.
 void libps_fifo_reset(struct libps_fifo* fifo)
 {
+    assert(fifo != NULL);
+
     fifo->current_size = 0;
     fifo->head		   = 0;
     fifo->tail		   = fifo->max_size - 1;

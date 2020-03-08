@@ -48,13 +48,8 @@ struct libps_cpu
     uint32_t cop0_cpr[32];
 };
 
-// Allocates memory for a `libps_cpu` structure and returns a pointer to it if
-// memory allocation was successful, `NULL` otherwise. This function does not
-// automatically initialize initial state.
-struct libps_cpu* libps_cpu_create(struct libps_bus* b);
-
-// Deallocates the memory held by `cpu`.
-void libps_cpu_destroy(struct libps_cpu* cpu);
+// Sets the pointer to the system bus to `b`. This cannot be `NULL`.
+void libps_cpu_set_bus(struct libps_bus* b);
 
 // Triggers a reset exception, thereby initializing the CPU to the predefined
 // startup state.

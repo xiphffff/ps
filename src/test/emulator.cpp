@@ -25,14 +25,14 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 
     sys = libps_system_create(bios);
 
-    sys->bus->cdrom->user_data = this;
+    sys->bus.cdrom.user_data = this;
 
-    sys->bus->cdrom->sector_data = sector_data;
+    sys->bus.cdrom.sector_data = sector_data;
 
 #ifdef LIBPS_DEBUG
-    sys->bus->debug_user_data = this;
+    sys->bus.debug_user_data = this;
 
-    sys->bus->debug_unknown_memory_load = [](void* user_data,
+    sys->bus.debug_unknown_memory_load = [](void* user_data,
                                              const uint32_t paddr,
                                              const unsigned int type)
     {
@@ -40,24 +40,24 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
         emit ps->on_debug_unknown_memory_load(paddr, type);
     };
 
-    sys->bus->debug_unknown_memory_store = [](void* user_data,
-                                              const uint32_t paddr,
-                                              const unsigned int data,
-                                              const unsigned int type)
+    sys->bus.debug_unknown_memory_store = [](void* user_data,
+                                             const uint32_t paddr,
+                                             const unsigned int data,
+                                             const unsigned int type)
     {
         Emulator* ps = reinterpret_cast<Emulator*>(user_data);
         emit ps->on_debug_unknown_memory_store(paddr, data, type);
     };
 
-    sys->bus->debug_interrupt_requested = [](void* user_data,
-                                             const unsigned int interrupt)
+    sys->bus.debug_interrupt_requested = [](void* user_data,
+                                            const unsigned int interrupt)
     {
         Emulator* ps = reinterpret_cast<Emulator*>(user_data);
         emit ps->on_debug_interrupt_requested(interrupt);
     };
 
-    sys->bus->debug_interrupt_acknowledged = [](void* user_data,
-                                                const unsigned int interrupt)
+    sys->bus.debug_interrupt_acknowledged = [](void* user_data,
+                                               const unsigned int interrupt)
     {
         Emulator* ps = reinterpret_cast<Emulator*>(user_data);
         emit ps->on_debug_interrupt_acknowledged(interrupt);
@@ -161,14 +161,14 @@ void Emulator::inject_ps_x_exe()
          ptr != (file_size - 0x800);
          ++ptr)
     {
-        *(uint32_t *)(sys->bus->ram + (dest++ & 0x1FFFFFFF)) =
+        *(uint32_t *)(sys->bus.ram + (dest++ & 0x1FFFFFFF)) =
         ps_x_exe_data[ptr];
     }
 
-    sys->cpu->pc      = *(uint32_t *)(ps_x_exe_data + 0x18);
-    sys->cpu->next_pc = sys->cpu->pc;
+    sys->cpu.pc      = *(uint32_t *)(ps_x_exe_data + 0x18);
+    sys->cpu.next_pc = sys->cpu.pc;
 
-    sys->cpu->instruction = libps_bus_load_word(sys->bus, sys->cpu->pc);
+    sys->cpu.instruction = libps_bus_load_word(&sys->bus, sys->cpu.pc);
 
     injecting_ps_x_exe = false;
     ps_x_exe           = nullptr;
@@ -179,9 +179,9 @@ void Emulator::handle_tty_string()
 {
     static QString tty_str;
 
-    tty_str += sys->cpu->gpr[4];
+    tty_str += sys->cpu.gpr[4];
 
-    if (sys->cpu->gpr[4] == '\n')
+    if (sys->cpu.gpr[4] == '\n')
     {
         emit tty_string(tty_str);
         tty_str.clear();
@@ -210,7 +210,7 @@ void Emulator::run()
                 break;
             }
 
-            if (tracing_bios_call && bios_call_trace_pc == sys->cpu->pc)
+            if (tracing_bios_call && bios_call_trace_pc == sys->cpu.pc)
             {
                 emit bios_call(&bios_trace);
                 tracing_bios_call = false;
@@ -219,14 +219,14 @@ void Emulator::run()
             // We can only inject a PS-X EXE at this point. This is the
             // earliest point during boot-up where the kernel is initialized
             // far enough to allow execution of PS-X EXEs.
-            if (injecting_ps_x_exe && sys->cpu->pc == 0x80030000)
+            if (injecting_ps_x_exe && sys->cpu.pc == 0x80030000)
             {
                 inject_ps_x_exe();
             }
 
-            if (sys->cpu->pc == 0x000000A0)
+            if (sys->cpu.pc == 0x000000A0)
             {
-                switch (sys->cpu->gpr[9])
+                switch (sys->cpu.gpr[9])
                 {
                     case 0x3C:
                         handle_tty_string();
@@ -239,44 +239,44 @@ void Emulator::run()
                         break;
 
                     default:
-                        bios_trace.func = sys->cpu->gpr[9];
-                        bios_trace.origin = sys->cpu->pc;
+                        bios_trace.func = sys->cpu.gpr[9];
+                        bios_trace.origin = sys->cpu.pc;
 
                         emit bios_call(&bios_trace);
                         break;
                 }
             }
             
-            if (sys->cpu->pc == 0x000000B0)
+            if (sys->cpu.pc == 0x000000B0)
             {
-                switch (sys->cpu->gpr[9])
+                switch (sys->cpu.gpr[9])
                 {
                     case 0x3D:
                         handle_tty_string();
                         break;
 
                     default:
-                        bios_trace.func   = sys->cpu->gpr[9];
-                        bios_trace.origin = sys->cpu->pc;
+                        bios_trace.func   = sys->cpu.gpr[9];
+                        bios_trace.origin = sys->cpu.pc;
 
                         emit bios_call(&bios_trace);
                         break;
                 }
             }
 
-            if (sys->cpu->pc == 0x000000C0)
+            if (sys->cpu.pc == 0x000000C0)
             {
-                bios_trace.func   = sys->cpu->gpr[9];
-                bios_trace.origin = sys->cpu->pc;
+                bios_trace.func   = sys->cpu.gpr[9];
+                bios_trace.origin = sys->cpu.pc;
 
                 emit bios_call(&bios_trace);
             }
             libps_system_step(sys);
         }
 
-        sys->bus->i_stat |= LIBPS_IRQ_VBLANK;
+        sys->bus.i_stat |= LIBPS_IRQ_VBLANK;
 
-        emit render_frame(sys->bus->gpu->vram);
+        emit render_frame(sys->bus.gpu.vram);
 
         const qint64 elapsed = timer.elapsed();
            
@@ -291,5 +291,5 @@ void Emulator::run()
 void Emulator::handle_cdrom_image_read(const unsigned int address)
 {
     fseek(cdrom_image_file, address, SEEK_SET);
-    fread(sector_data, LIBPS_SECTOR_SIZE, 1, cdrom_image_file);
+    fread(sector_data, 2352, 1, cdrom_image_file);
 }

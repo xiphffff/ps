@@ -21,11 +21,9 @@ extern "C"
 
 #include <stdint.h>
 #include <stdio.h>
-
-// Forward declarations
-struct libps_gpu;
-struct libps_cdrom;
-struct libps_rcnt;
+#include "cd.h"
+#include "gpu.h"
+#include "rcnt.h"
 
 #ifdef LIBPS_DEBUG
 #define LIBPS_DEBUG_WORD 0xFFFFFFFF
@@ -68,13 +66,13 @@ struct libps_bus
     uint16_t joy_ctrl;
 
     // GPU instance
-    struct libps_gpu* gpu;
+    struct libps_gpu gpu;
 
     // CD-ROM instance
-    struct libps_cdrom* cdrom;
+    struct libps_cdrom cdrom;
 
     // Root counter instance
-    struct libps_rcnt* rcnt;
+    struct libps_rcnt rcnt;
 
     // DMA channel 2 - GPU (lists + image data)
     struct libps_dma_channel dma_gpu_channel;
@@ -84,7 +82,6 @@ struct libps_bus
 
     // DMA channel 6 - OTC (reverse clear OT)
     struct libps_dma_channel dma_otc_channel;
-
 #ifdef LIBPS_DEBUG
     // If using C++, it would probably be wise to set this to `this`.
     void* debug_user_data;
@@ -107,25 +104,23 @@ struct libps_bus
     // Interrupt has been acknowledged
     void (*debug_interrupt_acknowledged)(void* user_data,
                                          const unsigned int interrupt);
-
-    FILE* debug_file;
 #endif // LIBPS_DEBUG
 };
 
-// Creates the system bus. The system bus is the interconnect between the CPU
-// and devices, and accordingly has primary ownership of devices. The system
-// bus does not directly know about the CPU, however.
+// Initializes the system bus. The system bus is the interconnect between the
+// CPU and devices, and accordingly has primary ownership of devices. The
+// system bus does not directly know about the CPU, however.
 //
 // `bios_data_ptr` is a pointer to the BIOS data loaded by the caller, passed
 // by `libps_system_create()`.
 //
 // Do not call this function directly.
-struct libps_bus* libps_bus_create(uint8_t* const bios_data_ptr);
+void libps_bus_setup(struct libps_bus* bus, uint8_t* const bios_data_ptr);
 
 // Destroys the system bus, destroying all memory and devices. Please note that
 // connected peripherals WILL NOT BE DESTROYED with this function; refer to the
 // peripherals' own destroy functions and use them accordingly.
-void libps_bus_destroy(struct libps_bus* bus);
+void libps_bus_cleanup(struct libps_bus* bus);
 
 // Resets the system bus, which resets the peripherals to their startup state.
 void libps_bus_reset(struct libps_bus* bus);

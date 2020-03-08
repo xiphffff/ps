@@ -19,19 +19,6 @@
 #include "rcnt.h"
 #include "utility/memory.h"
 
-// Creates the root counters.
-struct libps_rcnt* libps_rcnt_create(void)
-{
-    struct libps_rcnt* rcnt = libps_safe_malloc(sizeof(struct libps_rcnt));
-    return rcnt;
-}
-
-// Destroys the root counters.
-void libps_rcnt_destroy(struct libps_rcnt* rcnt)
-{
-    libps_safe_free(rcnt);
-}
-
 // Resets the root counters to their initial state.
 void libps_rcnt_reset(struct libps_rcnt* rcnt)
 {

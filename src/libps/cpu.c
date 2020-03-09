@@ -910,6 +910,12 @@ void libps_cpu_step(struct libps_cpu* cpu)
             break;
         }
 
+        case LIBPS_CPU_OP_LWC2:
+            break;
+
+        case LIBPS_CPU_OP_SWC2:
+            break;
+
 #ifdef LIBPS_DEBUG
         default:
             raise_exception(cpu, LIBPS_CPU_EXCCODE_RI, UNUSED);

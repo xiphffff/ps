@@ -15,6 +15,7 @@
 set(SRCS bus.c
          cd.c
          cpu.c
+         disasm.c
          gpu.c
          ps.c
          rcnt.c)
@@ -23,6 +24,7 @@ set(HDRS include/bus.h
          include/cd.h
          include/cpu.h
          include/cpu_defs.h
+         include/disasm.h
          include/gpu.h
          include/ps.h
          include/rcnt.h)
@@ -56,4 +58,4 @@ target_compile_definitions(ps PRIVATE LIBPS_DEBUG)
 
 target_compile_options(ps PRIVATE
                        $<$<OR:$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>,$<C_COMPILER_ID:GNU>>:
-                       -Wall -Wextra -Wno-gnu-case-range -Wno-old-style-cast>)
+                       -Wall -Wextra -Wno-gnu-case-range -Wno-old-style-cast -fsanitize=address>)

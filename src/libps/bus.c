@@ -596,7 +596,7 @@ void libps_bus_store_byte(struct libps_bus* bus,
     switch ((paddr & 0xFFFF0000) >> 16)
     {
         case 0x0000 ... 0x001F:
-            *(uint8_t *)(bus->ram + (paddr & 0x1FFFFFFF)) = data;
+            *(uint8_t *)(bus->ram + paddr) = data;
             break;
 
         case 0x1F80:

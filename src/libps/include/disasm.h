@@ -1,4 +1,4 @@
-// Copyright 2020 Michael Rodriguez
+// Copyright 2019 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -14,11 +14,26 @@
 
 #pragma once
 
+#ifdef LIBPS_DEBUG
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif // __cplusplus
-#define LIBPS_BCD_TO_DEC(x) (x - (6 * (x >> 4)))
+
+#include <stdint.h>
+
+// Maximum possible length of a result from `libps_disassemble_instruction()`.
+#define LIBPS_DISASM_MAX_LENGTH 30
+
+// Converts `instruction` to MIPS-I assembly language, and stores this result
+// in `result`. `pc` is required so as to compute a proper branch target in the
+// event `instruction` is a branch instruction.
+void libps_disassemble_instruction(const uint32_t instruction,
+                                   const uint32_t pc,
+                                   char* result);
 #ifdef __cplusplus
 }
 #endif // __cplusplus
+
+#endif // LIBPS_DEBUG

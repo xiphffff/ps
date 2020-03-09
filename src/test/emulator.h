@@ -65,6 +65,9 @@ public:
     // Returns the number of total cycles taken by the emulator.
     unsigned int total_cycles_taken() noexcept;
 
+    
+    bool tracing;
+
 private:
     // Called when it is time to inject the PS-X EXE specified by
     // `run_ps_x_exe()`.
@@ -94,6 +97,8 @@ private:
 
     // Are we injecting a PS-X EXE?
     bool injecting_ps_x_exe;
+
+    FILE* trace_file;
 
     // Are we currently tracing a BIOS call?
     bool tracing_bios_call;

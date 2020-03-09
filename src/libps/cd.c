@@ -21,6 +21,8 @@
 #include "utility/math.h"
 #include "utility/memory.h"
 
+#include <stdio.h>
+
 // Resets an interrupt line `interrupt`.
 static void reset_interrupt(struct libps_cdrom_interrupt* interrupt)
 {
@@ -130,14 +132,9 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
         if (cdrom->sector_read_cycle_count >=
             cdrom->sector_read_cycle_count_max)
         {
-            if (cdrom->sector_count >= cdrom->sector_count_max)
-            {
-                cdrom->sector_count = 0;
-            }
-
             // Read a new sector
             const unsigned int address =
-          ((cdrom->position.sector + cdrom->sector_count) +
+          ((cdrom->position.sector + cdrom->sector_count++) +
            (cdrom->position.second * 75) +
            (cdrom->position.minute * 60 * 75) - 150) * LIBPS_CDROM_SECTOR_SIZE;
 
@@ -151,7 +148,6 @@ void libps_cdrom_step(struct libps_cdrom* cdrom)
             cdrom->int1.next_interrupt = &cdrom->int1;
             cdrom->current_interrupt   = &cdrom->int1;
 
-            cdrom->sector_count++;
             cdrom->sector_read_cycle_count = 0;
         }
         else

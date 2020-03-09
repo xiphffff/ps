@@ -14,6 +14,7 @@
 
 #include <filesystem>
 #include "emulator.h"
+#include "../libps/include/disasm.h"
 #include "../libps/include/ps.h"
 
 Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
@@ -65,6 +66,9 @@ Emulator::Emulator(QObject* parent, const QString& bios_file) : QThread(parent)
 #endif // LIBPS_DEBUG
     running            = false;
     injecting_ps_x_exe = false;
+    tracing = false;
+
+    trace_file = fopen("trace.txt", "w");
 
     total_cycles = 0;
 }
@@ -208,6 +212,15 @@ void Emulator::run()
             if (!running)
             {
                 break;
+            }
+
+            if (tracing)
+            {
+                char disasm[256];
+                libps_disassemble_instruction(sys->cpu.instruction, sys->cpu.pc, disasm);
+
+                fprintf(trace_file, "0x%08X: %s\n", sys->cpu.pc, disasm);
+                fflush(trace_file);
             }
 
             if (tracing_bios_call && bios_call_trace_pc == sys->cpu.pc)

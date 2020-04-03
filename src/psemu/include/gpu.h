@@ -37,24 +37,7 @@ struct psemu_gpu_vertex
     // -1024..+1023
     int16_t y;
 
-    union
-    {
-        struct
-        {
-            unsigned int x_base                 : 4;
-            unsigned int y_base_is_256          : 1;
-            unsigned int semi_transparency_mode : 2;
-            unsigned int color_depth            : 1;
-            unsigned int                        : 2;
-            unsigned int texture_master_disable : 1;
-            unsigned int                        : 5;
-        };
-        uint16_t word;
-    } texpage;
-
-    uint16_t palette;
     uint16_t texcoord;
-
     uint32_t color;
 };
 

@@ -27,33 +27,60 @@ struct
     unsigned int remaining_words;
     struct psemu_fifo params;
     void (*func)(struct psemu_gpu* const gpu);
+
+    union
+    {
+        struct
+        {
+            // (N * 64) (i.e. in 64-halfword steps)
+            unsigned int x_base : 4;
+
+            // (N * 256) (i.e. 0 or 256)
+            unsigned int y_base_is_256 : 1;
+
+            // (0=B/2+F/2, 1=B+F, 2=B-F, 3=B+F/4)
+            unsigned int semi_transparency_mode : 2;
+
+            // (0=4bit, 1=8bit, 2=15bit, 3=Reserved)
+            unsigned int color_depth : 2;
+            unsigned int : 2;
+
+            // (0=Normal, 1=Disable if GP1(09h).Bit0=1)
+            unsigned int texture_disable : 1;
+            unsigned int : 4;
+        };
+        uint16_t halfword;
+    } texpage;
+
+    uint16_t clut;
 } static cmd_state;
 
 #define DRAW_FLAG_MONOCHROME (1 << 0)
 #define DRAW_FLAG_TEXTURED (1 << 1)
 #define DRAW_FLAG_SHADED (1 << 2)
-#define DRAW_FLAG_QUAD (1 << 2)
+#define DRAW_FLAG_QUAD (1 << 3)
 
 // Returns a pixel.
 static uint16_t clut_lookup(const struct psemu_gpu* const gpu,
                             const unsigned int x,
-                            const uint16_t texel,
-                            const struct psemu_gpu_vertex* const v0)
+                            const uint16_t texel)
 {
     assert(gpu != NULL);
 
-    const unsigned int clut_x = (v0->palette & 0x3F) * 16;
-    const unsigned int clut_y = (v0->palette >> 6) & 0x1FF;
+    const unsigned int clut_x = (cmd_state.clut & 0x3F) * 16;
+    const unsigned int clut_y = (cmd_state.clut >> 6) & 0x1FF;
 
-    switch (v0->texpage.color_depth)
+    switch (cmd_state.texpage.color_depth)
     {
-        case 0: // 4bit
+        // 4bpp
+        case 0:
         {
             const unsigned int offset = (texel >> (x & 3) * 4) & 0xF;
             return gpu->vram[(clut_x + offset) + (PSEMU_GPU_VRAM_WIDTH * clut_y)];
         }
 
-        case 1: // 8bit
+        // 8bpp
+        case 1:
             return 0xFFFF;
 
         default:
@@ -79,6 +106,9 @@ static void reset_gp0(struct psemu_gpu* const gpu)
     cmd_state.flags           = 0;
     cmd_state.remaining_words = 0;
 
+    cmd_state.texpage.halfword = 0x0000;
+    cmd_state.clut             = 0x0000;
+
     cmd_state.func = NULL;
 
     psemu_fifo_reset(&cmd_state.params);
@@ -103,8 +133,8 @@ static void draw_polygon(struct psemu_gpu* const gpu,
     if (edge_function(v0, v1, v2) < 0)
     {
 #define SWAP(a, b) do { typeof(a) t; t = a; a = b; b = t; } while(0)
-        SWAP(v1->x, v2->x);
-        SWAP(v1->y, v2->y);
+        SWAP(*v1, *v2);
+#undef SWAP
     }
 
     const int area = edge_function(v0, v1, v2);
@@ -121,7 +151,7 @@ static void draw_polygon(struct psemu_gpu* const gpu,
             {
                 if (cmd_state.flags & DRAW_FLAG_TEXTURED)
                 {
-                    uint16_t texcoord_x =
+                    const uint16_t texcoord_x =
                     ((w0 * (v0->texcoord & 0x00FF)) +
                      (w1 * (v1->texcoord & 0x00FF)) +
                      (w2 * (v2->texcoord & 0x00FF))) / area;
@@ -131,32 +161,38 @@ static void draw_polygon(struct psemu_gpu* const gpu,
                      (w1 * (v1->texcoord >> 8)) +
                      (w2 * (v2->texcoord >> 8))) / area;
 
-                    texcoord_y += v1->texpage.y_base_is_256 ? 256 : 0;
+                    texcoord_y += cmd_state.texpage.y_base_is_256 ? 256 : 0;
 
-                    switch (v1->texpage.color_depth)
+                    uint16_t texel_x;
+
+                    switch (cmd_state.texpage.color_depth)
                     {
+                        // 4bpp
                         case 0:
-                            texcoord_x =
-                            (v1->texpage.x_base * 64) + (texcoord_x / 4);
+                            texel_x =
+                            (cmd_state.texpage.x_base * 64) + (texcoord_x / 4);
                             
                             break;
 
+                        // 8bpp
                         case 1:
-                            texcoord_x =
-                            (v1->texpage.x_base * 64) + (texcoord_x / 8);
+                            texel_x =
+                            (cmd_state.texpage.x_base * 64) + (texcoord_x / 8);
 
                             break;
 
+                        // 15bpp
                         case 2:
-                            texcoord_x += (v1->texpage.x_base * 64);
+                            texel_x =
+                            (cmd_state.texpage.x_base * 64) + texcoord_x;
+
                             break;
                     }
 
                     const uint16_t texel =
-                    gpu->vram[texcoord_x + (PSEMU_GPU_VRAM_WIDTH * texcoord_y)];
+                    gpu->vram[texel_x + (PSEMU_GPU_VRAM_WIDTH * texcoord_y)];
 
-                    const uint16_t color =
-                    clut_lookup(gpu, texcoord_x, texel, v0);
+                    const uint16_t color = clut_lookup(gpu, texcoord_x, texel);
 
                     if (color == 0x0000)
                     {
@@ -198,9 +234,9 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
 
     if (cmd_state.flags & DRAW_FLAG_MONOCHROME)
     {
-        const uint32_t color = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t color = psemu_fifo_dequeue(&cmd_state.params); // 1st
 
-        const uint32_t v0_data = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t v0_data = psemu_fifo_dequeue(&cmd_state.params); // 2nd
         const struct psemu_gpu_vertex v0 =
         {
             .x     = (int16_t)(v0_data & 0x0000FFFF),
@@ -208,7 +244,7 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
             .color = color
         };
 
-        const uint32_t v1_data = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t v1_data = psemu_fifo_dequeue(&cmd_state.params); // 3rd
         struct psemu_gpu_vertex v1 =
         {
             .x     = (int16_t)(v1_data & 0x0000FFFF),
@@ -216,7 +252,7 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
             .color = color
         };
 
-        const uint32_t v2_data = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t v2_data = psemu_fifo_dequeue(&cmd_state.params); // 4th
         struct psemu_gpu_vertex v2 =
         {
             .x     = (int16_t)(v2_data & 0x0000FFFF),
@@ -228,7 +264,7 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
 
         if (cmd_state.flags & DRAW_FLAG_QUAD)
         {
-            const uint32_t v3_data = psemu_fifo_dequeue(&cmd_state.params);
+            const uint32_t v3_data = psemu_fifo_dequeue(&cmd_state.params); // 5th
             struct psemu_gpu_vertex v3 =
             {
                 .x     = (int16_t)(v3_data & 0x0000FFFF),
@@ -244,32 +280,34 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
 
     if (cmd_state.flags & DRAW_FLAG_TEXTURED)
     {
-        const uint32_t color = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t color = psemu_fifo_dequeue(&cmd_state.params); // 1st
 
-        const uint32_t v0_data = psemu_fifo_dequeue(&cmd_state.params);
-        const uint32_t v0_pt   = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t v0_data = psemu_fifo_dequeue(&cmd_state.params); // 2nd
+        const uint32_t v0_pt   = psemu_fifo_dequeue(&cmd_state.params); // 3rd
         const struct psemu_gpu_vertex v0 =
         {
             .x        = (int16_t)(v0_data & 0x0000FFFF),
             .y        = (int16_t)(v0_data >> 16),
-            .palette  = v0_pt >> 16,
             .texcoord = v0_pt & 0x0000FFFF,
             .color    = color
         };
 
-        const uint32_t v1_data = psemu_fifo_dequeue(&cmd_state.params);
-        const uint32_t v1_tt   = psemu_fifo_dequeue(&cmd_state.params);
+        cmd_state.clut = v0_pt >> 16;
+
+        const uint32_t v1_data = psemu_fifo_dequeue(&cmd_state.params); // 4th
+        const uint32_t v1_tt   = psemu_fifo_dequeue(&cmd_state.params); // 5th
         struct psemu_gpu_vertex v1 =
         {
             .x        = (int16_t)(v1_data & 0x0000FFFF),
             .y        = (int16_t)(v1_data >> 16),
-            .texpage  = v1_tt >> 16,
             .texcoord = v1_tt & 0x0000FFFF,
             .color    = color
         };
 
-        const uint32_t v2_data = psemu_fifo_dequeue(&cmd_state.params);
-        const uint32_t v2_tt   = psemu_fifo_dequeue(&cmd_state.params);
+        cmd_state.texpage.halfword = v1_tt >> 16;
+
+        const uint32_t v2_data = psemu_fifo_dequeue(&cmd_state.params); // 6th
+        const uint32_t v2_tt   = psemu_fifo_dequeue(&cmd_state.params); // 7th
         struct psemu_gpu_vertex v2 =
         {
             .x        = (int16_t)(v2_data & 0x0000FFFF),
@@ -282,8 +320,8 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
 
         if (cmd_state.flags & DRAW_FLAG_QUAD)
         {
-            const uint32_t v3_data = psemu_fifo_dequeue(&cmd_state.params);
-            const uint32_t v3_tt   = psemu_fifo_dequeue(&cmd_state.params);
+            const uint32_t v3_data = psemu_fifo_dequeue(&cmd_state.params); // 8th
+            const uint32_t v3_tt   = psemu_fifo_dequeue(&cmd_state.params); // 9th
             struct psemu_gpu_vertex v3 =
             {
                 .x        = (int16_t)(v3_data & 0x0000FFFF),
@@ -300,8 +338,8 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
 
     if (cmd_state.flags & DRAW_FLAG_SHADED)
     {
-        const uint32_t v0_color = psemu_fifo_dequeue(&cmd_state.params);
-        const uint32_t v0_data  = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t v0_color = psemu_fifo_dequeue(&cmd_state.params); // 1st
+        const uint32_t v0_data  = psemu_fifo_dequeue(&cmd_state.params); // 2nd
         const struct psemu_gpu_vertex v0 =
         {
             .x     = (int16_t)(v0_data & 0x0000FFFF),
@@ -309,8 +347,8 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
             .color = v0_color & 0x00FFFFFF
         };
 
-        const uint32_t v1_color = psemu_fifo_dequeue(&cmd_state.params);
-        const uint32_t v1_data  = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t v1_color = psemu_fifo_dequeue(&cmd_state.params); // 3rd
+        const uint32_t v1_data  = psemu_fifo_dequeue(&cmd_state.params); // 4th
         struct psemu_gpu_vertex v1 =
         {
             .x     = (int16_t)(v1_data & 0x0000FFFF),
@@ -318,8 +356,8 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
             .color = v1_color & 0x00FFFFFF
         };
 
-        const uint32_t v2_color = psemu_fifo_dequeue(&cmd_state.params);
-        const uint32_t v2_data  = psemu_fifo_dequeue(&cmd_state.params);
+        const uint32_t v2_color = psemu_fifo_dequeue(&cmd_state.params); // 5th
+        const uint32_t v2_data  = psemu_fifo_dequeue(&cmd_state.params); // 6th
         struct psemu_gpu_vertex v2 =
         {
             .x     = (int16_t)(v2_data & 0x0000FFFF),
@@ -331,8 +369,8 @@ static void draw_polygon_helper(struct psemu_gpu* const gpu)
 
         if (cmd_state.flags & DRAW_FLAG_QUAD)
         {
-            const uint32_t v3_color = psemu_fifo_dequeue(&cmd_state.params);
-            const uint32_t v3_data  = psemu_fifo_dequeue(&cmd_state.params);
+            const uint32_t v3_color = psemu_fifo_dequeue(&cmd_state.params); // 7th 
+            const uint32_t v3_data  = psemu_fifo_dequeue(&cmd_state.params); // 8th
             struct psemu_gpu_vertex v3 =
             {
                 .x     = (int16_t)(v3_data & 0x0000FFFF),
@@ -455,8 +493,7 @@ static void copy_rect_from_cpu(struct psemu_gpu* const gpu)
         // Lock the GP0 state to this function.
         gpu->state = PSEMU_GP0_RECEIVING_DATA;
 
-        // Again, we don't want to do anything until we receive at least one
-        // data word.
+        // We can't do anything until we receive at least one data word.
         return;
     }
 

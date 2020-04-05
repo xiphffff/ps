@@ -44,6 +44,9 @@
 // `psemu_cpu` does not need to know about this.
 static struct psemu_bus* bus = NULL;
 
+// Set to `true` if a branch has been taken, or `false` otherwise.
+static bool in_delay_slot = false;
+
 // Pass this as the 3rd parameter to `raise_exception()` if the exception code
 // passed is not an address exception (i.e. AdEL or AdES).
 #define UNUSED_PARAMETER 0x00000000
@@ -66,6 +69,8 @@ static void branch_if(struct psemu_cpu* const cpu, const bool condition_met)
         cpu->next_pc =
         (int16_t)(PSEMU_CPU_DECODE_IMMEDIATE(cpu->instruction.word) << 2) +
         cpu->pc;
+
+        in_delay_slot = true;
     }
 }
 
@@ -82,7 +87,7 @@ static void raise_exception(struct psemu_cpu* const cpu,
     // On an exception, the CPU:
 
     // 1) sets up EPC to point to the restart location.
-    cpu->cop0[PSEMU_CPU_COP0_EPC] = cpu->pc;
+    cpu->cop0[PSEMU_CPU_COP0_EPC] = !in_delay_slot ? cpu->pc : cpu->pc - 4;
 
     // 2) The pre-existing user mode and interrupt enable flags in SR are saved
     //    by pushing the 3 entry stack inside SR, and changing to kernel mode
@@ -134,6 +139,18 @@ void psemu_cpu_reset(struct psemu_cpu* const cpu)
 void psemu_cpu_step(struct psemu_cpu* const cpu)
 {
     assert(cpu != NULL);
+
+    if (cpu->cop0[PSEMU_CPU_COP0_Cause] & PSEMU_CPU_CAUSE_INT0 &&
+       (cpu->cop0[PSEMU_CPU_COP0_SR]    & PSEMU_CPU_SR_INT0)   &&
+       (cpu->cop0[PSEMU_CPU_COP0_SR]    & PSEMU_CPU_SR_IEc))
+    {
+        raise_exception(cpu, PSEMU_CPU_EXCCODE_Int, UNUSED_PARAMETER);
+
+        cpu->instruction.word = psemu_bus_load_word(bus, cpu->pc += 4);
+        return;
+    }
+
+    in_delay_slot = false;
 
     cpu->pc = cpu->next_pc;
     cpu->next_pc += 4;
@@ -196,6 +213,8 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     }
 #endif // PSEMU_DEBUG
                     cpu->next_pc = address;
+                    in_delay_slot = true;
+
                     break;
                 }
 
@@ -212,6 +231,8 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     }
 #endif // PSEMU_DEBUG
                     cpu->next_pc = address;
+                    in_delay_slot = true;
+
                     break;
                 }
 
@@ -461,6 +482,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
             cpu->next_pc =
             ((PSEMU_CPU_DECODE_TARGET(cpu->instruction.word) << 2) |
             (cpu->pc & 0xF0000000)) - 4;
+            in_delay_slot = true;
             
             break;
 
@@ -470,6 +492,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
             cpu->next_pc =
             ((PSEMU_CPU_DECODE_TARGET(cpu->instruction.word) << 2) |
             (cpu->pc & 0xF0000000)) - 4;
+            in_delay_slot = true;
 
             break;
 
@@ -598,6 +621,9 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                      break;
 #endif // PSEMU_DEBUG
             }
+            break;
+
+        case PSEMU_CPU_OP_GROUP_COP2:
             break;
 
         case PSEMU_CPU_OP_LB:

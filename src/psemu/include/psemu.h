@@ -41,6 +41,10 @@ void psemu_reset(struct psemu_system* const ps_emu);
 // Executes one full system step on a Sony PlayStation® system emulator
 // `ps_emu`.
 void psemu_step(struct psemu_system* const ps_emu);
+
+// Notifies the system that the V-Blank interrupt should be triggered. Call
+// this function once per frame.
+void psemu_vblank(struct psemu_system* const ps_emu);
 #ifdef __cplusplus
 }
 #endif // __cplusplus

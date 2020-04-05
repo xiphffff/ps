@@ -135,6 +135,7 @@ void psemu_bus_init(struct psemu_bus* const bus, uint8_t* const m_bios_data)
 
     bios_data = m_bios_data;
 
+    psemu_cdrom_drive_init(&bus->cdrom_drive);
     psemu_gpu_init(&bus->gpu);
 #ifdef PSEMU_DEBUG
     bus->debug_unknown_memory_load  = NULL;
@@ -149,6 +150,7 @@ void psemu_bus_fini(struct psemu_bus* const bus)
 {
     assert(bus != NULL);
 
+    psemu_cdrom_drive_fini(&bus->cdrom_drive);
     psemu_gpu_fini(&bus->gpu);
     psemu_safe_free(bus->ram);
 }
@@ -201,6 +203,14 @@ void psemu_bus_step(struct psemu_bus* const bus)
                 break;
         }
     }
+
+    if (bus->cdrom_drive.fire_interrupt)
+    {
+        bus->i_stat.cdrom = 1;
+        bus->cdrom_drive.fire_interrupt = false;
+    }
+
+    psemu_cdrom_drive_step(&bus->cdrom_drive);
 }
 
 // Clears all memory held by a system bus `bus`.
@@ -208,6 +218,7 @@ void psemu_bus_reset(struct psemu_bus* const bus)
 {
     assert(bus != NULL);
 
+    psemu_cdrom_drive_reset(&bus->cdrom_drive);
     psemu_gpu_reset(&bus->gpu);
 
     bus->i_mask.word = 0x00000000;
@@ -359,9 +370,21 @@ uint16_t psemu_bus_load_halfword(const struct psemu_bus* const bus,
                 case 0x1:
                     switch (paddr & 0x00000FFF)
                     {
+                        // 0x1F801044 - JOY_STAT (R)
+                        case 0x044:
+                            return 0xFFFF;
+
+                        // 0x1F801070 - I_STAT - Interrupt status register
+                        case 0x70:
+                            return bus->i_stat.word & 0x0000FFFF;
+
                         // 0x1F801074 - I_MASK - Interrupt mask register
                         case 0x074:
                             return bus->i_mask.word & 0x0000FFFF;
+
+                        // 0x1F801120 - Timer 2 (1/8 system clock) value
+                        case 0x120:
+                            return 0xFFFF;
 
                         default:
 #ifdef PSEMU_DEBUG
@@ -419,12 +442,43 @@ uint8_t psemu_bus_load_byte(const struct psemu_bus* const bus,
             return bus->ram[paddr];
 
         case 0x1F80:
-            switch ((paddr & 0x000F0000) >> 12)
+            switch ((paddr & 0x0000F000) >> 12)
             {
                 // [0x1F800000 - 0x1F8003FF] - Scratchpad
                 // (D-Cache used as Fast RAM)
                 case 0x0:
                     return bus->scratch_pad[paddr & 0x00000FFF];
+
+                // I/O Ports
+                case 0x1:
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801800 - Index/Status Register (Bit0-1 R/W)
+                        // (Bit2-7 Read Only)
+                        case 0x800:
+                            return bus->cdrom_drive.status.byte;
+
+                        // 0x1F801801 - CD-ROM indexed register load
+                        case 0x801:
+                            return psemu_cdrom_drive_register_load
+                            (&bus->cdrom_drive, 1);
+
+                        // 0x1F801803 - CD-ROM indexed register load
+                        case 0x803:
+                            return psemu_cdrom_drive_register_load
+                                   (&bus->cdrom_drive, 3);
+
+                        default:
+#ifdef PSEMU_DEBUG
+                        if (bus->debug_unknown_memory_load)
+                        {
+                            bus->debug_unknown_memory_load(bus->debug_user_data,
+                                                           paddr,
+                                                           PSEMU_DEBUG_BYTE);
+                        }
+#endif // PSEMU_DEBUG
+                        return 0x00;
+                    }
 
                 default:
 #ifdef PSEMU_DEBUG
@@ -493,7 +547,7 @@ void psemu_bus_store_word(struct psemu_bus* const bus,
                         // 0x1F801070 - I_STAT - Interrupt status register
                         case 0x070:
                             // Writes are acknowledgements
-                            bus->i_stat.word = word;
+                            bus->i_stat.word &= word;
                             return;
 
                         // 0x1F801074 - I_MASK - Interrupt mask register
@@ -626,6 +680,11 @@ void psemu_bus_store_halfword(struct psemu_bus* const bus,
                 case 0x1:
                     switch (paddr & 0x00000FFF)
                     {
+                        // 0x1F801070 - I_STAT - Interrupt status register
+                        case 0x70:
+                            bus->i_stat.word &= halfword;
+                            return;
+
                         // 0x1F801074 - I_MASK - Interrupt mask register
                         case 0x074:
                             bus->i_mask.word = halfword;
@@ -698,6 +757,52 @@ void psemu_bus_store_byte(struct psemu_bus* const bus,
                 case 0x0:
                     bus->scratch_pad[paddr & 0x00000FFF] = byte;
                     return;
+
+                // I/O Ports
+                case 0x1:
+                    switch (paddr & 0x00000FFF)
+                    {
+                        // 0x1F801800 - Index/Status Register (Bit0-1 R/W)
+                        // (Bit2-7 Read Only)
+                        case 0x800:
+                            bus->cdrom_drive.status.byte =
+                            (bus->cdrom_drive.status.byte & ~0x03) |
+                            (byte & 0x03);
+
+                            return;
+
+                        // 0x1F801801 - CD-ROM drive register store
+                        case 0x801:
+                            psemu_cdrom_drive_register_store
+                            (&bus->cdrom_drive, 1, byte);
+
+                            return;
+
+                        // 0x1F801802 - CD-ROM drive register store
+                        case 0x802:
+                            psemu_cdrom_drive_register_store
+                            (&bus->cdrom_drive, 2, byte);
+
+                            return;
+
+                        // 0x1F801803 - CD-ROM drive register store
+                        case 0x803:
+                            psemu_cdrom_drive_register_store
+                            (&bus->cdrom_drive, 3, byte);
+
+                            return;
+#ifdef PSEMU_DEBUG
+                        default:
+                            if (bus->debug_unknown_memory_store)
+                            {
+                                bus->debug_unknown_memory_store(bus->debug_user_data,
+                                                                paddr,
+                                                                byte,
+                                                                PSEMU_DEBUG_BYTE);
+                            }
+                            return;
+#endif // PSEMU_DEBUG
+                    }
 #ifdef PSEMU_DEBUG
                 default:
                     if (bus->debug_unknown_memory_store)
@@ -710,7 +815,6 @@ void psemu_bus_store_byte(struct psemu_bus* const bus,
                     return;
 #endif // PSEMU_DEBUG
             }
-
 #ifdef PSEMU_DEBUG
         default:
             if (bus->debug_unknown_memory_store)

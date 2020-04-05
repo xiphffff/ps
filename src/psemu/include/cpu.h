@@ -18,7 +18,6 @@
 extern "C"
 {
 #endif // __cplusplus
-
 #include <stdint.h>
 
 // Instruction decoders that cannot fit into the `instruction` union
@@ -29,6 +28,7 @@ extern "C"
 #define PSEMU_CPU_OP_GROUP_SPECIAL 0x00
 #define PSEMU_CPU_OP_GROUP_BCOND 0x01
 #define PSEMU_CPU_OP_GROUP_COP0 0x10
+#define PSEMU_CPU_OP_GROUP_COP2 0x12
 
 // Primary instructions
 #define PSEMU_CPU_OP_J 0x02
@@ -109,6 +109,11 @@ extern "C"
 
 // Status register (SR) flags
 #define PSEMU_CPU_SR_IsC (1 << 16)
+#define PSEMU_CPU_SR_INT0 (1 << 10)
+#define PSEMU_CPU_SR_IEc (1 << 0)
+
+// Cause register flags
+#define PSEMU_CPU_CAUSE_INT0 (1 << 10)
 
 // Exception codes
 #define PSEMU_CPU_EXCCODE_Int 0

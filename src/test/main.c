@@ -511,6 +511,7 @@ int main(int argc, char* argv[])
                 fprintf(debug_file, "%s\n", disassemble_after());
             }
         }
+        psemu_vblank(ps_emu);
 
         glClear(GL_COLOR_BUFFER_BIT);
 

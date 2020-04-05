@@ -279,13 +279,15 @@ void disassemble_before(struct psemu_cpu* cpu)
                 break;
 
             default:
-                if (cpu->instruction.funct == PSEMU_CPU_OP_RFE)
+                switch (cpu->instruction.funct)
                 {
-                    op = "rfe";
-                }
-                else
-                {
-                    op = "illegal";
+                    case PSEMU_CPU_OP_RFE:
+                        op = "rfe";
+                        break;
+
+                    default:
+                        op = "illegal";
+                        break;
                 }
                 break;
         }
@@ -296,7 +298,20 @@ void disassemble_before(struct psemu_cpu* cpu)
         switch (cpu->instruction.rs)
         {
             case PSEMU_CPU_OP_MF:
-                ;
+                op = "mfc2 $gpr_rt, $cop2_cpr";
+                break;
+
+            case PSEMU_CPU_OP_CF:
+                op = "cfc2 $gpr_rt, $cop2_ccr";
+                break;
+
+            case PSEMU_CPU_OP_MT:
+                op = "mtc2 $gpr_rt";
+                break;
+
+            case PSEMU_CPU_OP_CT:
+                op = "";
+                break;
 
             default:
                 op = cop2_instructions[cpu->instruction.funct];

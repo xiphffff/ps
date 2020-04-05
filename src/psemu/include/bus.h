@@ -18,6 +18,7 @@
 extern "C"
 {
 #endif // __cplusplus
+#include "cdrom_drive.h"
 #include "gpu.h"
 #ifdef PSEMU_DEBUG
 // Pass these as the 3rd parameter to `debug_unknown_memory_load()` or the 4th
@@ -30,6 +31,9 @@ extern "C"
 // interconnect between the memory and devices.
 struct psemu_bus
 {
+    // CD-ROM drive instance
+    struct psemu_cdrom_drive cdrom_drive;
+
     // GPU instance
     struct psemu_gpu gpu;
 
@@ -39,6 +43,7 @@ struct psemu_bus
     // [0x1F800000 - 0x1F8003FF] - Scratchpad (D-Cache used as Fast RAM)
     uint8_t scratch_pad[1024];
 
+    // Interrupt structure
     union
     {
         struct

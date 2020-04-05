@@ -57,5 +57,22 @@ void psemu_step(struct psemu_system* const ps_emu)
     psemu_bus_step(&ps_emu->bus);
     psemu_bus_step(&ps_emu->bus);
 
+    if (ps_emu->bus.i_mask.word & ps_emu->bus.i_stat.word)
+    {
+        ps_emu->cpu.cop0[PSEMU_CPU_COP0_Cause] |= PSEMU_CPU_CAUSE_INT0;
+    }
+    else
+    {
+        ps_emu->cpu.cop0[PSEMU_CPU_COP0_Cause] &= ~PSEMU_CPU_CAUSE_INT0;
+    }
     psemu_cpu_step(&ps_emu->cpu);
+}
+
+// Notifies the system that the V-Blank interrupt should be triggered. Call
+// this function once per frame.
+void psemu_vblank(struct psemu_system* const ps_emu)
+{
+    assert(ps_emu != NULL);
+
+    ps_emu->bus.i_stat.vblank = true;
 }

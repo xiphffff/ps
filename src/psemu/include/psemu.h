@@ -45,6 +45,11 @@ void psemu_step(struct psemu_system* const ps_emu);
 // Notifies the system that the V-Blank interrupt should be triggered. Call
 // this function once per frame.
 void psemu_vblank(struct psemu_system* const ps_emu);
+
+// "Inserts" a CD-ROM into Sony PlayStation® system emulator if `cb` is not
+// `NULL`, or removes a CD-ROM if `cb` is `NULL`.
+void psemu_set_cdrom(struct psemu_system* const ps_emu,
+					 const psemu_cdrom_read_cb cb);
 #ifdef __cplusplus
 }
 #endif // __cplusplus

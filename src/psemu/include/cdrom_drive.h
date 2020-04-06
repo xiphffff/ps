@@ -21,6 +21,9 @@ extern "C"
 #include <stdint.h>
 #include "../utility/fifo.h"
 
+typedef void (*psemu_cdrom_read_cb)
+(const unsigned int address, uint8_t* const sector_data);
+
 // Interrupt types
 #define PSEMU_CDROM_DRIVE_INT1 1
 #define PSEMU_CDROM_DRIVE_INT2 2

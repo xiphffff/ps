@@ -23,7 +23,7 @@
 // This could have very well been a #define and likely would've been turned
 // into a constant, whatever.
 static const size_t VRAM_SIZE =
-PSEMU_GPU_VRAM_WIDTH * PSEMU_GPU_VRAM_HEIGHT * sizeof(uint16_t);
+sizeof(uint16_t) * PSEMU_GPU_VRAM_WIDTH * PSEMU_GPU_VRAM_HEIGHT;
 
 #define COLOR_DEPTH_4BPP 0
 #define COLOR_DEPTH_8BPP 1
@@ -169,20 +169,19 @@ static uint16_t clut_lookup(const struct psemu_gpu* const gpu,
                              (PSEMU_GPU_VRAM_WIDTH * cmd_state.clut.y)];
         }
 
-        case COLOR_DEPTH_8BPP:
-            return 0xABCD;
-
         case COLOR_DEPTH_15BPP:
-        default:
             return texel;
+
+        default:
+            __debugbreak();
     }
 }
 
 // Determines edges based on Pineda's method
 // (see "A Parallel Algorithm for Polygon Rasterization" by Juan Pineda)
-static inline int edge_function(const struct psemu_gpu_vertex* const v0,
-                                const struct psemu_gpu_vertex* const v1,
-                                const struct psemu_gpu_vertex* const v2)
+static inline float edge_function(const struct psemu_gpu_vertex* const v0,
+                                  const struct psemu_gpu_vertex* const v1,
+                                  const struct psemu_gpu_vertex* const v2)
 {
     return ((v1->x - v0->x) * (v2->y - v0->y)) -
            ((v1->y - v0->y) * (v2->x - v0->x));
@@ -218,24 +217,24 @@ static void draw_polygon(struct psemu_gpu* const gpu,
     // https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
     struct psemu_gpu_vertex p;
 
-    if (edge_function(v0, v1, v2) < 0)
+    if (edge_function(v0, v1, v2) < 0.0F)
     {
 #define SWAP(a, b) do { typeof(a) t; t = a; a = b; b = t; } while(0)
         SWAP(*v1, *v2);
 #undef SWAP
     }
 
-    const int area = edge_function(v0, v1, v2);
+    const float area = edge_function(v0, v1, v2);
 
     for (p.y = gpu->drawing_area.y1; p.y <= gpu->drawing_area.y2; p.y++)
     {
         for (p.x = gpu->drawing_area.x1; p.x <= gpu->drawing_area.x2; p.x++)
         {
-            const int w0 = edge_function(v1, v2, &p);
-            const int w1 = edge_function(v2, v0, &p);
-            const int w2 = edge_function(v0, v1, &p);
+            const float w0 = edge_function(v1, v2, &p);
+            const float w1 = edge_function(v2, v0, &p);
+            const float w2 = edge_function(v0, v1, &p);
 
-            if (w0 >= 0 && w1 >= 0 && w2 >= 0)
+            if (w0 >= 0.0F && w1 >= 0.0F && w2 >= 0.0F)
             {
                 if (cmd_state.draw_flags.textured)
                 {
@@ -260,8 +259,11 @@ static void draw_polygon(struct psemu_gpu* const gpu,
                         case COLOR_DEPTH_15BPP:
                             texel_x += texcoord_x;
                             break;
-                    }
 
+                        default:
+                            __debugbreak();
+                    }
+                    
                     const uint16_t texel =
                     gpu->vram[texel_x + (PSEMU_GPU_VRAM_WIDTH * texcoord_y)];
 
@@ -489,10 +491,9 @@ static void draw_rect_helper(struct psemu_gpu* const gpu)
         };
 
         draw_rect(gpu, &v0);
-        reset_gp0(gpu);
-
-        return;
     }
+    reset_gp0(gpu);
+    psemu_fifo_reset(&cmd_state.params);
 }
 
 // Handles the "GP0(0x02) - Fill Rectangle in VRAM" command.
@@ -840,10 +841,6 @@ void psemu_gpu_gp0(struct psemu_gpu* const gpu, const uint32_t cmd)
                     gpu->gp0_state = PSEMU_GP0_RECEIVING_PARAMETERS;
                     return;
 
-                // GP0(0xE1) - Draw Mode setting (aka "Texpage")
-                case 0xE1:
-                    return;
-
                 // GP0(0xE2) - Texture Window setting
                 case 0xE2:
                     gpu->texture_window.mask.x = cmd & 0x0000001F;
@@ -873,10 +870,6 @@ void psemu_gpu_gp0(struct psemu_gpu* const gpu, const uint32_t cmd)
                     gpu->drawing_offset.x = cmd & 0x000003FF;
                     gpu->drawing_offset.y = (cmd >> 10) & 0x000001FF;
 
-                    return;
-
-                // GP0(E6h) - Mask Bit Setting
-                case 0xE6:
                     return;
 #ifdef PSEMU_DEBUG
                 default:
@@ -922,7 +915,7 @@ void psemu_gpu_gp1(struct psemu_gpu* const gpu, const uint32_t cmd)
     {
         // GP1(0x00) - Reset GPU
         case 0x00:
-            gpu->gpustat.word = 0x1FF00000;
+            gpu->gpustat.word = 0x14802000;
             return;
 
         // GP1(0x01) - Reset Command Buffer

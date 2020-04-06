@@ -505,7 +505,7 @@ uint8_t psemu_bus_load_byte(const struct psemu_bus* const bus,
                                                PSEMU_DEBUG_BYTE);
             }
 #endif // PSEMU_DEBUG
-            return 0x00000000;
+            return 0x00;
     }
 }
 

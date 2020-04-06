@@ -29,6 +29,9 @@ static FILE* debug_file = NULL;
 // The file to write TTY output to.
 static FILE* tty_file = NULL;
 
+// The CD-ROM image, if any.
+static FILE* cdrom_image = NULL;
+
 // `true` if we're to start tracing, or `false` otherwise.
 static bool tracing = false;
 
@@ -89,6 +92,12 @@ static void key_state_changed
     }
 }
 
+// Reads a sector from absolute address `address` into `sector_data`.
+static void cdrom_read(const unsigned int address, uint8_t* const sector_data)
+{
+    fseek(cdrom_image, address, SEEK_SET);
+    fread(sector_data, PSEMU_CDROM_SECTOR_SIZE, 1, cdrom_image);
+}
 
 static void setup_shaders(void)
 {

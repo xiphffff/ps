@@ -57,6 +57,8 @@ extern "C"
 #define PSEMU_CPU_OP_SWL 0x2A
 #define PSEMU_CPU_OP_SW 0x2B
 #define PSEMU_CPU_OP_SWR 0x2E
+#define PSEMU_CPU_OP_LWC2 0x32
+#define PSEMU_CPU_OP_SWC2 0x3A
 
 // SPECIAL group instructions
 #define PSEMU_CPU_OP_SLL 0x00

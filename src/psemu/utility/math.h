@@ -19,7 +19,10 @@ extern "C"
 {
 #endif // __cplusplus
 // Converts a binary coded decimal `bcd` to decimal (base 10).
-inline unsigned int psemu_bcd_to_dec(const unsigned int bcd);
+inline unsigned int psemu_bcd_to_dec(const unsigned int bcd)
+{
+    return bcd - (6 * (bcd >> 4));
+}
 #ifdef __cplusplus
 }
 #endif // __cplusplus

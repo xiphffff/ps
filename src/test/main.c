@@ -287,12 +287,20 @@ int main(int argc, char* argv[])
 #endif // PSEMU_DEBUG
         return EXIT_FAILURE;
     }
+
+    bool run_cdrom = true;
 #ifdef PSEMU_DEBUG
     bool inject_exe = false;
 
-    if (argc > 2)
+    if (argc == 2)
     {
         inject_exe = true;
+    }
+
+    if (argc == 3)
+    {
+        inject_exe = false;
+        run_cdrom  = true;
     }
 #endif // PSEMU_DEBUG
     FILE* bios_file = fopen(argv[1], "rb");
@@ -307,6 +315,12 @@ int main(int argc, char* argv[])
 
     ps_emu->bus.gpu.debug_unknown_cmd = &unknown_gpu_cmd;
 #endif // PSEMU_DEBUG
+
+    if (run_cdrom)
+    {
+        cdrom_image = fopen(argv[3], "rb");
+        psemu_set_cdrom(ps_emu, &cdrom_read);
+    }
     bool running = true;
 #ifdef PSEMU_DEBUG
     // Set to `true` if we're to stop emulation on any exception raised, or

@@ -134,8 +134,9 @@ struct psemu_bus
             };
             uint32_t word;
         } chcr;
-    } dma_gpu, // 0x1F8010Ax - DMA2 - GPU (lists + image data)
-      dma_otc; // 0x1F8010Ex - DMA6 - OTC (reverse clear OT) (GPU related)
+    } dma_gpu,   // 0x1F8010Ax - DMA2 - GPU (lists + image data)
+      dma_cdrom, // 0x1F8010Bx - DMA3 - CD-ROM to RAM
+      dma_otc;   // 0x1F8010Ex - DMA6 - OTC (reverse clear OT) (GPU related)
 
     // 0x1F8010F0 - DMA Control Register (R/W)
     union

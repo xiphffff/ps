@@ -862,6 +862,12 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
             psemu_bus_store_word(bus, address, data);
             break;
         }
+
+        case PSEMU_CPU_OP_LWC2:
+            break;
+
+        case PSEMU_CPU_OP_SWC2:
+            break;
 #ifdef PSEMU_DEBUG
         default:
             raise_exception(cpu, PSEMU_CPU_EXCCODE_RI, UNUSED_PARAMETER);

@@ -83,4 +83,6 @@ void psemu_set_cdrom(struct psemu_system* const ps_emu,
                       const psemu_cdrom_read_cb cb)
 {
     assert(ps_emu != NULL);
+
+    ps_emu->bus.cdrom_drive.read_cb = cb;
 }

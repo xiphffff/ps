@@ -20,13 +20,11 @@ set(HDRS include/bus.h
          include/gpu.h
          include/psemu.h)
 
-set(UTILITY_SRCS utility/fifo.c utility/math.c utility/memory.c)
+set(UTILITY_SRCS utility/fifo.c utility/memory.c)
 set(UTILITY_HDRS utility/fifo.h utility/math.h utility/memory.h)
 
 add_library(psemu ${SRCS}
                   ${HDRS}
-                  ${RENDERER_SRCS}
-                  ${RENDERER_HDRS}
                   ${UTILITY_SRCS}
                   ${UTILITY_HDRS})
 

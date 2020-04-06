@@ -104,6 +104,23 @@ static void dma_gpu_list_process(struct psemu_bus* const bus)
     }
 }
 
+// Handles processing of DMA channel 3 - CDROM in normal mode.
+static void dma_cdrom(struct psemu_bus* bus)
+{
+    assert(bus != NULL);
+
+    unsigned int num_words = (bus->dma_cdrom.bcr & 0x0000FFFF) * 4;
+    uint32_t address       = bus->dma_cdrom.madr.address;
+
+    while (num_words != 0)
+    {
+        const uint8_t data = psemu_fifo_dequeue(&bus->cdrom_drive.data_fifo);
+
+        bus->ram[address++] = data;
+        num_words--;
+    }
+}
+
 // Handles processing of DMA channel 6 - OTC (reverse clear OT).
 static void dma_otc_process(struct psemu_bus* const bus)
 {
@@ -195,6 +212,18 @@ void psemu_bus_step(struct psemu_bus* const bus)
                 bus->dma_gpu.chcr.busy = false;
                 break;
 
+            // DMA channel 3 - CD-ROM to RAM
+            case 15:
+                switch (bus->dma_cdrom.chcr.word)
+                {
+                    case 0x11000000:
+                        dma_cdrom(bus);
+                        break;
+                }
+
+                bus->dma_cdrom.chcr.busy = false;
+                break;
+
             // DMA channel 6 - OTC (reverse clear OT)
             case 27:
                 dma_otc_process(bus);
@@ -230,8 +259,9 @@ void psemu_bus_reset(struct psemu_bus* const bus)
     memset(bus->ram,         0x00, RAM_SIZE);
     memset(bus->scratch_pad, 0x00, 1024);
 
-    memset(&bus->dma_otc, 0x00000000, sizeof(bus->dma_otc));
-    memset(&bus->dma_gpu, 0x00000000, sizeof(bus->dma_gpu));
+    memset(&bus->dma_gpu,   0x00000000, sizeof(bus->dma_gpu));
+    memset(&bus->dma_cdrom, 0x00000000, sizeof(bus->dma_cdrom));
+    memset(&bus->dma_otc,   0x00000000, sizeof(bus->dma_otc));
 }
 
 // Returns a word from system bus `bus` referenced by virtual address `vaddr`.
@@ -568,6 +598,21 @@ void psemu_bus_store_word(struct psemu_bus* const bus,
                         // 0x1F8010A8 - DMA2 (GPU) channel control (R/W)
                         case 0x0A8:
                             bus->dma_gpu.chcr.word = word;
+                            return;
+
+                        // 0x1F8010B0 - DMA3 (CDROM) base address (R/W)
+                        case 0x0B0:
+                            bus->dma_cdrom.madr.word = word;
+                            return;
+
+                        // 0x1F8010B4 - DMA3 (CDROM) block control (R/W)
+                        case 0x0B4:
+                            bus->dma_cdrom.bcr = word;
+                            return;
+
+                        // 0x1F8010B8 - DMA3 (CDROM) control (R/W)
+                        case 0x0B8:
+                            bus->dma_cdrom.chcr.word = word;
                             return;
 
                         // 0x1F8010E0 - DMA6 (OTC) base address (R/W)

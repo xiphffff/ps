@@ -66,13 +66,13 @@ struct psemu_cdrom_drive
             // Parameter fifo empty (1=Empty) ;triggered before writing 1st byte
             unsigned int parameter_fifo_empty : 1;
 
-            // Parameter fifo full(0 = Full); triggered after writing 16 bytes
+            // Parameter fifo full (0 = Full); triggered after writing 16 bytes
             unsigned int parameter_fifo_not_full : 1;
 
             // Response fifo empty  (0=Empty) ;triggered after reading LAST byte
             unsigned int response_fifo_not_empty : 1;
 
-            // Data fifo empty      (0=Empty) ;triggered after reading LAST byte
+            // Data fifo empty (0=Empty) ;triggered after reading LAST byte
             unsigned int data_fifo_not_empty : 1;
 
             // Command/parameter transmission busy (1=Busy)
@@ -194,6 +194,17 @@ struct psemu_cdrom_drive
 
     // Is it time to fire the CD-ROM drive interrupt?
     bool fire_interrupt;
+
+    // How many cycles to wait before reading a sector?
+    unsigned int sector_read_cycle_count_max;
+
+    // Current sector data
+    uint8_t sector_data[PSEMU_CDROM_SECTOR_SIZE];
+
+    // The function to call when it is time to read a sector off of a CD-ROM.
+    // Setting this to a non `NULL` value signifies that a CD-ROM has been
+    // "inserted". If it is `NULL`, there is no CD-ROM.
+    psemu_cdrom_read_cb read_cb;
 };
 
 // Initializes a CD-ROM drive `cdrom_drive`.

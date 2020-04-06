@@ -319,7 +319,7 @@ void disassemble_before(struct psemu_cpu* cpu)
         }
     }
 
-    if (op == "")
+    if (op == "\0")
     {
         strcat(state.result, "illegal");
         return;

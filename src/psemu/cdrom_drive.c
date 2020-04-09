@@ -19,6 +19,21 @@
 #include "cdrom_drive.h"
 #include "utility/memory.h"
 
+// Primitive commands
+#define Getstat 0x01
+#define Setloc 0x02
+#define ReadN 0x06
+#define Pause 0x09
+#define Init 0x0A
+#define Setmode 0x0E
+#define SeekL 0x15
+#define SubFunction 0x19
+#define GetID 0x1A
+
+// Sub function commands
+#define GetVersion 0x20
+
+// Converts a binary coded decimal `bcd` to base 10 (decimal).
 static inline unsigned int bcd_to_dec(const unsigned int bcd)
 {
     return bcd - (6 * (bcd >> 4));
@@ -186,27 +201,19 @@ uint8_t psemu_cdrom_drive_register_load(struct psemu_cdrom_drive* cdrom_drive,
     {
         // 0x1F801801
         case 1:
-            switch (cdrom_drive->status.index)
-            {
-                // 0x1F801801h.Index1 - Response Fifo (R)
-                case 1:
-                    return psemu_fifo_dequeue(cdrom_drive->response_fifo);
-
-                default:
-                    __debugbreak();
-                    break;
-            }
-            break;
+            // 0x1F801801.Index1       - Response FIFO (R)
+            // 0x1F801801.Index0, 2, 3 - Response FIFO (R) (Mirrors)
+            return psemu_fifo_dequeue(cdrom_drive->response_fifo);
 
         // 0x1F801803
         case 3:
             switch (cdrom_drive->status.index)
             {
-                // 1F801803h.Index0 - Interrupt Enable Register (R)
+                // 0x1F801803.Index0 - Interrupt Enable Register (R)
                 case 0:
                     return cdrom_drive->interrupt_enable;
     
-                // 1F801803h.Index1 - Interrupt Flag Register (R/W)
+                // 0x1F801803.Index1 - Interrupt Flag Register (R/W)
                 case 1:
                     return cdrom_drive->interrupt_flag;
 
@@ -235,12 +242,11 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
         case 1:
             switch (cdrom_drive->status.index)
             {
-                // 1F801801h.Index0 - Command Register (W)
+                // 0x1F801801.Index0 - Command Register (W)
                 case 0:
                     switch (data)
                     {
-                        // Getstat
-                        case 0x01:
+                        case Getstat:
                             push_response(&cdrom_drive->int3,
                                           20000,
                                           1,
@@ -251,8 +257,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             cdrom_drive->current_interrupt = &cdrom_drive->int3;
                             break;
 
-                        // Setloc
-                        case 0x02:
+                        case Setloc:
                             cdrom_drive->position.minute =
                             psemu_fifo_dequeue(&cdrom_drive->parameter_fifo);
 
@@ -283,8 +288,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             
                             break;
 
-                        // ReadN
-                        case 0x06:
+                        case ReadN:
                         {
                             const unsigned int threshold =
                             cdrom_drive->mode.double_speed ? 150 : 75;
@@ -307,8 +311,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             break;
                         }
 
-                        // Pause
-                        case 0x09:
+                        case Pause:
                             push_response(&cdrom_drive->int3,
                                           20000,
                                           1,
@@ -332,8 +335,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             
                             break;
 
-                        // Init
-                        case 0x0A:
+                        case Init:
                             push_response(&cdrom_drive->int3,
                                           20000,
                                           1,
@@ -352,8 +354,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             cdrom_drive->current_interrupt = &cdrom_drive->int3;
                             break;
 
-                        // Setmode
-                        case 0x0E:
+                        case Setmode:
                             cdrom_drive->mode.byte =
                             psemu_fifo_dequeue(&cdrom_drive->parameter_fifo);
 
@@ -369,8 +370,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             
                             break;
 
-                        // SeekL
-                        case 0x15:
+                        case SeekL:
                             cdrom_drive->response_status.seeking = 1;
                             cdrom_drive->response_status.standby = 1;
 
@@ -393,11 +393,11 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             cdrom_drive->current_interrupt = &cdrom_drive->int3;
                             break;
 
-                        case 0x19:
+                        case SubFunction:
                             switch (psemu_fifo_dequeue(&cdrom_drive->parameter_fifo))
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
-                                case 0x20:
+                                case GetVersion:
                                     push_response(&cdrom_drive->int3,
                                                   20000,
                                                   4,
@@ -414,8 +414,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             }
                             break;
 
-                        // GetID
-                        case 0x1A:
+                        case GetID:
                             if (cdrom_drive->read_cb)
                             {
                                 push_response(&cdrom_drive->int3,
@@ -468,12 +467,12 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
         case 2:
             switch (cdrom_drive->status.index)
             {
-                // 1F801802h.Index0 - Parameter Fifo (W)
+                // 0x1F801802.Index0 - Parameter FIFO (W)
                 case 0:
                     psemu_fifo_enqueue(&cdrom_drive->parameter_fifo, data);
                     break;
 
-                // 1F801802h.Index1 - Interrupt Enable Register (W)
+                // 0x1F801802.Index1 - Interrupt Enable Register (W)
                 case 1:
                     cdrom_drive->interrupt_enable = data;
                     break;
@@ -488,12 +487,12 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
         case 3:
             switch (cdrom_drive->status.index)
             {
-                // 1F801803h.Index0 - Request Register (W)
+                // 0x1F801803.Index0 - Request Register (W)
                 case 0:
                     cdrom_drive->status.data_fifo_not_empty = data & 0x80;
                     break;
 
-                // 1F801803h.Index1 - Interrupt Flag Register (R/W)
+                // 0x1F801803.Index1 - Interrupt Flag Register (R/W)
                 case 1:
                     // Has an interrupt that we care about been acknowledged?
                     if ((cdrom_drive->current_interrupt != NULL) &&

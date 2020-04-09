@@ -21,7 +21,7 @@ set(HDRS include/bus.h
          include/psemu.h)
 
 set(UTILITY_SRCS utility/fifo.c utility/memory.c)
-set(UTILITY_HDRS utility/fifo.h utility/math.h utility/memory.h)
+set(UTILITY_HDRS utility/fifo.h utility/memory.h)
 
 add_library(psemu ${SRCS}
                   ${HDRS}

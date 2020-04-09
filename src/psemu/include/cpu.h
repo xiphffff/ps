@@ -100,6 +100,11 @@ extern "C"
 // System control co-processor (COP0) instruction
 #define PSEMU_CPU_OP_RFE 0x10
 
+// Geometry Transformation Engine (GTE/COP2) instructions
+#define PSEMU_CPU_OP_NCLIP 0x06
+#define PSEMU_CPU_OP_NCDS 0x13
+#define PSEMU_CPU_OP_RTPT 0x30
+
 // System control co-processor (COP0) registers
 #define PSEMU_CPU_COP0_BadA 8
 #define PSEMU_CPU_COP0_SR 12

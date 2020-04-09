@@ -31,8 +31,6 @@ struct
     uint32_t paddr;
 } static state;
 
-unsigned int previous_string_length = 0;
-
 // Conventional names of general-purpose registers
 static const char* const gpr[32] =
 {
@@ -99,11 +97,77 @@ static const char* cop0[32] =
 
 // Geometry Transformation Engine (GTE/COP2) data registers
 static const char* const cop2_cpr[32] =
-{ };
+{
+    "C2_VXY0",    // 0
+    "C2_VZ0",     // 1
+    "C2_VXY1",    // 2
+    "C2_VZ1",     // 3
+    "C2_VXY2",    // 4
+    "C2_VZ2",     // 5
+    "C2_RGB",     // 6
+    "C2_OTZ",     // 7
+    "C2_IR0",     // 8
+    "C2_IR1",     // 9
+    "C2_IR2",     // 10
+    "C2_IR3",     // 11
+    "C2_SXY0",    // 12
+    "C2_SXY1",    // 13
+    "C2_SXY2",    // 14
+    "C2_SXYP",    // 15
+    "C2_SZ0",     // 16
+    "C2_SZ1",     // 17
+    "C2_SZ2",     // 18
+    "C2_SZ3",     // 19
+    "C2_RGB0",    // 20
+    "C2_RGB1",    // 21
+    "C2_RGB2",    // 22
+    "C2_ILLEGAL", // 23
+    "C2_MAC0",    // 24
+    "C2_MAC1",    // 25
+    "C2_MAC2",    // 26
+    "C2_MAC3",    // 27
+    "C2_IRGB",    // 28
+    "C2_ORGB",    // 29
+    "C2_LZCS",    // 30
+    "C2_LZCR"     // 31
+};
 
 // Geometry Transformation Engine (GTE/COP2) control registers
 static const char* const cop2_ccr[32] =
-{ };
+{
+    "C2_R11R12", // 0
+    "C2_R13R21", // 1
+    "C2_R22R23", // 2
+    "C2_R31R32", // 3
+    "C2_R33",    // 4
+    "C2_TRX",    // 5
+    "C2_TRY",    // 6
+    "C2_TRZ",    // 7
+    "C2_L11L12"  // 8
+    "C2_L13L21"  // 9
+    "C2_L22L23"  // 10
+    "C2_L31L32"  // 11
+    "C2_L33"     // 12
+    "C2_RBK"     // 13
+    "C2_GBK"     // 14
+    "C2_BBK"     // 15
+    "C2_LR1LR2"  // 16
+    "C2_LR3LG1"  // 17
+    "C2_LG2LG3"  // 18
+    "C2_LB1LB2"  // 19
+    "C2_LB3"     // 20
+    "C2_RFC"     // 21
+    "C2_GFC"     // 22
+    "C2_BFC"     // 23
+    "C2_OFX"     // 24
+    "C2_OFY"     // 25
+    "C2_H"       // 26
+    "C2_DQA"     // 27
+    "C2_DQB"     // 28
+    "C2_ZSF3"    // 29
+    "C2_ZSF4"    // 30
+    "C2_FLAG"    // 31
+};
 
 // Instructions that are accessed through the operation code `op` field
 static const char* const primary_instructions[63] =
@@ -243,7 +307,71 @@ static const char* const special_instructions[63] =
 
 // Geometry Transformation Engine (GTE/COP2) instructions
 static const char* const cop2_instructions[63] =
-{ };
+{
+    "",                  // 0x00
+    "rtps",              // 0x01
+    "",                  // 0x02
+    "",                  // 0x03
+    "",                  // 0x04
+    "",                  // 0x05
+    "nclip",             // 0x06
+    "",                  // 0x07
+    "",                  // 0x08
+    "",                  // 0x09
+    "",                  // 0x0A
+    "",                  // 0x0B
+    "op $sf",            // 0x0C
+    "",                  // 0x0D
+    "",                  // 0x0E
+    "",                  // 0x0F
+    "dpcs",              // 0x10
+    "intpl",             // 0x11
+    "mvmva $mvmva_bits", // 0x12
+    "ncds",              // 0x13
+    "cdp",               // 0x14
+    "",                  // 0x15
+    "ncdt",              // 0x16
+    "",                  // 0x17
+    "",                  // 0x18
+    "",                  // 0x19
+    "",                  // 0x1A
+    "nccs",              // 0x1B
+    "cc",                // 0x1C
+    "",                  // 0x1D
+    "ncs",               // 0x1E
+    "",                  // 0x1F
+    "nct",               // 0x20
+    "",                  // 0x21
+    "",                  // 0x22
+    "",                  // 0x23
+    "",                  // 0x24
+    "",                  // 0x25
+    "",                  // 0x26
+    "",                  // 0x27
+    "sqr $sf",           // 0x28
+    "dcpl",              // 0x29
+    "dpct",              // 0x2A
+    "",                  // 0x2B
+    "",                  // 0x2C
+    "avsz3",             // 0x2D
+    "avsz4",             // 0x2E
+    "",                  // 0x2F
+    "rtpt",              // 0x30
+    "",                  // 0x31
+    "",                  // 0x32
+    "",                  // 0x33
+    "",                  // 0x34
+    "",                  // 0x35
+    "",                  // 0x36
+    "",                  // 0x37
+    "",                  // 0x38
+    "",                  // 0x39
+    "",                  // 0x3A
+    "",                  // 0x3B
+    "",                  // 0x3C
+    "gpf $sf",           // 0x3D
+    "gpl $sf",           // 0x3E
+};
 
 // Disassembles the current instruction before execution takes place.
 void disassemble_before(struct psemu_cpu* cpu)
@@ -310,7 +438,7 @@ void disassemble_before(struct psemu_cpu* cpu)
                 break;
 
             case PSEMU_CPU_OP_CT:
-                op = "";
+                op = "ctc2";
                 break;
 
             default:
@@ -472,8 +600,6 @@ void disassemble_before(struct psemu_cpu* cpu)
             op += 8;
         }
     }
-
-    previous_string_length = strlen(state.result);
 }
 
 // Disassembles the current instruction after execution takes place.

@@ -28,13 +28,6 @@
 //
 // * Caches are not implemented.
 
-// When LIBPS_DEBUG is *not* defined:
-//
-// * ADD/ADDU, ADDI/ADDIU, SUB/SUBU become equivalent instructions
-// * DIV/DIVU is a naive operation (i.e. doesn't check for division by zero)
-// * Only Syscall and Int exceptions are implemented
-// * BREAK instruction is not implemented
-
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
@@ -611,6 +604,52 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
             break;
 
         case PSEMU_CPU_OP_GROUP_COP2:
+            switch (cpu->instruction.rs)
+            {
+                case PSEMU_CPU_OP_MF:
+                    cpu->gpr[cpu->instruction.rt] =
+                    cpu->cop2.cpr[cpu->instruction.rd];
+
+                    break;
+
+                case PSEMU_CPU_OP_CF:
+                    cpu->gpr[cpu->instruction.rt] =
+                    cpu->cop2.ccr[cpu->instruction.rd];
+
+                    break;
+
+                case PSEMU_CPU_OP_MT:
+                    cpu->cop2.cpr[cpu->instruction.rd] =
+                    cpu->gpr[cpu->instruction.rt];
+
+                    break;
+
+                case PSEMU_CPU_OP_CT:
+                    cpu->cop2.ccr[cpu->instruction.rd] =
+                    cpu->gpr[cpu->instruction.rt];
+                    
+                    break;
+
+                default:
+                    switch (cpu->instruction.funct)
+                    {
+                        case PSEMU_CPU_OP_NCLIP:
+                            break;
+
+                        case PSEMU_CPU_OP_NCDS:
+                            break;
+
+                        case PSEMU_CPU_OP_RTPT:
+                            break;
+
+                        default:
+                            raise_exception
+                            (cpu, PSEMU_CPU_EXCCODE_RI, UNUSED_PARAMETER);
+
+                            break;
+                    }
+                    break;
+            }
             break;
 
         case PSEMU_CPU_OP_LB:
@@ -824,25 +863,25 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
 
             switch (m_vaddr & 0x00000003)
             {
-            case 0:
-                data = (data & 0x00000000) |
-                       (cpu->gpr[cpu->instruction.rt] << 0);
-                break;
+                case 0:
+                    data = (data & 0x00000000) |
+                           (cpu->gpr[cpu->instruction.rt] << 0);
+                    break;
 
-            case 1:
-                data = (data & 0x000000FF) |
-                       (cpu->gpr[cpu->instruction.rt] << 8);
-                break;
+                case 1:
+                    data = (data & 0x000000FF) |
+                           (cpu->gpr[cpu->instruction.rt] << 8);
+                    break;
 
-            case 2:
-                data = (data & 0x0000FFFF) |
-                       (cpu->gpr[cpu->instruction.rt] << 16);
-                break;
+                case 2:
+                    data = (data & 0x0000FFFF) |
+                           (cpu->gpr[cpu->instruction.rt] << 16);
+                    break;
 
-            case 3:
-                data = (data & 0x00FFFFFF) |
-                       (cpu->gpr[cpu->instruction.rt] << 24);
-                break;
+                case 3:
+                    data = (data & 0x00FFFFFF) |
+                           (cpu->gpr[cpu->instruction.rt] << 24);
+                    break;
             }
 
             psemu_bus_store_word(bus, address, data);
@@ -850,10 +889,36 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
         }
 
         case PSEMU_CPU_OP_LWC2:
+        {
+            const uint32_t m_vaddr = vaddr(cpu);
+
+            if ((m_vaddr & 0x00000003) != 0)
+            {
+                raise_exception(cpu, PSEMU_CPU_EXCCODE_AdEL, UNUSED_PARAMETER);
+                break;
+            }
+
+            cpu->cop2.cpr[cpu->instruction.rt] =
+            psemu_bus_load_word(bus, m_vaddr);
+
             break;
+        }
 
         case PSEMU_CPU_OP_SWC2:
+        {
+            const uint32_t m_vaddr = vaddr(cpu);
+
+            if ((m_vaddr & 0x00000003) != 0)
+            {
+                raise_exception(cpu, PSEMU_CPU_EXCCODE_AdEL, UNUSED_PARAMETER);
+                break;
+            }
+
+            psemu_bus_store_word
+            (bus, m_vaddr, cpu->cop2.cpr[cpu->instruction.rt]);
+            
             break;
+        }
 
         default:
             raise_exception(cpu, PSEMU_CPU_EXCCODE_RI, UNUSED_PARAMETER);

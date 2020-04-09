@@ -467,14 +467,14 @@ int main(int argc, char* argv[])
 
         glTexSubImage2D
         (GL_TEXTURE_2D,
-            0,
-            0,
-            0,
-            PSEMU_GPU_VRAM_WIDTH,
-            PSEMU_GPU_VRAM_HEIGHT,
-            GL_RGBA,
-            GL_UNSIGNED_SHORT_1_5_5_5_REV,
-            ps_emu->bus.gpu.vram);
+         0,
+         0,
+         0,
+         PSEMU_GPU_VRAM_WIDTH,
+         PSEMU_GPU_VRAM_HEIGHT,
+         GL_RGBA,
+         GL_UNSIGNED_SHORT_1_5_5_5_REV,
+         ps_emu->bus.gpu.vram);
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 

@@ -18,6 +18,7 @@
 extern "C"
 {
 #endif // __cplusplus
+
 #include <stdint.h>
 
 // Instruction decoders that cannot fit into the `instruction` union
@@ -70,9 +71,7 @@ extern "C"
 #define PSEMU_CPU_OP_JR 0x08
 #define PSEMU_CPU_OP_JALR 0x09
 #define PSEMU_CPU_OP_SYSCALL 0x0C
-#ifdef PSEMU_DEBUG
 #define PSEMU_CPU_OP_BREAK 0x0D
-#endif // PSEMU_DEBUG
 #define PSEMU_CPU_OP_MFHI 0x10
 #define PSEMU_CPU_OP_MTHI 0x11
 #define PSEMU_CPU_OP_MFLO 0x12
@@ -102,9 +101,7 @@ extern "C"
 #define PSEMU_CPU_OP_RFE 0x10
 
 // System control co-processor (COP0) registers
-#ifdef PSEMU_DEBUG
 #define PSEMU_CPU_COP0_BadA 8
-#endif // PSEMU_DEBUG
 #define PSEMU_CPU_COP0_SR 12
 #define PSEMU_CPU_COP0_Cause 13
 #define PSEMU_CPU_COP0_EPC 14
@@ -120,13 +117,11 @@ extern "C"
 // Exception codes
 #define PSEMU_CPU_EXCCODE_Int 0
 #define PSEMU_CPU_EXCCODE_Sys 8
-#ifdef PSEMU_DEBUG
 #define PSEMU_CPU_EXCCODE_AdEL 4
 #define PSEMU_CPU_EXCCODE_AdES 5
 #define PSEMU_CPU_EXCCODE_Bp 9
 #define PSEMU_CPU_EXCCODE_RI 10
 #define PSEMU_CPU_EXCCODE_Ov 12
-#endif // PSEMU_DEBUG
 
 // Forward declaration
 struct psemu_bus;
@@ -197,6 +192,7 @@ void psemu_cpu_reset(struct psemu_cpu* const cpu);
 
 // Executes one instruction.
 void psemu_cpu_step(struct psemu_cpu* const cpu);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

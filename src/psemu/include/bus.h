@@ -18,15 +18,10 @@
 extern "C"
 {
 #endif // __cplusplus
+
 #include "cdrom_drive.h"
 #include "gpu.h"
-#ifdef PSEMU_DEBUG
-// Pass these as the 3rd parameter to `debug_unknown_memory_load()` or the 4th
-// parameter to `debug_unknown_memory_store()`.
-#define PSEMU_DEBUG_WORD 0xFFFFFFFF
-#define PSEMU_DEBUG_HALFWORD 0x0000FFFF
-#define PSEMU_DEBUG_BYTE 0x000000FF
-#endif // PSEMU_DEBUG
+
 // Defines the structure of the system bus. This is really just the
 // interconnect between the memory and devices.
 struct psemu_bus
@@ -43,7 +38,8 @@ struct psemu_bus
     // [0x1F800000 - 0x1F8003FF] - Scratchpad (D-Cache used as Fast RAM)
     uint8_t scratch_pad[1024];
 
-    // Interrupt structure
+    // 0x1F801070 - I_STAT - Interrupt status register
+    // 0x1F801074 - I_MASK - Interrupt mask register
     union
     {
         struct
@@ -83,10 +79,11 @@ struct psemu_bus
             unsigned int : 21;
         };
         uint32_t word;
-    } i_stat, // 0x1F801070 - Interrupt status register
-      i_mask; // 0x1F801074 - Interrupt mask register
+    } i_stat, i_mask;
 
-    // DMA channel structure
+    // 0x1F8010Ax - DMA2 - GPU (lists + image data)
+    // 0x1F8010Bx - DMA3 - CD-ROM to RAM
+    // 0x1F8010Ex - DMA6 - OTC (reverse clear OT) (GPU related)
     struct
     {
         // 0x1F801080 + (N * 0x10) - Base address (R/W)
@@ -134,9 +131,7 @@ struct psemu_bus
             };
             uint32_t word;
         } chcr;
-    } dma_gpu,   // 0x1F8010Ax - DMA2 - GPU (lists + image data)
-      dma_cdrom, // 0x1F8010Bx - DMA3 - CD-ROM to RAM
-      dma_otc;   // 0x1F8010Ex - DMA6 - OTC (reverse clear OT) (GPU related)
+    } dma_gpu, dma_cdrom, dma_otc;
 
     // 0x1F8010F0 - DMA Control Register (R/W)
     union
@@ -187,20 +182,6 @@ struct psemu_bus
         };
         uint32_t word;
     } dicr;
-#ifdef PSEMU_DEBUG
-    // Called when an unknown memory load has taken place.
-    void (*debug_unknown_memory_load)(void* user_data,
-                                      const uint32_t paddr,
-                                      const unsigned int type);
-
-    // Called when an unknown memory store has taken place.
-    void (*debug_unknown_memory_store)(void* user_data,
-                                       const uint32_t paddr,
-                                       const unsigned int data,
-                                       const unsigned int type);
-
-    void* debug_user_data;
-#endif // PSEMU_DEBUG
 };
 
 // Initializes a system bus `bus`.
@@ -255,6 +236,7 @@ void psemu_bus_store_halfword(struct psemu_bus* const bus,
 void psemu_bus_store_byte(struct psemu_bus* const bus,
                           const uint32_t vaddr,
                           const uint8_t byte);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

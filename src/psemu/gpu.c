@@ -675,11 +675,6 @@ void psemu_gpu_init(struct psemu_gpu* const gpu)
 {
     gpu->vram = psemu_safe_malloc(VRAM_SIZE);
     psemu_fifo_init(&cmd_state.params, 16);
-#ifdef PSEMU_DEBUG
-    gpu->debug_user_data = NULL;
-
-    gpu->debug_unknown_cmd = NULL;
-#endif // PSEMU_DEBUG
 }
 
 // Deallocates the memory held by `gpu`.
@@ -871,16 +866,9 @@ void psemu_gpu_gp0(struct psemu_gpu* const gpu, const uint32_t cmd)
                     gpu->drawing_offset.y = (cmd >> 10) & 0x000001FF;
 
                     return;
-#ifdef PSEMU_DEBUG
+
                 default:
-                    if (gpu->debug_unknown_cmd)
-                    {
-                        gpu->debug_unknown_cmd(gpu->debug_user_data,
-                                               "GP0",
-                                               cmd);
-                    }
                     return;
-#endif // PSEMU_DEBUG
             }
 
         case PSEMU_GP0_RECEIVING_PARAMETERS:
@@ -930,23 +918,12 @@ void psemu_gpu_gp1(struct psemu_gpu* const gpu, const uint32_t cmd)
                 // Returns Nothing (old value in GPUREAD remains unchanged)
                 case 0x07:
                     return;
-#ifdef PSEMU_DEBUG
+
                 default:
-                    if (gpu->debug_unknown_cmd)
-                    {
-                        gpu->debug_unknown_cmd
-                        (gpu->debug_user_data, "GP1(0x10)", cmd);
-                    }
                     return;
-#endif // PSEMU_DEBUG
             }
-#ifdef PSEMU_DEBUG
+
         default:
-            if (gpu->debug_unknown_cmd)
-            {
-                gpu->debug_unknown_cmd(gpu->debug_user_data, "GP1", cmd);
-            }
             return;
-#endif // PSEMU_DEBUG
     }
 }

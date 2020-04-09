@@ -154,12 +154,6 @@ void psemu_bus_init(struct psemu_bus* const bus, uint8_t* const m_bios_data)
 
     psemu_cdrom_drive_init(&bus->cdrom_drive);
     psemu_gpu_init(&bus->gpu);
-#ifdef PSEMU_DEBUG
-    bus->debug_unknown_memory_load  = NULL;
-    bus->debug_unknown_memory_store = NULL;
-
-    bus->debug_user_data = NULL;
-#endif // PSEMU_DEBUG
 }
 
 // Deallocates all memory held by system bus `bus`.
@@ -328,26 +322,10 @@ uint32_t psemu_bus_load_word(const struct psemu_bus* const bus,
                             return 0x1FF00000;
 
                         default:
-#ifdef PSEMU_DEBUG
-                            if (bus->debug_unknown_memory_load)
-                            {
-                                bus->debug_unknown_memory_load(bus->debug_user_data,
-                                                               paddr,
-                                                               PSEMU_DEBUG_WORD);
-                            }
-#endif // PSEMU_DEBUG
                             return 0x00000000;
                     }
 
                 default:
-#ifdef PSEMU_DEBUG
-                    if (bus->debug_unknown_memory_load)
-                    {
-                        bus->debug_unknown_memory_load(bus->debug_user_data,
-                                                       paddr,
-                                                       PSEMU_DEBUG_WORD);
-                    }
-#endif // PSEMU_DEBUG
                     return 0x00000000;
             }
 
@@ -356,14 +334,6 @@ uint32_t psemu_bus_load_word(const struct psemu_bus* const bus,
             return *(uint32_t *)&bios_data[paddr & 0x000FFFFF];
 
         default:
-#ifdef PSEMU_DEBUG
-            if (bus->debug_unknown_memory_load)
-            {
-                bus->debug_unknown_memory_load(bus->debug_user_data,
-                                               paddr,
-                                               PSEMU_DEBUG_WORD);
-            }
-#endif // PSEMU_DEBUG
             return 0x00000000;
     }
 }
@@ -417,38 +387,14 @@ uint16_t psemu_bus_load_halfword(const struct psemu_bus* const bus,
                             return 0xFFFF;
 
                         default:
-#ifdef PSEMU_DEBUG
-                            if (bus->debug_unknown_memory_load)
-                            {
-                                bus->debug_unknown_memory_load(bus->debug_user_data,
-                                                               paddr,
-                                                               PSEMU_DEBUG_HALFWORD);
-                            }
-#endif // PSEMU_DEBUG
                             return 0x0000;
                     }
 
                 default:
-#ifdef PSEMU_DEBUG
-                    if (bus->debug_unknown_memory_load)
-                    {
-                        bus->debug_unknown_memory_load(bus->debug_user_data,
-                                                       paddr,
-                                                       PSEMU_DEBUG_HALFWORD);
-                    }
-#endif // PSEMU_DEBUG
                     return 0x0000;
             }
 
         default:
-#ifdef PSEMU_DEBUG
-            if (bus->debug_unknown_memory_load)
-            {
-                bus->debug_unknown_memory_load(bus->debug_user_data,
-                                               paddr,
-                                               PSEMU_DEBUG_HALFWORD);
-            }
-#endif // PSEMU_DEBUG
             return 0x0000;
     }
 }
@@ -499,26 +445,10 @@ uint8_t psemu_bus_load_byte(const struct psemu_bus* const bus,
                                    (&bus->cdrom_drive, 3);
 
                         default:
-#ifdef PSEMU_DEBUG
-                        if (bus->debug_unknown_memory_load)
-                        {
-                            bus->debug_unknown_memory_load(bus->debug_user_data,
-                                                           paddr,
-                                                           PSEMU_DEBUG_BYTE);
-                        }
-#endif // PSEMU_DEBUG
-                        return 0x00;
+                            return 0x00;
                     }
 
                 default:
-#ifdef PSEMU_DEBUG
-                    if (bus->debug_unknown_memory_load)
-                    {
-                        bus->debug_unknown_memory_load(bus->debug_user_data,
-                                                       paddr,
-                                                       PSEMU_DEBUG_BYTE);
-                    }
-#endif // PSEMU_DEBUG
                     return 0x00;
             }
 
@@ -527,14 +457,6 @@ uint8_t psemu_bus_load_byte(const struct psemu_bus* const bus,
             return bios_data[paddr & 0x000FFFFF];
         
         default:
-#ifdef PSEMU_DEBUG
-            if (bus->debug_unknown_memory_load)
-            {
-                bus->debug_unknown_memory_load(bus->debug_user_data,
-                                               paddr,
-                                               PSEMU_DEBUG_BYTE);
-            }
-#endif // PSEMU_DEBUG
             return 0x00;
     }
 }
@@ -650,41 +572,17 @@ void psemu_bus_store_word(struct psemu_bus* const bus,
                         case 0x814:
                             psemu_gpu_gp1(&bus->gpu, word);
                             return;
-#ifdef PSEMU_DEBUG
+
                         default:
-                            if (bus->debug_unknown_memory_store)
-                            {
-                                bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                                paddr,
-                                                                word,
-                                                                PSEMU_DEBUG_WORD);
-                            }
                             return;
-#endif // PSEMU_DEBUG
                     }
-#ifdef PSEMU_DEBUG
+
                 default:
-                    if (bus->debug_unknown_memory_store)
-                    {
-                        bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                        paddr,
-                                                        word,
-                                                        PSEMU_DEBUG_WORD);
-                    }
                     return;
-#endif // PSEMU_DEBUG
             }
-#ifdef PSEMU_DEBUG
+
         default:
-            if (bus->debug_unknown_memory_store)
-            {
-                bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                paddr,
-                                                word,
-                                                PSEMU_DEBUG_WORD);
-            }
             return;
-#endif // PSEMU_DEBUG
     }
 }
 
@@ -734,41 +632,17 @@ void psemu_bus_store_halfword(struct psemu_bus* const bus,
                         case 0x074:
                             bus->i_mask.word = halfword;
                             return;
-#ifdef PSEMU_DEBUG
+
                         default:
-                            if (bus->debug_unknown_memory_store)
-                            {
-                                bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                                paddr,
-                                                                halfword,
-                                                                PSEMU_DEBUG_HALFWORD);
-                            }
                             return;
-#endif // PSEMU_DEBUG
                     }
-#ifdef PSEMU_DEBUG
+
                 default:
-                    if (bus->debug_unknown_memory_store)
-                    {
-                        bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                        paddr,
-                                                        halfword,
-                                                        PSEMU_DEBUG_HALFWORD);
-                    }
                     return;
-#endif // PSEMU_DEBUG
             }
-#ifdef PSEMU_DEBUG
+
         default:
-            if (bus->debug_unknown_memory_store)
-            {
-                bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                paddr,
-                                                halfword,
-                                                PSEMU_DEBUG_HALFWORD);
-            }
             return;
-#endif // PSEMU_DEBUG
     }
 }
 
@@ -836,40 +710,16 @@ void psemu_bus_store_byte(struct psemu_bus* const bus,
                             (&bus->cdrom_drive, 3, byte);
 
                             return;
-#ifdef PSEMU_DEBUG
+
                         default:
-                            if (bus->debug_unknown_memory_store)
-                            {
-                                bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                                paddr,
-                                                                byte,
-                                                                PSEMU_DEBUG_BYTE);
-                            }
                             return;
-#endif // PSEMU_DEBUG
                     }
-#ifdef PSEMU_DEBUG
+
                 default:
-                    if (bus->debug_unknown_memory_store)
-                    {
-                        bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                        paddr,
-                                                        byte,
-                                                        PSEMU_DEBUG_BYTE);
-                    }
                     return;
-#endif // PSEMU_DEBUG
             }
-#ifdef PSEMU_DEBUG
+
         default:
-            if (bus->debug_unknown_memory_store)
-            {
-                bus->debug_unknown_memory_store(bus->debug_user_data,
-                                                paddr,
-                                                byte,
-                                                PSEMU_DEBUG_BYTE);
-            }
             return;
-#endif // PSEMU_DEBUG
     }
 }

@@ -34,4 +34,3 @@ set_target_properties(psemu PROPERTIES
                       C_EXTENSIONS ON)
 
 target_include_directories(psemu PRIVATE include)
-target_compile_definitions(psemu PRIVATE PSEMU_DEBUG)

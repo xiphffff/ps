@@ -199,14 +199,6 @@ struct psemu_gpu
 
     // GP0 port state
     enum psemu_gp0_port_state gp0_state;
-#ifdef PSEMU_DEBUG
-    void* debug_user_data;
-
-    // Called when an unknown GPU command has been attempted
-    void (*debug_unknown_cmd)(void* user_data,
-                              const char* const port,
-                              const uint32_t cmd);
-#endif // PSEMU_DEBUG
 };
 
 // Initializes a GPU `gpu`.

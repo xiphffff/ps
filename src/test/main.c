@@ -53,7 +53,7 @@ struct
     // Element buffer object
     GLuint ebo;
 } static opengl_state;
-#ifdef PSEMU_DEBUG
+
 void GLAPIENTRY opengl_debug_output(GLenum source,
                                     GLenum type,
                                     GLuint id,
@@ -75,7 +75,7 @@ void GLAPIENTRY opengl_debug_output(GLenum source,
         fprintf(debug_file, "%s\n", buf);
     }
 }
-#endif // PSEMU_DEBUG
+
 // Called whenever the window resizes for any reason.
 static void window_resized(GLFWwindow* window, int width, int height)
 {
@@ -129,7 +129,7 @@ static void setup_shaders(void)
     "    frag_color = texture(gpu_texture, final_texcoord);\n"
     "}\n\0";
 
-    glShaderSource(vertex_shader,   1, &vs_src,   NULL);
+    glShaderSource(vertex_shader, 1, &vs_src, NULL);
     glShaderSource(fragment_shader, 1, &fs_src, NULL);
 
     glCompileShader(vertex_shader);
@@ -158,11 +158,11 @@ static void setup_texture(void)
 
     const GLfloat vertices[] =
     {
-    //  Position     Texcoords
-       -1.0F,  1.0F, 0.0F, 0.0F, // Top-left
-        1.0F,  1.0F, 1.0F, 0.0F, // Top-right
-        1.0F, -1.0F, 1.0F, 1.0F, // Bottom-right
-       -1.0F, -1.0F, 0.0F, 1.0F  // Bottom-left
+     // Position      Texcoords
+        -1.0F,  1.0F, 0.0F, 0.0F, // Top-left
+         1.0F,  1.0F, 1.0F, 0.0F, // Top-right
+         1.0F, -1.0F, 1.0F, 1.0F, // Bottom-right
+        -1.0F, -1.0F, 0.0F, 1.0F  // Bottom-left
     };
 
     const GLuint indices[] =
@@ -181,7 +181,7 @@ static void setup_texture(void)
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, opengl_state.ebo);
-    
+
     glBufferData
     (GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
@@ -196,67 +196,6 @@ static void setup_texture(void)
     glEnableVertexAttribArray(1);
 }
 
-#ifdef PSEMU_DEBUG
-// Called when an unknown memory load has taken place.
-static void unknown_memory_load(void* user_data,
-                                const uint32_t paddr,
-                                const unsigned int type)
-{
-    switch (type)
-    {
-        case PSEMU_DEBUG_BYTE:
-            fprintf(debug_file, "Unknown byte load: 0x%08X\n", paddr);
-            return;
-
-        case PSEMU_DEBUG_HALFWORD:
-            fprintf(debug_file, "Unknown halfword load: 0x%08X\n", paddr);
-            return;
-
-        case PSEMU_DEBUG_WORD:
-            fprintf(debug_file, "Unknown word load: 0x%08X\n", paddr);
-            return;
-    }
-}
-
-// Called when an unknown memory store has taken place.
-static void unknown_memory_store(void* user_data,
-                                 const uint32_t paddr,
-                                 const unsigned int data,
-                                 const unsigned int type)
-{
-    switch (type)
-    {
-        case PSEMU_DEBUG_BYTE:
-            fprintf
-            (debug_file,
-             "Unknown byte store: 0x%08X <- 0x%02X\n", paddr, data & type);
-
-            return;
-
-        case PSEMU_DEBUG_HALFWORD:
-            fprintf
-            (debug_file,
-             "Unknown halfword store: 0x%08X <- 0x%04X\n", paddr, data & type);
-
-            return;
-
-        case PSEMU_DEBUG_WORD:
-            fprintf
-            (debug_file,
-             "Unknown word store: 0x%08X <- 0x%08X\n", paddr, data & type);
-
-            return;
-    }
-}
-
-// Called when an unknown GP1 command has been attempted
-static void unknown_gpu_cmd(void* user_data,
-                            const char* const port,
-                            const uint32_t cmd)
-{
-    fprintf(debug_file, "Unknown %s command: 0x%08X\n", port, cmd);
-}
-#endif // PSEMU_DEBUG
 // Called when `std_out_putchar` has been called by the BIOS.
 static void handle_tty_string(const struct psemu_system* const ps_emu)
 {
@@ -280,16 +219,12 @@ int main(int argc, char* argv[])
     if (argc < 2)
     {
         fprintf(stderr, "%s: Missing required argument.\n", argv[0]);
-#ifdef PSEMU_DEBUG
-        fprintf(stderr, "Syntax: %s bios_file [exe_file]\n", argv[0]);
-#else
-        fprintf(stderr, "Syntax: %s bios_file\n", argv[0]);
-#endif // PSEMU_DEBUG
+        fprintf(stderr, "Syntax: %s bios_file [exe_file] [cdrom_image]\n", argv[0]);
+
         return EXIT_FAILURE;
     }
 
     bool run_cdrom = true;
-#ifdef PSEMU_DEBUG
     bool inject_exe = false;
 
     if (argc == 2)
@@ -300,21 +235,15 @@ int main(int argc, char* argv[])
     if (argc == 3)
     {
         inject_exe = false;
-        run_cdrom  = true;
+        run_cdrom = true;
     }
-#endif // PSEMU_DEBUG
+
     FILE* bios_file = fopen(argv[1], "rb");
     uint8_t bios_data[0x80000];
     fread(bios_data, 1, 0x80000, bios_file);
     fclose(bios_file);
 
     struct psemu_system* ps_emu = psemu_create(bios_data);
-#ifdef PSEMU_DEBUG
-    ps_emu->bus.debug_unknown_memory_load  = &unknown_memory_load;
-    ps_emu->bus.debug_unknown_memory_store = &unknown_memory_store;
-
-    ps_emu->bus.gpu.debug_unknown_cmd = &unknown_gpu_cmd;
-#endif // PSEMU_DEBUG
 
     if (run_cdrom)
     {
@@ -322,15 +251,15 @@ int main(int argc, char* argv[])
         psemu_set_cdrom(ps_emu, &cdrom_read);
     }
     bool running = true;
-#ifdef PSEMU_DEBUG
+
     // Set to `true` if we're to stop emulation on any exception raised, or
     // `false` otherwise. This is important to run test suites that verify CPU
     // behavior. A Reserved Instruction exception (RI) will always stop
     // emulation regardless of this value.
     const bool break_on_exception = false;
-#endif // PSEMU_DEBUG
+
     debug_file = fopen("debug.txt", "w");
-    tty_file   = fopen("tty.txt", "w");
+    tty_file = fopen("tty.txt", "w");
 
     if (!glfwInit())
     {
@@ -342,14 +271,14 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-#ifdef PSEMU_DEBUG
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-#endif // PSEMU_DEBUG
+
     GLFWwindow* window = glfwCreateWindow(PSEMU_GPU_VRAM_WIDTH,
                                           PSEMU_GPU_VRAM_HEIGHT,
                                           "psemu",
                                           NULL,
                                           NULL);
+
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, window_resized);
     glfwSetKeyCallback(window, key_state_changed);
@@ -359,11 +288,11 @@ int main(int argc, char* argv[])
         fprintf(stderr, "gladLoadGLLoader() failed.\n");
         return EXIT_FAILURE;
     }
-#ifdef PSEMU_DEBUG
+
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(opengl_debug_output, NULL);
-#endif // PSEMU_DEBUG
+
     setup_shaders();
     setup_texture();
 
@@ -394,7 +323,6 @@ int main(int argc, char* argv[])
 
         for (unsigned int cycle = 0; cycle < 33868800 / 60; ++cycle)
         {
-#ifdef PSEMU_DEBUG
             if (ps_emu->cpu.pc == 0x80000080)
             {
                 const unsigned int exc_code =
@@ -472,14 +400,14 @@ int main(int argc, char* argv[])
                 uint32_t dest = *(uint32_t*)&exe_data[0x10];
 
                 for (unsigned int ptr = 0x800;
-                     ptr != (exe_size - 0x800);
-                     ++ptr)
+                    ptr != (exe_size - 0x800);
+                    ++ptr)
                 {
-                    *(uint32_t *)&ps_emu->bus.ram[dest++ & 0x1FFFFFFF] =
+                    *(uint32_t*)&ps_emu->bus.ram[dest++ & 0x1FFFFFFF] =
                     exe_data[ptr];
                 }
 
-                ps_emu->cpu.pc      = *(uint32_t *)&exe_data[0x18];
+                ps_emu->cpu.pc      = *(uint32_t*)&exe_data[0x18];
                 ps_emu->cpu.next_pc = ps_emu->cpu.pc;
 
                 ps_emu->cpu.instruction.word =
@@ -487,7 +415,7 @@ int main(int argc, char* argv[])
 
                 psemu_safe_free(exe_data);
             }
-#endif // PSEMU_DEBUG
+
             if (ps_emu->cpu.pc == 0x000000A0)
             {
                 switch (ps_emu->cpu.gpr[9])
@@ -495,20 +423,19 @@ int main(int argc, char* argv[])
                     case 0x3C:
                         handle_tty_string(ps_emu);
                         break;
-#ifdef PSEMU_DEBUG
+
                     case 0x40:
                     {
                         const char* msg =
                         "SystemErrrorUnresolvedException() reached. Emulation "
                         "halted.\n";
-                        
+
                         fprintf(debug_file, "%s", msg);
                         printf("%s", msg);
-
+                            
                         running = false;
                         break;
                     }
-#endif // PSEMU_DEBUG
                 }
             }
 
@@ -540,14 +467,14 @@ int main(int argc, char* argv[])
 
         glTexSubImage2D
         (GL_TEXTURE_2D,
-         0,
-         0,
-         0,
-         PSEMU_GPU_VRAM_WIDTH,
-         PSEMU_GPU_VRAM_HEIGHT,
-         GL_RGBA,
-         GL_UNSIGNED_SHORT_1_5_5_5_REV,
-         ps_emu->bus.gpu.vram);
+            0,
+            0,
+            0,
+            PSEMU_GPU_VRAM_WIDTH,
+            PSEMU_GPU_VRAM_HEIGHT,
+            GL_RGBA,
+            GL_UNSIGNED_SHORT_1_5_5_5_REV,
+            ps_emu->bus.gpu.vram);
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 

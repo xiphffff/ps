@@ -19,6 +19,7 @@
 extern "C"
 {
 #endif // __cplusplus
+
 // Defines the structure of a Sony PlayStation® system.
 struct psemu_system
 {
@@ -50,6 +51,7 @@ void psemu_vblank(struct psemu_system* const ps_emu);
 // `NULL`, or removes a CD-ROM if `cb` is `NULL`.
 void psemu_set_cdrom(struct psemu_system* const ps_emu,
 					 const psemu_cdrom_read_cb cb);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

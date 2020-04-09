@@ -100,14 +100,14 @@ static void raise_exception(struct psemu_cpu* const cpu,
     //     exception.
     cpu->cop0[PSEMU_CPU_COP0_Cause] =
     (cpu->cop0[PSEMU_CPU_COP0_Cause] & ~0xFFFF00FF) | (exc_code << 2);
-#ifdef PSEMU_DEBUG
+
     // 3b) On address exceptions BadA is also set.
     if (exc_code == PSEMU_CPU_EXCCODE_AdEL ||
         exc_code == PSEMU_CPU_EXCCODE_AdES)
     {
         cpu->cop0[PSEMU_CPU_COP0_BadA] = bad_vaddr;
     }
-#endif // LIBPS_DEBUG
+
     // 4) Transfers control to the exception entry point.
     cpu->pc      = 0x80000080 - 4;
     cpu->next_pc = 0x80000080;
@@ -205,13 +205,13 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                 case PSEMU_CPU_OP_JR:
                 {
                     const uint32_t address = cpu->gpr[cpu->instruction.rs] - 4;
-#ifdef PSEMU_DEBUG
+
                     if ((address & 0x00000003) != 0)
                     {
                         raise_exception(cpu, PSEMU_CPU_EXCCODE_AdEL, address);
                         break;
                     }
-#endif // PSEMU_DEBUG
+
                     cpu->next_pc = address;
                     in_delay_slot = true;
 
@@ -223,13 +223,13 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     const uint32_t address = cpu->gpr[cpu->instruction.rs] - 4;
 
                     cpu->gpr[cpu->instruction.rd] = cpu->pc + 8;
-#ifdef PSEMU_DEBUG
+
                     if ((address & 0x00000003) != 0)
                     {
                         raise_exception(cpu, PSEMU_CPU_EXCCODE_AdEL, address);
                         break;
                     }
-#endif // PSEMU_DEBUG
+
                     cpu->next_pc = address;
                     in_delay_slot = true;
 
@@ -241,13 +241,13 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     (cpu, PSEMU_CPU_EXCCODE_Sys, UNUSED_PARAMETER);
                     
                     break;
-#ifdef PSEMU_DEBUG
+
                 case PSEMU_CPU_OP_BREAK:
                     raise_exception
                     (cpu, PSEMU_CPU_EXCCODE_Bp, UNUSED_PARAMETER);
                     
                     break;
-#endif // PSEMU_DEBUG
+
                 case PSEMU_CPU_OP_MFHI:
                     cpu->gpr[cpu->instruction.rd] = cpu->hi;
                     break;
@@ -295,7 +295,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     // implementation.
                     const int32_t rt = (int32_t)cpu->gpr[cpu->instruction.rt];
                     const int32_t rs = (int32_t)cpu->gpr[cpu->instruction.rs];
-#ifdef PSEMU_DEBUG
+
                     // Divisor is zero
                     if (rt == 0)
                     {
@@ -321,10 +321,6 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                         cpu->lo = rs / rt;
                         cpu->hi = rs % rt;
                     }
-#else
-                    cpu->lo = rs / rt;
-                    cpu->hi = rs % rt;
-#endif // PSEMU_DEBUG
                     break;
                 }
 
@@ -332,7 +328,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                 {
                     const uint32_t rt = cpu->gpr[cpu->instruction.rt];
                     const uint32_t rs = cpu->gpr[cpu->instruction.rs];
-#ifdef PSEMU_DEBUG
+
                     // In the case of unsigned division, the dividend can't be
                     // negative and thus the quotient is always -1 (0xFFFFFFFF)
                     // and the remainder equals the dividend.
@@ -346,15 +342,10 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                         cpu->lo = rs / rt;
                         cpu->hi = rs % rt;
                     }
-#else
-                    cpu->lo = rs / rt;
-                    cpu->hi = rs % rt;
-#endif // PSEMU_DEBUG
                     break;
                 }
 
                 case PSEMU_CPU_OP_ADD:
-#ifdef PSEMU_DEBUG
                 {
                     const uint32_t rs = cpu->gpr[cpu->instruction.rs];
                     const uint32_t rt = cpu->gpr[cpu->instruction.rt];
@@ -373,7 +364,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     cpu->gpr[cpu->instruction.rd] = result;
                     break;
                 }
-#endif // PSEMU_DEBUG
+
                 case PSEMU_CPU_OP_ADDU:
                     cpu->gpr[cpu->instruction.rd] =
                     cpu->gpr[cpu->instruction.rs] +
@@ -382,7 +373,6 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     break;
 
                 case PSEMU_CPU_OP_SUB:
-#ifdef PSEMU_DEBUG
                 {
                     const uint32_t rs = cpu->gpr[cpu->instruction.rs];
                     const uint32_t rt = cpu->gpr[cpu->instruction.rt];
@@ -401,7 +391,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     cpu->gpr[cpu->instruction.rd] = result;
                     break;
                 }
-#endif // PSEMU_DEBUG
+
                 case PSEMU_CPU_OP_SUBU:
                     cpu->gpr[cpu->instruction.rd] =
                     cpu->gpr[cpu->instruction.rs] -
@@ -450,13 +440,12 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     cpu->gpr[cpu->instruction.rt];
 
                     break;
-#ifdef PSEMU_DEBUG
+
                 default:
                     raise_exception
                     (cpu, PSEMU_CPU_EXCCODE_RI, UNUSED_PARAMETER);
                     
                     break;
-#endif // PSEMU_DEBUG
             }
             break;
 
@@ -519,7 +508,6 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
             break;
 
         case PSEMU_CPU_OP_ADDI:
-#ifdef PSEMU_DEBUG
         {
             const uint32_t imm =
             (uint32_t)(int16_t)
@@ -537,7 +525,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
             cpu->gpr[cpu->instruction.rt] = result;
             break;
         }
-#endif // PSEMU_DEBUG
+
         case PSEMU_CPU_OP_ADDIU:
             cpu->gpr[cpu->instruction.rt] =
             cpu->gpr[cpu->instruction.rs] +
@@ -601,7 +589,7 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     cpu->gpr[cpu->instruction.rt];
                     
                     break;
-#ifdef PSEMU_DEBUG
+
                  default:
                      switch (cpu->instruction.funct)
                      {
@@ -619,7 +607,6 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                              break;
                      }
                      break;
-#endif // PSEMU_DEBUG
             }
             break;
 
@@ -635,13 +622,13 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
         case PSEMU_CPU_OP_LH:
         {
             const uint32_t m_vaddr = vaddr(cpu);
-#ifdef PSEMU_DEBUG
+
             if ((m_vaddr & 0x00000001) != 0)
             {
                 raise_exception(cpu, PSEMU_CPU_EXCCODE_AdEL, m_vaddr);
                 break;
             }
-#endif // PSEMU_DEBUG
+
             cpu->gpr[cpu->instruction.rt] =
             (int16_t)psemu_bus_load_halfword(bus, m_vaddr);
 
@@ -689,13 +676,13 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
         case PSEMU_CPU_OP_LW:
         {
             const uint32_t m_vaddr = vaddr(cpu);
-#ifdef PSEMU_DEBUG
+
             if ((m_vaddr & 0x00000003) != 0)
             {
                 raise_exception(cpu, PSEMU_CPU_EXCCODE_AdEL, m_vaddr);
                 break;
             }
-#endif // PSEMU_DEBUG
+
             cpu->gpr[cpu->instruction.rt] = psemu_bus_load_word(bus, m_vaddr);
             break;
         }
@@ -709,13 +696,13 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
         case PSEMU_CPU_OP_LHU:
         {
             const uint32_t m_vaddr = vaddr(cpu);
-#ifdef PSEMU_DEBUG
+
             if ((m_vaddr & 0x00000001) != 0)
             {
                 raise_exception(cpu, PSEMU_CPU_EXCCODE_AdEL, m_vaddr);
                 break;
             }
-#endif // PSEMU_DEBUG
+
             cpu->gpr[cpu->instruction.rt] =
             psemu_bus_load_halfword(bus, m_vaddr);
 
@@ -767,13 +754,13 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
         case PSEMU_CPU_OP_SH:
         {
             const uint32_t m_vaddr = vaddr(cpu);
-#ifdef PSEMU_DEBUG
+
             if ((m_vaddr & 1) != 0)
             {
                 raise_exception(cpu, PSEMU_CPU_EXCCODE_AdES, m_vaddr);
                 break;
             }
-#endif // PSEMU_DEBUG
+
             psemu_bus_store_halfword
             (bus, m_vaddr, cpu->gpr[cpu->instruction.rt] & 0x0000FFFF);
 
@@ -818,13 +805,12 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
             if (!(cpu->cop0[PSEMU_CPU_COP0_SR] & PSEMU_CPU_SR_IsC))
             {
                 const uint32_t m_vaddr = vaddr(cpu);
-#ifdef PSEMU_DEBUG
+
                 if ((m_vaddr & 0x00000003) != 0)
                 {
                     raise_exception(cpu, PSEMU_CPU_EXCCODE_AdES, m_vaddr);
                     break;
                 }
-#endif // PSEMU_DEBUG
                 psemu_bus_store_word(bus, m_vaddr, cpu->gpr[cpu->instruction.rt]);
             }
             break;
@@ -868,11 +854,11 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
 
         case PSEMU_CPU_OP_SWC2:
             break;
-#ifdef PSEMU_DEBUG
+
         default:
             raise_exception(cpu, PSEMU_CPU_EXCCODE_RI, UNUSED_PARAMETER);
             break;
-#endif // PSEMU_DEBUG
+
     }
 
     cpu->instruction.word = psemu_bus_load_word(bus, cpu->pc += 4);

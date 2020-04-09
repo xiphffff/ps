@@ -171,7 +171,6 @@ struct psemu_cdrom_drive
     } mode;
 
     struct psemu_fifo parameter_fifo;
-    struct psemu_fifo data_fifo;
     struct psemu_fifo* response_fifo;
 
     // Interrupt lines

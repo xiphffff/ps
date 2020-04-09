@@ -66,7 +66,6 @@ void psemu_cdrom_drive_init(struct psemu_cdrom_drive* cdrom_drive)
     assert(cdrom_drive != NULL);
 
     psemu_fifo_init(&cdrom_drive->parameter_fifo, 16);
-    psemu_fifo_init(&cdrom_drive->data_fifo, 4096);
 
     cdrom_drive->int1.type = PSEMU_CDROM_DRIVE_INT1;
     cdrom_drive->int2.type = PSEMU_CDROM_DRIVE_INT2;
@@ -84,7 +83,6 @@ void psemu_cdrom_drive_fini(struct psemu_cdrom_drive* cdrom_drive)
     assert(cdrom_drive != NULL);
 
     psemu_fifo_fini(&cdrom_drive->parameter_fifo);
-    psemu_fifo_fini(&cdrom_drive->data_fifo);
 
     psemu_fifo_fini(&cdrom_drive->int1.response);
     psemu_fifo_fini(&cdrom_drive->int2.response);
@@ -98,7 +96,6 @@ void psemu_cdrom_drive_reset(struct psemu_cdrom_drive* cdrom_drive)
     assert(cdrom_drive != NULL);
 
     psemu_fifo_reset(&cdrom_drive->parameter_fifo);
-    psemu_fifo_reset(&cdrom_drive->data_fifo);
 
     reset_interrupt(&cdrom_drive->int1);
     reset_interrupt(&cdrom_drive->int2);
@@ -493,21 +490,7 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
             {
                 // 1F801803h.Index0 - Request Register (W)
                 case 0:
-                    psemu_fifo_reset(&cdrom_drive->data_fifo);
-
-                    if (data & (1 << 7))
-                    {
-                        const unsigned int sector_size =
-                        cdrom_drive->mode.sector_size_is_2340 ? 2340 : 2048;
-
-                        for (unsigned int index = 0;
-                            index < sector_size;
-                            ++index)
-                        {
-                            psemu_fifo_enqueue(&cdrom_drive->data_fifo,
-                            cdrom_drive->sector_data[index]);
-                        }
-                    }
+                    cdrom_drive->status.data_fifo_not_empty = data & 0x80;
                     break;
 
                 // 1F801803h.Index1 - Interrupt Flag Register (R/W)

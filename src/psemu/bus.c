@@ -112,11 +112,11 @@ static void dma_cdrom(struct psemu_bus* bus)
     unsigned int num_words = (bus->dma_cdrom.bcr & 0x0000FFFF) * 4;
     uint32_t address       = bus->dma_cdrom.madr.address;
 
+    unsigned int index = 0;
+
     while (num_words != 0)
     {
-        const uint8_t data = psemu_fifo_dequeue(&bus->cdrom_drive.data_fifo);
-
-        bus->ram[address++] = data;
+        bus->ram[address++] = bus->cdrom_drive.sector_data[index++];
         num_words--;
     }
 }

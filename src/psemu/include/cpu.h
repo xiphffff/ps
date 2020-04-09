@@ -111,6 +111,36 @@ extern "C"
 #define PSEMU_CPU_COP0_Cause 13
 #define PSEMU_CPU_COP0_EPC 14
 
+// Geometry Transformation Engine (GTE/COP2) data registers
+#define PSEMU_CPU_COP2_VXY0 0
+#define PSEMU_CPU_COP2_VZ0 1
+#define PSEMU_CPU_COP2_IR1 9
+#define PSEMU_CPU_COP2_IR2 10
+#define PSEMU_CPU_COP2_IR3 11
+#define PSEMU_CPU_COP2_SXY0 12
+#define PSEMU_CPU_COP2_SXY1 13
+#define PSEMU_CPU_COP2_SXY2 14
+#define PSEMU_CPU_COP2_SZ3 19
+#define PSEMU_CPU_COP2_MAC0 24
+#define PSEMU_CPU_COP2_MAC1 25
+#define PSEMU_CPU_COP2_MAC2 26
+#define PSEMU_CPU_COP2_MAC3 27
+
+// Geometry Transformation Engine (GTE/COP2) control registers
+#define PSEMU_CPU_COP2_R11R12 0
+#define PSEMU_CPU_COP2_R13R21 1
+#define PSEMU_CPU_COP2_R22R23 2
+#define PSEMU_CPU_COP2_R31R32 3
+#define PSEMU_CPU_COP2_R33 4
+#define PSEMU_CPU_COP2_TRX 5
+#define PSEMU_CPU_COP2_TRY 6
+#define PSEMU_CPU_COP2_TRZ 7
+#define PSEMU_CPU_COP2_OFX 24
+#define PSEMU_CPU_COP2_OFY 25
+#define PSEMU_CPU_COP2_H 26
+#define PSEMU_CPU_COP2_DQA 27
+#define PSEMU_CPU_COP2_DQB 28
+
 // Status register (SR) flags
 #define PSEMU_CPU_SR_IsC (1 << 16)
 #define PSEMU_CPU_SR_INT0 (1 << 10)

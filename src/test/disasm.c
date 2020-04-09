@@ -2,7 +2,7 @@
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
-// copyright noticeand this permission notice appear in all copies.
+// copyright notice and this permission notice appear in all copies.
 //
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 // WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
@@ -93,6 +93,16 @@ static const char* cop0[32] =
     "",      // 19
     "",      // 20
     "",      // 21
+    "",      // 22
+    "",      // 23
+    "",      // 24
+    "",      // 25
+    "",      // 26
+    "",      // 27
+    "",      // 28
+    "",      // 29
+    "",      // 30
+    ""       // 31
 };
 
 // Geometry Transformation Engine (GTE/COP2) data registers

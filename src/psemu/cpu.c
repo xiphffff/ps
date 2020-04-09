@@ -33,6 +33,7 @@
 #include <string.h>
 #include "bus.h"
 #include "cpu.h"
+#include "utility/math.h"
 
 // `psemu_cpu` does not need to know about this.
 static struct psemu_bus* bus = NULL;
@@ -40,9 +41,149 @@ static struct psemu_bus* bus = NULL;
 // Set to `true` if a branch has been taken, or `false` otherwise.
 static bool in_delay_slot = false;
 
+// Unsigned Newton-Raphson (UNR) division table
+static uint8_t division_table[257];
+
 // Pass this as the 3rd parameter to `raise_exception()` if the exception code
 // passed is not an address exception (i.e. AdEL or AdES).
 #define UNUSED_PARAMETER 0x00000000
+
+// Handles GTE division.
+static uint32_t gte_divide(struct psemu_cpu* const cpu)
+{
+    assert(cpu != NULL);
+
+    const uint32_t H   = cpu->cop2.ccr[PSEMU_CPU_COP2_H];
+    const uint32_t SZ3 = cpu->cop2.cpr[PSEMU_CPU_COP2_SZ3];
+
+    int n = 0x1FFFF;
+#if 0
+    if (H < (SZ3 * 2))
+    {
+        int z = __builtin_clz(SZ3);
+        n = (H << z);
+        int d = (SZ3 << z);
+        uint8_t u = division_table[(d - 0x7FC0) >> 7] + 0x101;
+        d = ((0x2000080 - (d * u)) >> 8);
+        d = ((0x0000080 + (d * u)) >> 8);
+        n = psemu_min(0x1FFFF, (((n * d) + 0x8000) >> 16));
+    }
+    else
+    {
+        n = 0x1FFFF;
+    }
+#endif
+    return n;
+}
+
+// Handles the `nclip` GTE instruction.
+static void gte_nclip(struct psemu_cpu* const cpu)
+{
+    assert(cpu != NULL);
+
+    const uint16_t sx0 = cpu->cop2.cpr[PSEMU_CPU_COP2_SXY0] & 0x0000FFFF;
+    const uint32_t sy1 = cpu->cop2.cpr[PSEMU_CPU_COP2_SXY1] >> 16;
+
+    const uint32_t sx1 = cpu->cop2.cpr[PSEMU_CPU_COP2_SXY1] & 0x0000FFFF;
+    const uint32_t sy2 = cpu->cop2.cpr[PSEMU_CPU_COP2_SXY2] >> 16;
+
+    const uint32_t sx2 = cpu->cop2.cpr[PSEMU_CPU_COP2_SXY2] & 0x0000FFFF;
+    const uint32_t sy0 = cpu->cop2.cpr[PSEMU_CPU_COP2_SXY0] >> 16;
+
+    const uint32_t p0 = ((sx0 * sy1) + (sx1 * sy2) + (sx2 * sy0));
+    const uint32_t p1 = ((sx0 * sy2) - (sx1 * sy0) - (sx2 * sy1));
+
+    cpu->cop2.cpr[PSEMU_CPU_COP2_MAC0] = p0 - p1;
+}
+
+// Handles the `ncds` GTE instruction.
+static void gte_ncds(struct psemu_cpu* const cpu)
+{
+    assert(cpu != NULL);
+}
+
+// Handles the `rtpt` GTE instruction.
+static void gte_rtpt(struct psemu_cpu* const cpu)
+{
+    assert(cpu != NULL);
+
+    const unsigned int sf = 0;
+
+    const uint16_t rt11 = cpu->cop2.ccr[PSEMU_CPU_COP2_R11R12] & 0x0000FFFF;
+    const uint16_t rt12 = cpu->cop2.ccr[PSEMU_CPU_COP2_R11R12] >> 16;
+
+    const uint16_t rt21 = cpu->cop2.ccr[PSEMU_CPU_COP2_R13R21] & 0x0000FFFF;
+    const uint16_t rt13 = cpu->cop2.ccr[PSEMU_CPU_COP2_R13R21] >> 16;
+
+    const uint16_t rt31 = cpu->cop2.ccr[PSEMU_CPU_COP2_R31R32] >> 16;
+    const uint16_t rt32 = cpu->cop2.ccr[PSEMU_CPU_COP2_R31R32] & 0x0000FFFF;
+
+    const uint16_t rt22 = cpu->cop2.ccr[PSEMU_CPU_COP2_R22R23] >> 16;
+    const uint16_t rt23 = cpu->cop2.ccr[PSEMU_CPU_COP2_R22R23] & 0x0000FFFF;
+
+    const uint32_t rt33 = cpu->cop2.ccr[PSEMU_CPU_COP2_R33];
+
+    const uint16_t vx0 = cpu->cop2.cpr[PSEMU_CPU_COP2_VXY0] & 0x0000FFFF;
+    const uint16_t vy0 = cpu->cop2.cpr[PSEMU_CPU_COP2_VXY0] >> 16;
+
+    const uint32_t vz0 = cpu->cop2.cpr[PSEMU_CPU_COP2_VZ0];
+
+    const uint32_t trx = cpu->cop2.ccr[PSEMU_CPU_COP2_TRX] * 0x1000;
+    const uint32_t try = cpu->cop2.ccr[PSEMU_CPU_COP2_TRY] * 0x1000;
+    const uint32_t trz = cpu->cop2.ccr[PSEMU_CPU_COP2_TRZ] * 0x1000;
+
+    const uint32_t rt11_vx0 = rt11 * vx0;
+    const uint32_t rt12_vy0 = rt12 * vy0;
+    const uint32_t rt13_vz0 = rt13 * vz0;
+
+    const uint32_t rt21_vx0 = rt21 * vx0;
+    const uint32_t rt22_vy0 = rt22 * vy0;
+    const uint32_t rt23_vz0 = rt23 * vz0;
+
+    const uint32_t rt31_vx0 = rt31 * vx0;
+    const uint32_t rt32_vy0 = rt32 * vy0;
+    const uint32_t rt33_vz0 = rt33 * vz0;
+
+    const uint32_t first_result  = (trx + rt11_vx0 + rt12_vy0 + rt13_vz0) >> sf;
+    const uint32_t second_result = (try + rt21_vx0 + rt22_vy0 + rt23_vz0) >> sf;
+    const uint32_t third_result  = (trz + rt31_vx0 + rt32_vy0 + rt33_vz0) >> sf;
+
+    cpu->cop2.cpr[PSEMU_CPU_COP2_IR1]  = first_result;
+    cpu->cop2.cpr[PSEMU_CPU_COP2_MAC1] = first_result;
+
+    cpu->cop2.cpr[PSEMU_CPU_COP2_IR2]  = second_result;
+    cpu->cop2.cpr[PSEMU_CPU_COP2_MAC2] = second_result;
+
+    cpu->cop2.cpr[PSEMU_CPU_COP2_IR3]  = third_result;
+    cpu->cop2.cpr[PSEMU_CPU_COP2_MAC3] = third_result;
+
+    cpu->cop2.cpr[PSEMU_CPU_COP2_SZ3] =
+    cpu->cop2.cpr[PSEMU_CPU_COP2_MAC3] >> ((1 - sf) * 12);
+
+    uint32_t mac0 = cpu->cop2.cpr[PSEMU_CPU_COP2_MAC0];
+
+    const uint32_t ir1 = cpu->cop2.cpr[PSEMU_CPU_COP2_IR1];
+    const uint32_t ir2 = cpu->cop2.cpr[PSEMU_CPU_COP2_IR2];
+
+    const uint32_t ofx = cpu->cop2.ccr[PSEMU_CPU_COP2_OFX];
+    const uint32_t ofy = cpu->cop2.ccr[PSEMU_CPU_COP2_OFY];
+
+    const uint32_t dqa = cpu->cop2.ccr[PSEMU_CPU_COP2_DQA];
+    const uint32_t dqb = cpu->cop2.ccr[PSEMU_CPU_COP2_DQB];
+
+    const uint32_t div_result = gte_divide(cpu);
+    
+    mac0 = ((div_result * ir1) + ofx);
+    //cpu->cop2.SX2 = MAC0 / 10000h; ScrX FIFO - 400h.. + 3FFh
+
+    mac0 = ((div_result * ir2) + ofy);
+    //SY2 = MAC0 / 10000h; ScrY FIFO - 400h.. + 3FFh
+    
+    mac0 = ((div_result * dqa) + dqb);
+    // , IR0 = MAC0 / 1000h; Depth cueing 0.. + 1000h
+
+    cpu->cop2.cpr[PSEMU_CPU_COP2_MAC0] = mac0;
+}
 
 // Returns the current virtual address in LSI LR33300 CPU interpreter `cpu`.
 static inline uint32_t vaddr(const struct psemu_cpu* const cpu)
@@ -111,6 +252,12 @@ void psemu_cpu_set_bus(struct psemu_bus* const m_bus)
 {
     assert(m_bus != NULL);
     bus = m_bus;
+
+    for (unsigned int i = 0; i < 257; ++i)
+    {
+        division_table[i] =
+        psemu_max(0, (0x40000 / (i + 0x100) + 1) / 2 - 0x101);
+    }
 }
 
 // Resets an LSI LR33300 CPU interpreter `cpu` to the startup state.
@@ -634,12 +781,15 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     switch (cpu->instruction.funct)
                     {
                         case PSEMU_CPU_OP_NCLIP:
+                            gte_nclip(cpu);
                             break;
 
                         case PSEMU_CPU_OP_NCDS:
+                            gte_ncds(cpu);
                             break;
 
                         case PSEMU_CPU_OP_RTPT:
+                            gte_rtpt(cpu);
                             break;
 
                         default:

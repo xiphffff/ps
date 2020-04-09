@@ -1,8 +1,8 @@
-// Copyright 2020 Michael Rodriguez
+// Copyright 2019 Michael Rodriguez
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
-// copyright noticeand this permission notice appear in all copies.
+// copyright notice and this permission notice appear in all copies.
 //
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 // WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
@@ -18,38 +18,55 @@
 extern "C"
 {
 #endif // __cplusplus
+
+#include <stdbool.h>
 #include <stdint.h>
 #include "../utility/fifo.h"
 
 typedef void (*psemu_cdrom_read_cb)
 (const unsigned int address, uint8_t* const sector_data);
 
-// Interrupt types
+// Received SECOND (or further) response to ReadS/ReadN (and Play+Report)
 #define PSEMU_CDROM_DRIVE_INT1 1
+
+// Received SECOND response (to various commands)
 #define PSEMU_CDROM_DRIVE_INT2 2
+
+// Received FIRST response (to any command)
 #define PSEMU_CDROM_DRIVE_INT3 3
+
+// DataEnd (when Play/Forward reaches end of disk) (maybe also for Read?)
+#define PSEMU_CDROM_DRIVE_INT4 4
+
+// Received error - code(in FIRST or SECOND response)
+//
+// INT5 also occurs on SECOND GetID response, on unlicensed disks.
+// INT5 also occurs when opening the drive door(even if no command
+// was sent, ie.even if no read - command or other command is active)
 #define PSEMU_CDROM_DRIVE_INT5 5
 
 // Defines the absolute size of a sector in bytes.
 #define PSEMU_CDROM_SECTOR_SIZE 2352
 
-// Defines the structure of a CD-ROM drive interrupt.
+// Defines the structure of an interrupt.
 struct psemu_cdrom_drive_interrupt
 {
-    // Is this interrupt waiting to be fired?
+    // Does this interrupt need to be fired?
     bool pending;
 
-    // The type of interrupt.
+    // How many cycles to wait before firing this interrupt?
+    unsigned int cycles;
+
+    // The type of interrupt
     unsigned int type;
 
-    // How many cycles to wait before firing this interrupt?
-    unsigned int cycles_remaining;
+    // Response parameters
+    struct psemu_fifo response;
 
-    // Pointer to the next interrupt after this one, if any.
+    // The next interrupt to fire, if any
     struct psemu_cdrom_drive_interrupt* next_interrupt;
 };
 
-// Defines the structure of the CD-ROM drive.
 struct psemu_cdrom_drive
 {
     // 0x1F801800 - Index/Status Register (Bit0-1 R/W) (Bit2-7 Read Only)
@@ -83,28 +100,10 @@ struct psemu_cdrom_drive
 
     // 0x1F801802.Index1 - Interrupt Enable Register (W)
     // 0x1F801803.Index0 - Interrupt Enable Register (R)
-    // 0x1F801803.Index2 - Interrupt Enable Register (R) (Mirror)
-    union
-    {
-        struct
-        {
-            unsigned int response : 3;
-            unsigned int          : 4;
-        };
-        uint8_t byte;
-    } interrupt_enable;
+    uint8_t interrupt_enable;
 
     // 0x1F801803.Index1 - Interrupt Flag Register (R/W)
-    // 0x1F801803.Index3 - Interrupt Flag Register (R) (Mirror)
-    union
-    {
-        struct
-        {
-            unsigned int response : 3;
-            unsigned int : 1;
-        };
-        uint8_t byte;
-    } interrupt_flag;
+    uint8_t interrupt_flag;
 
     // The 8bit status code is returned by Getstat command
     // (and many other commands).
@@ -171,6 +170,19 @@ struct psemu_cdrom_drive
         uint8_t byte;
     } mode;
 
+    struct psemu_fifo parameter_fifo;
+    struct psemu_fifo data_fifo;
+    struct psemu_fifo* response_fifo;
+
+    // Interrupt lines
+    struct psemu_cdrom_drive_interrupt int1;
+    struct psemu_cdrom_drive_interrupt int2;
+    struct psemu_cdrom_drive_interrupt int3;
+    struct psemu_cdrom_drive_interrupt int5;
+
+    // The current interrupt we're processing.
+    struct psemu_cdrom_drive_interrupt* current_interrupt;
+
     // The current CD-ROM position.
     struct
     {
@@ -179,26 +191,25 @@ struct psemu_cdrom_drive
         uint8_t sector;
     } position;
 
-    struct psemu_fifo parameter_fifo;
-    struct psemu_fifo data_fifo;
-    struct psemu_fifo response_fifo;
-
-    // Interrupt lines
-    struct psemu_cdrom_drive_interrupt int1;
-    struct psemu_cdrom_drive_interrupt int2;
-    struct psemu_cdrom_drive_interrupt int3;
-    struct psemu_cdrom_drive_interrupt int5;
-
-    // The current interrupt we're planning to fire.
-    struct psemu_cdrom_drive_interrupt* current_interrupt;
-
-    // Is it time to fire the CD-ROM drive interrupt?
     bool fire_interrupt;
 
-    // How many cycles to wait before reading a sector?
+    // Current sector read cycle count
+    unsigned int sector_read_cycle_count;
+
+    // The number of cycles to wait before reading another sector
     unsigned int sector_read_cycle_count_max;
 
-    // Current sector data
+    // Current sector we're reading
+    unsigned int sector_count;
+
+    // The number of sectors we can read. This will only ever be 74 or 149.
+    unsigned int sector_count_max;
+
+    // The sector of a sector as defined by the `Setmode` command. This can
+    // only ever be 0x800 (2048) or 0x924 (2340).
+    unsigned int sector_size;
+
+    // Pointer to the current sector data
     uint8_t sector_data[PSEMU_CDROM_SECTOR_SIZE];
 
     // The function to call when it is time to read a sector off of a CD-ROM.
@@ -208,26 +219,26 @@ struct psemu_cdrom_drive
 };
 
 // Initializes a CD-ROM drive `cdrom_drive`.
-void psemu_cdrom_drive_init(struct psemu_cdrom_drive* const cdrom_drive);
+void psemu_cdrom_drive_init(struct psemu_cdrom_drive* cdrom_drive);
 
 // Destroys all memory held by CD-ROM drive `cdrom_drive`.
-void psemu_cdrom_drive_fini(struct psemu_cdrom_drive* const cdrom_drive);
+void psemu_cdrom_drive_fini(struct psemu_cdrom_drive* cdrom_drive);
 
 // Resets the CD-ROM drive `cdrom_drive` to the startup state.
-void psemu_cdrom_drive_reset(struct psemu_cdrom_drive* const cdrom_drive);
+void psemu_cdrom_drive_reset(struct psemu_cdrom_drive* cdrom_drive);
 
 // Checks to see if interrupts needs to be fired.
 void psemu_cdrom_drive_step(struct psemu_cdrom_drive* cdrom_drive);
 
 // Stores `data` into register `reg` in CD-ROM drive `cdrom_drive`.
-void psemu_cdrom_drive_register_store
-(struct psemu_cdrom_drive* const cdrom_drive,
-const unsigned int reg,
-const uint8_t data);
+void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
+                                      const unsigned int reg,
+                                      const uint8_t data);
 
 // Loads data from CD-ROM drive `cdrom_drive`'s register `reg`.
-uint8_t psemu_cdrom_drive_register_load
-(const struct psemu_cdrom_drive* const cdrom_drive, const unsigned int reg);
+uint8_t psemu_cdrom_drive_register_load(struct psemu_cdrom_drive* cdrom_drive,
+                                        const unsigned int reg);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

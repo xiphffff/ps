@@ -57,7 +57,7 @@ static uint32_t gte_divide(struct psemu_cpu* const cpu)
     const uint32_t SZ3 = cpu->cop2.cpr[PSEMU_CPU_COP2_SZ3];
 
     int n = 0x1FFFF;
-#if 0
+
     if (H < (SZ3 * 2))
     {
         int z = __builtin_clz(SZ3);
@@ -72,7 +72,6 @@ static uint32_t gte_divide(struct psemu_cpu* const cpu)
     {
         n = 0x1FFFF;
     }
-#endif
     return n;
 }
 
@@ -100,6 +99,22 @@ static void gte_nclip(struct psemu_cpu* const cpu)
 static void gte_ncds(struct psemu_cpu* const cpu)
 {
     assert(cpu != NULL);
+
+    //  [IR1, IR2, IR3] = [MAC1, MAC2, MAC3] = (LLM * V0) SAR(sf * 12)
+    //  [IR1, IR2, IR3] = [MAC1, MAC2, MAC3] = (BK * 1000h + LCM * IR) SAR(sf * 12)
+    // [MAC1, MAC2, MAC3] = [R * IR1, G * IR2, B * IR3] SHL 4; < -- - for NCDx / NCCx
+    // [MAC1, MAC2, MAC3] = MAC + (FC - MAC) * IR0; < -- - for NCDx only
+    // [MAC1, MAC2, MAC3] = [MAC1, MAC2, MAC3] SAR(sf * 12); < -- - for NCDx / NCCx
+    // Color FIFO = [MAC1 / 16, MAC2 / 16, MAC3 / 16, CODE], [IR1, IR2, IR3] = [MAC1, MAC2, MAC3]
+    //const uint32_t 
+
+}
+
+// Handles the `avsz3` GTE instruction.
+static void gte_avsz3(struct psemu_cpu* const cpu)
+{
+    assert(cpu != NULL);
+    __debugbreak();
 }
 
 // Handles the `rtpt` GTE instruction.
@@ -107,7 +122,7 @@ static void gte_rtpt(struct psemu_cpu* const cpu)
 {
     assert(cpu != NULL);
 
-    const unsigned int sf = 0;
+    const unsigned int sf = ((cpu->instruction.word & (1 << 19)) != 0);
 
     const uint16_t rt11 = cpu->cop2.ccr[PSEMU_CPU_COP2_R11R12] & 0x0000FFFF;
     const uint16_t rt12 = cpu->cop2.ccr[PSEMU_CPU_COP2_R11R12] >> 16;
@@ -180,7 +195,7 @@ static void gte_rtpt(struct psemu_cpu* const cpu)
     //SY2 = MAC0 / 10000h; ScrY FIFO - 400h.. + 3FFh
     
     mac0 = ((div_result * dqa) + dqb);
-    // , IR0 = MAC0 / 1000h; Depth cueing 0.. + 1000h
+    cpu->cop2.cpr[PSEMU_CPU_COP2_IR0] = mac0 / 0x1000;
 
     cpu->cop2.cpr[PSEMU_CPU_COP2_MAC0] = mac0;
 }
@@ -788,6 +803,10 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                             gte_ncds(cpu);
                             break;
 
+                        case PSEMU_CPU_OP_AVSZ3:
+                            gte_avsz3(cpu);
+                            break;
+
                         case PSEMU_CPU_OP_RTPT:
                             gte_rtpt(cpu);
                             break;
@@ -1073,7 +1092,6 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
         default:
             raise_exception(cpu, PSEMU_CPU_EXCCODE_RI, UNUSED_PARAMETER);
             break;
-
     }
 
     cpu->instruction.word = psemu_bus_load_word(bus, cpu->pc += 4);

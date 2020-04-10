@@ -14,11 +14,13 @@
 
 #pragma once
 
+#include <string>
+
 // Forward declaration
 struct psemu_cpu;
 
 // Disassembles the current instruction before execution takes place.
-void disassemble_before(struct psemu_cpu* cpu);
+void disassemble_before(struct psemu_cpu* const cpu) noexcept;
 
 // Disassembles the current instruction after execution takes place.
-char* disassemble_after(void);
+std::string disassemble_after() noexcept;

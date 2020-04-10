@@ -13,16 +13,17 @@
 # PERFORMANCE OF THIS SOFTWARE.
 
 find_package(glfw3 CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
-set(SRCS disasm.c glad.c main.c)
+set(SRCS disasm.cpp glad.c main.cpp)
 set(HDRS disasm.h glad.h khrplatform.h)
 
 add_executable(psemu_debug ${SRCS} ${HDRS})
 
 set_target_properties(psemu_debug PROPERTIES
-                      C_STANDARD 11
-                      C_STANDARD_REQUIRED YES
-                      C_EXTENSIONS ON)
+                      CXX_STANDARD 17
+                      CXX_STANDARD_REQUIRED YES
+                      CXX_EXTENSIONS ON)
 
 target_compile_definitions(psemu_debug PRIVATE _CRT_SECURE_NO_WARNINGS)
-target_link_libraries(psemu_debug PRIVATE psemu glfw)
+target_link_libraries(psemu_debug PRIVATE psemu glfw fmt::fmt fmt::fmt-header-only)

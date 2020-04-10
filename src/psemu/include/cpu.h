@@ -103,6 +103,7 @@ extern "C"
 // Geometry Transformation Engine (GTE/COP2) instructions
 #define PSEMU_CPU_OP_NCLIP 0x06
 #define PSEMU_CPU_OP_NCDS 0x13
+#define PSEMU_CPU_OP_AVSZ3 0x2D
 #define PSEMU_CPU_OP_RTPT 0x30
 
 // System control co-processor (COP0) registers
@@ -114,6 +115,7 @@ extern "C"
 // Geometry Transformation Engine (GTE/COP2) data registers
 #define PSEMU_CPU_COP2_VXY0 0
 #define PSEMU_CPU_COP2_VZ0 1
+#define PSEMU_CPU_COP2_IR0 8
 #define PSEMU_CPU_COP2_IR1 9
 #define PSEMU_CPU_COP2_IR2 10
 #define PSEMU_CPU_COP2_IR3 11

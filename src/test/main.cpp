@@ -98,7 +98,10 @@ static void cdrom_read(const unsigned int address,
                        uint8_t* const sector_data) noexcept
 {
     cdrom_image.seekg(address, cdrom_image.beg);
-    //cdrom_image.read(sector_data, PSEMU_CDROM_SECTOR_SIZE);
+
+    // I don't think this is the right way to handle this.
+    cdrom_image.read(reinterpret_cast<char*>(sector_data),
+                     PSEMU_CDROM_SECTOR_SIZE);
 }
 
 static void setup_shaders() noexcept
@@ -388,7 +391,7 @@ int main(int argc, char* argv[])
                 const auto exe_size{ std::filesystem::file_size(argv[2]) };
 
                 auto exe_data{ new uint8_t[exe_size] };
-                std::copy(std::istreambuf_iterator<char>{bios_file}, std::istreambuf_iterator<char>{}, exe_data);
+                std::copy(std::istreambuf_iterator<char>{exe_file}, std::istreambuf_iterator<char>{}, exe_data);
 
                 exe_file.close();
 

@@ -57,7 +57,7 @@ static uint32_t gte_divide(struct psemu_cpu* const cpu)
     const uint32_t SZ3 = cpu->cop2.cpr[PSEMU_CPU_COP2_SZ3];
 
     int n = 0x1FFFF;
-
+#if 0
     if (H < (SZ3 * 2))
     {
         int z = __builtin_clz(SZ3);
@@ -72,6 +72,7 @@ static uint32_t gte_divide(struct psemu_cpu* const cpu)
     {
         n = 0x1FFFF;
     }
+#endif
     return n;
 }
 

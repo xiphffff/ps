@@ -470,10 +470,12 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
         if (op[ptr] != '$')
         {
             state.result += op[ptr];
+            ptr++;
+
             continue;
         }
 
-        if (op.compare(0, 6, "gpr_rd") == 0)
+        if (op.compare(ptr, 7, "$gpr_rd") == 0)
         {
             if (!dest_found)
             {
@@ -484,10 +486,10 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
             }
 
             state.result += gpr[cpu->instruction.rd];
-            ptr += 6;
+            ptr += 7;
         }
 
-        if (op.compare(0, 6, "gpr_rs") == 0)
+        if (op.compare(ptr, 7, "$gpr_rs") == 0)
         {
             if (!dest_found)
             {
@@ -498,10 +500,10 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
             }
 
             state.result += gpr[cpu->instruction.rs];
-            ptr += 6;
+            ptr += 7;
         }
 
-        if (op.compare(0, 6, "gpr_rt") == 0)
+        if (op.compare(ptr, 7, "$gpr_rt") == 0)
         {
             if (!dest_found)
             {
@@ -512,16 +514,16 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
             }
 
             state.result += gpr[cpu->instruction.rt];
+            ptr += 7;
+        }
+
+        if (op.compare(ptr, 6, "$shamt") == 0)
+        {
+            state.result += fmt::sprintf("%d", cpu->instruction.shamt);
             ptr += 6;
         }
 
-        if (op.compare(0, 6, "shamt") == 0)
-        {
-            state.result += fmt::sprintf("fuck");
-            ptr += 5;
-        }
-
-        if (op.compare(0, 3, "mem") == 0)
+        if (op.compare(ptr, 4, "$mem") == 0)
         {
             const auto offset
             {
@@ -541,19 +543,19 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
             state.post_process.str = "paddr";
             state.post_process.ptr = &state.paddr;
 
-            ptr += 3;
+            ptr += 4;
         }
 
-        if (op.compare(0, 8, "zext_imm") == 0)
+        if (op.compare(ptr, 9, "$zext_imm") == 0)
         {
             state.result +=
             fmt::sprintf("0x%04X",
                         PSEMU_CPU_DECODE_IMMEDIATE(cpu->instruction.word));
 
-            ptr += 8;
+            ptr += 9;
         }
 
-        if (op.compare(0, 8, "sext_imm") == 0)
+        if (op.compare(ptr, 9, "$sext_imm") == 0)
         {
             const auto imm
             {
@@ -564,10 +566,10 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
             state.result += fmt::sprintf("%s0x%04X",
                                         imm < 0 ? "-" : "",
                                         abs(imm));
-            ptr += 8;
+            ptr += 9;
         }
 
-        if (op.compare(0, 14, "branch_address") == 0)
+        if (op.compare(ptr, 15, "$branch_address") == 0)
         {
             const auto address
             {
@@ -576,10 +578,10 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
             };
 
             state.result += fmt::sprintf("0x%08X", address);
-            ptr += 14;
+            ptr += 15;
         }
 
-        if (op.compare(0, 14, "offset_address") == 0)
+        if (op.compare(ptr, 15, "$offset_address") == 0)
         {
             const auto branch_address
             {
@@ -589,17 +591,17 @@ void disassemble_before(struct psemu_cpu* const cpu) noexcept
             };
 
             state.result += fmt::sprintf("0x%08X", branch_address);
-            ptr += 14;
+            ptr += 15;
         }
 
-        if (op.compare(0, 8, "cop0_reg") == 0)
+        if (op.compare(ptr, 9, "$cop0_reg") == 0)
         {
             state.result += cop0[cpu->instruction.rd];
 
             state.post_process.str = cop0[cpu->instruction.rd];
             state.post_process.ptr = &cpu->cop0[cpu->instruction.rd];
 
-            ptr += 8;
+            ptr += 9;
         }
     }
 }
@@ -609,6 +611,12 @@ std::string disassemble_after() noexcept
 {
     if (state.post_process.ptr)
     {
+        // This is awful.
+        for (auto pad{ 0 }; pad < 25; ++pad)
+        {
+            state.result += " ";
+        }
+
         state.result += fmt::sprintf("; %s=0x%08X",
                                     state.post_process.str,
                                     *state.post_process.ptr);

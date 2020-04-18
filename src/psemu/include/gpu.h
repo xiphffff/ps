@@ -18,6 +18,7 @@
 extern "C"
 {
 #endif // __cplusplus
+
 #include <stdint.h>
 
 // Size of VRAM.
@@ -215,6 +216,7 @@ void psemu_gpu_gp0(struct psemu_gpu* const gpu, const uint32_t cmd);
 
 // Executes a GP1 command `cmd` on GPU `gpu`.
 void psemu_gpu_gp1(struct psemu_gpu* const gpu, const uint32_t cmd);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

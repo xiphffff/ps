@@ -244,9 +244,14 @@ int main(int argc, char* argv[])
 
     auto ps_emu{ psemu_create(bios_data) };
 
+    psemu_log_set_cb([](const char* const msg)
+    {
+        debug_file << msg << std::endl;
+    });
+
     if (run_cdrom)
     {
-        cdrom_image = std::ifstream(argv[3], std::ios::binary);
+        cdrom_image = std::ifstream(argv[2], std::ios::binary);
         psemu_set_cdrom(ps_emu, &cdrom_read);
     }
     bool running = true;
@@ -258,7 +263,7 @@ int main(int argc, char* argv[])
     constexpr bool break_on_exception{ true };
 
     debug_file = std::ofstream("debug.txt", std::ios::trunc);
-    tty_file   = std::ofstream("tty.txt", std::ios::trunc);
+    tty_file   = std::ofstream("tty.txt",   std::ios::trunc);
 
     if (!glfwInit())
     {

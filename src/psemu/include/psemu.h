@@ -14,13 +14,14 @@
 
 #include "bus.h"
 #include "cpu.h"
+#include "debug.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif // __cplusplus
 
-// Defines the structure of a Sony PlayStation® system.
+// Defines the structure of a Sony PlayStationï¿½ system.
 struct psemu_system
 {
 	// System bus ("interconnect")
@@ -30,16 +31,16 @@ struct psemu_system
 	struct psemu_cpu cpu;
 };
 
-// Creates a Sony PlayStation® system emulator.
+// Creates a Sony PlayStationï¿½ system emulator.
 struct psemu_system* psemu_create(uint8_t* const bios_data);
 
-// Destroys a Sony PlayStation® system emulator `ps_emu`.
+// Destroys a Sony PlayStationï¿½ system emulator `ps_emu`.
 void psemu_destroy(struct psemu_system* const ps_emu);
 
-// Resets a Sony PlayStation® system emulator `ps_emu` to the startup state.
+// Resets a Sony PlayStationï¿½ system emulator `ps_emu` to the startup state.
 void psemu_reset(struct psemu_system* const ps_emu);
 
-// Executes one full system step on a Sony PlayStation® system emulator
+// Executes one full system step on a Sony PlayStationï¿½ system emulator
 // `ps_emu`.
 void psemu_step(struct psemu_system* const ps_emu);
 
@@ -47,7 +48,7 @@ void psemu_step(struct psemu_system* const ps_emu);
 // this function once per frame.
 void psemu_vblank(struct psemu_system* const ps_emu);
 
-// "Inserts" a CD-ROM into Sony PlayStation® system emulator if `cb` is not
+// "Inserts" a CD-ROM into Sony PlayStationï¿½ system emulator if `cb` is not
 // `NULL`, or removes a CD-ROM if `cb` is `NULL`.
 void psemu_set_cdrom(struct psemu_system* const ps_emu,
 					 const psemu_cdrom_read_cb cb);

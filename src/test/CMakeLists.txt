@@ -26,4 +26,4 @@ set_target_properties(psemu_debug PROPERTIES
                       CXX_EXTENSIONS ON)
 
 target_compile_definitions(psemu_debug PRIVATE _CRT_SECURE_NO_WARNINGS)
-target_link_libraries(psemu_debug PRIVATE psemu glfw fmt::fmt fmt::fmt-header-only)
+target_link_libraries(psemu_debug PRIVATE psemu glfw fmt::fmt fmt::fmt-header-only dl)

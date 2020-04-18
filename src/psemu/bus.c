@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "bus.h"
+#include "debug.h"
 #include "utility/memory.h"
 
 // 2 MB (in bytes)
@@ -322,10 +323,12 @@ uint32_t psemu_bus_load_word(const struct psemu_bus* const bus,
                             return 0x1FF00000;
 
                         default:
+                            psemu_log("Unknown word load: 0x%08X", paddr);
                             return 0x00000000;
                     }
 
                 default:
+                    psemu_log("Unknown word load: 0x%08X", paddr);
                     return 0x00000000;
             }
 
@@ -334,6 +337,7 @@ uint32_t psemu_bus_load_word(const struct psemu_bus* const bus,
             return *(uint32_t *)&bios_data[paddr & 0x000FFFFF];
 
         default:
+            psemu_log("Unknown word load: 0x%08X", paddr);
             return 0x00000000;
     }
 }
@@ -387,14 +391,17 @@ uint16_t psemu_bus_load_halfword(const struct psemu_bus* const bus,
                             return 0xFFFF;
 
                         default:
+                            psemu_log("Unknown halfword load: 0x%08X", paddr);
                             return 0x0000;
                     }
 
                 default:
+                    psemu_log("Unknown halfword load: 0x%08X", paddr);
                     return 0x0000;
             }
 
         default:
+            psemu_log("Unknown halfword load: 0x%08X", paddr);
             return 0x0000;
     }
 }
@@ -445,10 +452,12 @@ uint8_t psemu_bus_load_byte(const struct psemu_bus* const bus,
                                    (&bus->cdrom_drive, 3);
 
                         default:
+                            psemu_log("Unknown byte load: 0x%08X", paddr);
                             return 0x00;
                     }
 
                 default:
+                    psemu_log("Unknown byte load: 0x%08X", paddr);
                     return 0x00;
             }
 
@@ -457,6 +466,7 @@ uint8_t psemu_bus_load_byte(const struct psemu_bus* const bus,
             return bios_data[paddr & 0x000FFFFF];
         
         default:
+            psemu_log("Unknown byte load: 0x%08X", paddr);
             return 0x00;
     }
 }
@@ -574,14 +584,20 @@ void psemu_bus_store_word(struct psemu_bus* const bus,
                             return;
 
                         default:
+                            psemu_log("Unknown word store: 0x%08X <- 0x%08X",
+                                      paddr, word);
                             return;
                     }
 
                 default:
+                    psemu_log("Unknown word store: 0x%08X <- 0x%08X",
+                              paddr, word);
                     return;
             }
 
         default:
+            psemu_log("Unknown word store: 0x%08X <- 0x%08X",
+                      paddr, word);
             return;
     }
 }
@@ -634,14 +650,20 @@ void psemu_bus_store_halfword(struct psemu_bus* const bus,
                             return;
 
                         default:
+                            psemu_log("Unknown halfword store: 0x%08X <- 0x%04X",
+                                      paddr, halfword);
                             return;
                     }
 
                 default:
+                    psemu_log("Unknown halfword store: 0x%08X <- 0x%04X",
+                              paddr, halfword);
                     return;
             }
 
         default:
+            psemu_log("Unknown halfword store: 0x%08X <- 0x%04X",
+                      paddr, halfword);
             return;
     }
 }
@@ -712,14 +734,20 @@ void psemu_bus_store_byte(struct psemu_bus* const bus,
                             return;
 
                         default:
+                            psemu_log("Unknown byte store: 0x%08X <- 0x%02X",
+                                      paddr, byte);
                             return;
                     }
 
                 default:
+                    psemu_log("Unknown byte store: 0x%08X <- 0x%02X",
+                              paddr, byte);
                     return;
             }
 
         default:
+            psemu_log("Unknown byte store: 0x%08X <- 0x%02X",
+                      paddr, byte);
             return;
     }
 }

@@ -41,141 +41,9 @@ static struct psemu_bus* bus = NULL;
 // Set to `true` if a branch has been taken, or `false` otherwise.
 static bool in_delay_slot = false;
 
-// Unsigned Newton-Raphson (UNR) division table
-static uint8_t division_table[257];
-
 // Pass this as the 3rd parameter to `raise_exception()` if the exception code
 // passed is not an address exception (i.e. AdEL or AdES).
 #define UNUSED_PARAMETER 0x00000000
-
-// Unsigned GTE limiters.
-#define limA1U(cpu, value) gte_unsigned_lim(cpu, value, 24, 32767)
-#define limA2U(cpu, value) gte_unsigned_lim(cpu, value, 23, 32767)
-#define limA3U(cpu, value) gte_unsigned_lim(cpu, value, 22, 32767)
-#define limB1(cpu, value) gte_unsigned_lim(cpu, value, 21, 255)
-#define limB2(cpu, value) gte_unsigned_lim(cpu, value, 20, 255)
-#define limB3(cpu, value) gte_unsigned_lim(cpu, value, 19, 255)
-#define limC(cpu, value) gte_unsigned_lim(cpu, value, 18, 65535)
-#define limE(cpu, value) gte_unsigned_lim(cpu, value, 12, 4095)
-
-// Signed GTE limiters.
-#define limA1S(cpu, value) gte_signed_lim(cpu, value, 24, -32768, 32767)
-#define limA2S(cpu, value) gte_signed_lim(cpu, value, 23, -32768, 32767)
-#define limA3S(cpu, value) gte_signed_lim(cpu, value, 22, -32768, 32767)
-#define limD1(cpu, value) gte_signed_lim(cpu, value, 14, -1024, 1023)
-#define limD2(cpu, value) gte_signed_lim(cpu, value, 13, -1024, 1023)
-
-// GTE limiters dependent on the `lim` argument.
-#define limA1C(cpu, value) gte_lim(cpu, value, 24)
-#define limA2C(cpu, value) gte_lim(cpu, value, 23)
-#define limA3C(cpu, value) gte_lim(cpu, value, 22)
-
-// Clamps `value` to `limit` if `value` has exceeded `limit`, and sets FLAG bit
-// `bit` if so, and returns `value`.
-static uint32_t gte_unsigned_lim(struct psemu_cpu* const cpu,
-                                 uint32_t value,
-                                 const unsigned int bit,
-                                 const unsigned int limit)
-{
-    assert(cpu != NULL);
-    assert(bit <= 31);
-
-    if (value > limit)
-    {
-        value = limit;
-        cpu->cop2.FLAG |= (1 << bit);
-    }
-    return value;
-}
-
-// Clamps `value` to `lower_limit` or `upper_limit` if `value` exceeds or is
-// under either, and sets FLAG bit `bit`. Returns `value.`
-static int32_t gte_signed_lim(struct psemu_cpu* const cpu,
-                              int32_t value,
-                              const unsigned int bit,
-                              const signed int lower_limit,
-                              const unsigned int upper_limit)
-{
-    assert(cpu != NULL);
-    assert(bit <= 31);
-
-    if (value < lower_limit)
-    {
-        value = lower_limit;
-        cpu->cop2.FLAG |= (1 << bit);
-    }
-    else if (value > upper_limit)
-    {
-        value = upper_limit;
-        cpu->cop2.FLAG |= (1 << bit);
-    }
-    return value;
-}
-
-// Clamps `value` in an unsigned or signed manner depending on the value of the
-// `lm` argument in the instruction.
-static int32_t gte_lim(struct psemu_cpu* const cpu, int32_t value, const unsigned int bit)
-{
-    assert(cpu != NULL);
-    assert(bit <= 31);
-
-    if (cpu->instruction.word & (1 << 10))
-    {
-        return gte_unsigned_lim(cpu, value, bit, 32767);
-    }
-    return gte_signed_lim(cpu, value, bit, -32768, 32767);
-}
-
-// Handles perspective transformation.
-static void gte_rpt(struct psemu_cpu* const cpu)
-{
-    int n = 0x1FFFF;
-#if 0
-    if (H < (SZ3 * 2))
-    {
-        int z = __builtin_clz(SZ3);
-        n = (H << z);
-        int d = (SZ3 << z);
-        uint8_t u = division_table[(d - 0x7FC0) >> 7] + 0x101;
-        d = ((0x2000080 - (d * u)) >> 8);
-        d = ((0x0000080 + (d * u)) >> 8);
-        n = psemu_min(0x1FFFF, (((n * d) + 0x8000) >> 16));
-    }
-    else
-    {
-        n = 0x1FFFF;
-    }
-#endif
-}
-
-// Handles light source calculation.
-static void gte_ncd(struct psemu_cpu* const cpu)
-{ }
-
-// Handles the `nclip` GTE instruction.
-static void gte_nclip(struct psemu_cpu* const cpu)
-{
-    assert(cpu != NULL);
-}
-
-// Handles the `ncds` GTE instruction.
-static void gte_ncds(struct psemu_cpu* const cpu)
-{
-    assert(cpu != NULL);
-}
-
-// Handles the `avsz3` GTE instruction.
-static void gte_avsz3(struct psemu_cpu* const cpu)
-{
-    assert(cpu != NULL);
-    __debugbreak();
-}
-
-// Handles the `rtpt` GTE instruction.
-static void gte_rtpt(struct psemu_cpu* const cpu)
-{
-    assert(cpu != NULL);
-}
 
 // Returns the current virtual address in LSI LR33300 CPU interpreter `cpu`.
 static inline uint32_t vaddr(const struct psemu_cpu* const cpu)
@@ -219,13 +87,13 @@ static void raise_exception(struct psemu_cpu* const cpu,
     //    by pushing the 3 entry stack inside SR, and changing to kernel mode
     //    with interrupts disabled.
     cpu->cop0[PSEMU_CPU_COP0_SR] =
-    (cpu->cop0[PSEMU_CPU_COP0_SR] & 0xFFFFFFC0) |
-    ((cpu->cop0[PSEMU_CPU_COP0_SR] & 0x0000000F) << 2);
+   (cpu->cop0[PSEMU_CPU_COP0_SR] & 0xFFFFFFC0) |
+  ((cpu->cop0[PSEMU_CPU_COP0_SR] & 0x0000000F) << 2);
 
     // 3a) Cause is setup so that software can see the reason for the
     //     exception.
     cpu->cop0[PSEMU_CPU_COP0_Cause] =
-    (cpu->cop0[PSEMU_CPU_COP0_Cause] & ~0xFFFF00FF) | (exc_code << 2);
+   (cpu->cop0[PSEMU_CPU_COP0_Cause] & ~0xFFFF00FF) | (exc_code << 2);
 
     // 3b) On address exceptions BadA is also set.
     if (exc_code == PSEMU_CPU_EXCCODE_AdEL ||
@@ -248,25 +116,25 @@ static uint32_t load_cop2_cpr(const struct psemu_cpu* const cpu,
     switch (reg)
     {
         case PSEMU_CPU_COP2_VXY0: return cpu->cop2.VXY0.word;
-        case PSEMU_CPU_COP2_VZ0:  return cpu->cop2.VZ0.word;
+        case PSEMU_CPU_COP2_VZ0:  return cpu->cop2.VZ0;
         case PSEMU_CPU_COP2_VXY1: return cpu->cop2.VXY1.word;
-        case PSEMU_CPU_COP2_VZ1:  return cpu->cop2.VZ1.word;
+        case PSEMU_CPU_COP2_VZ1:  return cpu->cop2.VZ1;
         case PSEMU_CPU_COP2_VXY2: return cpu->cop2.VXY2.word;
-        case PSEMU_CPU_COP2_VZ2:  return cpu->cop2.VZ2.word;
+        case PSEMU_CPU_COP2_VZ2:  return cpu->cop2.VZ2;
         case PSEMU_CPU_COP2_RGB:  return cpu->cop2.RGB.word;
-        case PSEMU_CPU_COP2_OTZ:  return cpu->cop2.OTZ.word;
-        case PSEMU_CPU_COP2_IR0:  return cpu->cop2.IR0.word;
-        case PSEMU_CPU_COP2_IR1:  return cpu->cop2.IR1.word;
-        case PSEMU_CPU_COP2_IR2:  return cpu->cop2.IR2.word;
-        case PSEMU_CPU_COP2_IR3:  return cpu->cop2.IR3.word;
+        case PSEMU_CPU_COP2_OTZ:  return cpu->cop2.OTZ;
+        case PSEMU_CPU_COP2_IR0:  return cpu->cop2.IR0;
+        case PSEMU_CPU_COP2_IR1:  return cpu->cop2.IR1;
+        case PSEMU_CPU_COP2_IR2:  return cpu->cop2.IR2;
+        case PSEMU_CPU_COP2_IR3:  return cpu->cop2.IR3;
         case PSEMU_CPU_COP2_SXY0: return cpu->cop2.SXY0.word;
         case PSEMU_CPU_COP2_SXY1: return cpu->cop2.SXY1.word;
         case PSEMU_CPU_COP2_SXY2: return cpu->cop2.SXY2.word;
-        case PSEMU_CPU_COP2_SXYP: return cpu->cop2.SXYP.word;
-        case PSEMU_CPU_COP2_SZ0:  return cpu->cop2.SZ0.word;
-        case PSEMU_CPU_COP2_SZ1:  return cpu->cop2.SZ1.word;
-        case PSEMU_CPU_COP2_SZ2:  return cpu->cop2.SZ2.word;
-        case PSEMU_CPU_COP2_SZ3:  return cpu->cop2.SZ3.word;
+        case PSEMU_CPU_COP2_SXYP: return cpu->cop2.SXYP;
+        case PSEMU_CPU_COP2_SZ0:  return cpu->cop2.SZ0;
+        case PSEMU_CPU_COP2_SZ1:  return cpu->cop2.SZ1;
+        case PSEMU_CPU_COP2_SZ2:  return cpu->cop2.SZ2;
+        case PSEMU_CPU_COP2_SZ3:  return cpu->cop2.SZ3;
         case PSEMU_CPU_COP2_RGB0: return cpu->cop2.RGB0.word;
         case PSEMU_CPU_COP2_RGB1: return cpu->cop2.RGB1.word;
         case PSEMU_CPU_COP2_RGB2: return cpu->cop2.RGB2.word;
@@ -292,7 +160,7 @@ static uint32_t load_cop2_ccr(const struct psemu_cpu* const cpu,
         case PSEMU_CPU_COP2_R13R21: return cpu->cop2.R13R21.word;
         case PSEMU_CPU_COP2_R22R23: return cpu->cop2.R22R23.word;
         case PSEMU_CPU_COP2_R31R32: return cpu->cop2.R31R32.word;
-        case PSEMU_CPU_COP2_R33:    return cpu->cop2.R33.word;
+        case PSEMU_CPU_COP2_R33:    return cpu->cop2.R33;
         case PSEMU_CPU_COP2_TRX:    return cpu->cop2.TRX;
         case PSEMU_CPU_COP2_TRY:    return cpu->cop2.TRY;
         case PSEMU_CPU_COP2_TRZ:    return cpu->cop2.TRZ;
@@ -300,7 +168,7 @@ static uint32_t load_cop2_ccr(const struct psemu_cpu* const cpu,
         case PSEMU_CPU_COP2_L13L21: return cpu->cop2.L13L21.word;
         case PSEMU_CPU_COP2_L22L23: return cpu->cop2.L22L23.word;
         case PSEMU_CPU_COP2_L31L32: return cpu->cop2.L31L32.word;
-        case PSEMU_CPU_COP2_L33:    return cpu->cop2.L33.word;
+        case PSEMU_CPU_COP2_L33:    return cpu->cop2.L33;
         case PSEMU_CPU_COP2_RBK:    return cpu->cop2.RBK;
         case PSEMU_CPU_COP2_GBK:    return cpu->cop2.GBK;
         case PSEMU_CPU_COP2_BBK:    return cpu->cop2.BBK;
@@ -308,17 +176,17 @@ static uint32_t load_cop2_ccr(const struct psemu_cpu* const cpu,
         case PSEMU_CPU_COP2_LR3LG1: return cpu->cop2.LR3LG1.word;
         case PSEMU_CPU_COP2_LG2LG3: return cpu->cop2.LG2LG3.word;
         case PSEMU_CPU_COP2_LB1LB2: return cpu->cop2.LB1LB2.word;
-        case PSEMU_CPU_COP2_LB3:    return cpu->cop2.LB3.word;
+        case PSEMU_CPU_COP2_LB3:    return cpu->cop2.LB3;
         case PSEMU_CPU_COP2_RFC:    return cpu->cop2.RFC;
         case PSEMU_CPU_COP2_GFC:    return cpu->cop2.GFC;
         case PSEMU_CPU_COP2_BFC:    return cpu->cop2.BFC;
         case PSEMU_CPU_COP2_OFX:    return cpu->cop2.OFX;
         case PSEMU_CPU_COP2_OFY:    return cpu->cop2.OFY;
-        case PSEMU_CPU_COP2_H:      return cpu->cop2.H.word;
-        case PSEMU_CPU_COP2_DQA:    return cpu->cop2.DQA.word;
+        case PSEMU_CPU_COP2_H:      return cpu->cop2.H;
+        case PSEMU_CPU_COP2_DQA:    return cpu->cop2.DQA;
         case PSEMU_CPU_COP2_DQB:    return cpu->cop2.DQB;
-        case PSEMU_CPU_COP2_ZSF3:   return cpu->cop2.ZSF3.word;
-        case PSEMU_CPU_COP2_ZSF4:   return cpu->cop2.ZSF4.word;
+        case PSEMU_CPU_COP2_ZSF3:   return cpu->cop2.ZSF3;
+        case PSEMU_CPU_COP2_ZSF4:   return cpu->cop2.ZSF4;
         case PSEMU_CPU_COP2_FLAG:   return cpu->cop2.FLAG;
         default:                    return 0x00000000;
     }
@@ -334,25 +202,25 @@ static void store_cop2_cpr(struct psemu_cpu* const cpu,
     switch (reg)
     {
         case PSEMU_CPU_COP2_VXY0: cpu->cop2.VXY0.word = value; return;
-        case PSEMU_CPU_COP2_VZ0:  cpu->cop2.VZ0.word  = value; return;
+        case PSEMU_CPU_COP2_VZ0:  cpu->cop2.VZ0       = value; return;
         case PSEMU_CPU_COP2_VXY1: cpu->cop2.VXY1.word = value; return;
-        case PSEMU_CPU_COP2_VZ1:  cpu->cop2.VZ1.word  = value; return;
+        case PSEMU_CPU_COP2_VZ1:  cpu->cop2.VZ1       = value; return;
         case PSEMU_CPU_COP2_VXY2: cpu->cop2.VXY2.word = value; return;
-        case PSEMU_CPU_COP2_VZ2:  cpu->cop2.VZ2.word  = value; return;
+        case PSEMU_CPU_COP2_VZ2:  cpu->cop2.VZ2       = value; return;
         case PSEMU_CPU_COP2_RGB:  cpu->cop2.RGB.word  = value; return;
-        case PSEMU_CPU_COP2_OTZ:  cpu->cop2.OTZ.word  = value; return;
-        case PSEMU_CPU_COP2_IR0:  cpu->cop2.IR0.word  = value; return;
-        case PSEMU_CPU_COP2_IR1:  cpu->cop2.IR1.word  = value; return;
-        case PSEMU_CPU_COP2_IR2:  cpu->cop2.IR2.word  = value; return;
-        case PSEMU_CPU_COP2_IR3:  cpu->cop2.IR3.word  = value; return;
+        case PSEMU_CPU_COP2_OTZ:  cpu->cop2.OTZ       = value; return;
+        case PSEMU_CPU_COP2_IR0:  cpu->cop2.IR0       = value; return;
+        case PSEMU_CPU_COP2_IR1:  cpu->cop2.IR1       = value; return;
+        case PSEMU_CPU_COP2_IR2:  cpu->cop2.IR2       = value; return;
+        case PSEMU_CPU_COP2_IR3:  cpu->cop2.IR3       = value; return;
         case PSEMU_CPU_COP2_SXY0: cpu->cop2.SXY0.word = value; return;
         case PSEMU_CPU_COP2_SXY1: cpu->cop2.SXY1.word = value; return;
         case PSEMU_CPU_COP2_SXY2: cpu->cop2.SXY2.word = value; return;
-        case PSEMU_CPU_COP2_SXYP: cpu->cop2.SXYP.word = value; return;
-        case PSEMU_CPU_COP2_SZ0:  cpu->cop2.SZ0.word  = value; return;
-        case PSEMU_CPU_COP2_SZ1:  cpu->cop2.SZ1.word  = value; return;
-        case PSEMU_CPU_COP2_SZ2:  cpu->cop2.SZ2.word  = value; return;
-        case PSEMU_CPU_COP2_SZ3:  cpu->cop2.SZ3.word  = value; return;
+        case PSEMU_CPU_COP2_SXYP: cpu->cop2.SXYP      = value; return;
+        case PSEMU_CPU_COP2_SZ0:  cpu->cop2.SZ0       = value; return;
+        case PSEMU_CPU_COP2_SZ1:  cpu->cop2.SZ1       = value; return;
+        case PSEMU_CPU_COP2_SZ2:  cpu->cop2.SZ2       = value; return;
+        case PSEMU_CPU_COP2_SZ3:  cpu->cop2.SZ3       = value; return;
         case PSEMU_CPU_COP2_RGB0: cpu->cop2.RGB0.word = value; return;
         case PSEMU_CPU_COP2_RGB1: cpu->cop2.RGB1.word = value; return;
         case PSEMU_CPU_COP2_RGB2: cpu->cop2.RGB2.word = value; return;
@@ -378,7 +246,7 @@ static void store_cop2_ccr(struct psemu_cpu* const cpu,
         case PSEMU_CPU_COP2_R13R21: cpu->cop2.R13R21.word = value; return;
         case PSEMU_CPU_COP2_R22R23: cpu->cop2.R22R23.word = value; return;
         case PSEMU_CPU_COP2_R31R32: cpu->cop2.R31R32.word = value; return;
-        case PSEMU_CPU_COP2_R33:    cpu->cop2.R33.word    = value; return;
+        case PSEMU_CPU_COP2_R33:    cpu->cop2.R33         = value; return;
         case PSEMU_CPU_COP2_TRX:    cpu->cop2.TRX         = value; return;
         case PSEMU_CPU_COP2_TRY:    cpu->cop2.TRY         = value; return;
         case PSEMU_CPU_COP2_TRZ:    cpu->cop2.TRZ         = value; return;
@@ -386,7 +254,7 @@ static void store_cop2_ccr(struct psemu_cpu* const cpu,
         case PSEMU_CPU_COP2_L13L21: cpu->cop2.L13L21.word = value; return;
         case PSEMU_CPU_COP2_L22L23: cpu->cop2.L22L23.word = value; return;
         case PSEMU_CPU_COP2_L31L32: cpu->cop2.L31L32.word = value; return;
-        case PSEMU_CPU_COP2_L33:    cpu->cop2.L33.word    = value; return;
+        case PSEMU_CPU_COP2_L33:    cpu->cop2.L33         = value; return;
         case PSEMU_CPU_COP2_RBK:    cpu->cop2.RBK         = value; return;
         case PSEMU_CPU_COP2_GBK:    cpu->cop2.GBK         = value; return;
         case PSEMU_CPU_COP2_BBK:    cpu->cop2.BBK         = value; return;
@@ -394,17 +262,17 @@ static void store_cop2_ccr(struct psemu_cpu* const cpu,
         case PSEMU_CPU_COP2_LR3LG1: cpu->cop2.LR3LG1.word = value; return;
         case PSEMU_CPU_COP2_LG2LG3: cpu->cop2.LG2LG3.word = value; return;
         case PSEMU_CPU_COP2_LB1LB2: cpu->cop2.LB1LB2.word = value; return;
-        case PSEMU_CPU_COP2_LB3:    cpu->cop2.LB3.word    = value; return;
+        case PSEMU_CPU_COP2_LB3:    cpu->cop2.LB3         = value; return;
         case PSEMU_CPU_COP2_RFC:    cpu->cop2.RFC         = value; return;
         case PSEMU_CPU_COP2_GFC:    cpu->cop2.GFC         = value; return;
         case PSEMU_CPU_COP2_BFC:    cpu->cop2.BFC         = value; return;
         case PSEMU_CPU_COP2_OFX:    cpu->cop2.OFX         = value; return;
         case PSEMU_CPU_COP2_OFY:    cpu->cop2.OFY         = value; return;
-        case PSEMU_CPU_COP2_H:      cpu->cop2.H.word      = value; return;
-        case PSEMU_CPU_COP2_DQA:    cpu->cop2.DQA.word    = value; return;
+        case PSEMU_CPU_COP2_H:      cpu->cop2.H           = value; return;
+        case PSEMU_CPU_COP2_DQA:    cpu->cop2.DQA         = value; return;
         case PSEMU_CPU_COP2_DQB:    cpu->cop2.DQB         = value; return;
-        case PSEMU_CPU_COP2_ZSF3:   cpu->cop2.ZSF3.word   = value; return;
-        case PSEMU_CPU_COP2_ZSF4:   cpu->cop2.ZSF4.word   = value; return;
+        case PSEMU_CPU_COP2_ZSF3:   cpu->cop2.ZSF3        = value; return;
+        case PSEMU_CPU_COP2_ZSF4:   cpu->cop2.ZSF4        = value; return;
         case PSEMU_CPU_COP2_FLAG:   cpu->cop2.FLAG        = value; return;
     }
 }
@@ -413,13 +281,6 @@ void psemu_cpu_set_bus(struct psemu_bus* const m_bus)
 {
     assert(m_bus != NULL);
     bus = m_bus;
-
-    for (unsigned int i = 0; i < 257; ++i)
-    {
-        // Generate UNR division table.
-        division_table[i] =
-        psemu_max(0, (0x40000 / (i + 0x100) + 1) / 2 - 0x101);
-    }
 }
 
 // Resets an LSI LR33300 CPU interpreter `cpu` to the startup state.
@@ -943,19 +804,19 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     switch (cpu->instruction.funct)
                     {
                         case PSEMU_CPU_OP_NCLIP:
-                            gte_nclip(cpu);
+                            psemu_cpu_gte_nclip(&cpu->cop2);
                             break;
 
                         case PSEMU_CPU_OP_NCDS:
-                            gte_ncds(cpu);
+                            psemu_cpu_gte_ncds(&cpu->cop2);
                             break;
 
                         case PSEMU_CPU_OP_AVSZ3:
-                            gte_avsz3(cpu);
+                            psemu_cpu_gte_avsz3(&cpu->cop2);
                             break;
 
                         case PSEMU_CPU_OP_RTPT:
-                            gte_rtpt(cpu);
+                            psemu_cpu_gte_rtpt(&cpu->cop2);
                             break;
 
                         default:

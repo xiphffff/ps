@@ -12,15 +12,17 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set(SRCS bus.c cdrom_drive.c cpu.c gpu.c psemu.c)
+set(SRCS bus.c cdrom_drive.c cpu.c debug.c gpu.c gte.c psemu.c)
 
 set(HDRS include/bus.h
          include/cdrom_drive.h
          include/cpu.h
+         include/debug.h
          include/gpu.h
+         include/gte.h
          include/psemu.h)
 
-set(UTILITY_SRCS utility/fifo.c utility/memory.c)
+set(UTILITY_SRCS utility/fifo.c utility/math.c utility/memory.c)
 set(UTILITY_HDRS utility/fifo.h utility/math.h utility/memory.h)
 
 add_library(psemu ${SRCS}
@@ -34,3 +36,4 @@ set_target_properties(psemu PROPERTIES
                       C_EXTENSIONS ON)
 
 target_include_directories(psemu PRIVATE include)
+target_compile_options(psemu PRIVATE -Wall -Wextra)

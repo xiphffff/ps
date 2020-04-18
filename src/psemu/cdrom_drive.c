@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include "cdrom_drive.h"
+#include "debug.h"
 #include "utility/memory.h"
 
 // Primitive commands
@@ -91,6 +92,8 @@ void psemu_cdrom_drive_init(struct psemu_cdrom_drive* cdrom_drive)
     psemu_fifo_init(&cdrom_drive->int2.response, 16);
     psemu_fifo_init(&cdrom_drive->int3.response, 16);
     psemu_fifo_init(&cdrom_drive->int5.response, 16);
+
+    cdrom_drive->read_cb = NULL;
 }
 
 void psemu_cdrom_drive_fini(struct psemu_cdrom_drive* cdrom_drive)
@@ -150,7 +153,10 @@ void psemu_cdrom_drive_step(struct psemu_cdrom_drive* cdrom_drive)
              (cdrom_drive->position.minute * 60 * 75) - 150) *
             PSEMU_CDROM_SECTOR_SIZE;
 
-            cdrom_drive->read_cb(address + 24, cdrom_drive->sector_data);
+            if (cdrom_drive->read_cb)
+            {
+                cdrom_drive->read_cb(address + 24, cdrom_drive->sector_data);
+            }
 
             push_response(&cdrom_drive->int1,
                           30000,
@@ -192,7 +198,7 @@ void psemu_cdrom_drive_step(struct psemu_cdrom_drive* cdrom_drive)
 }
 
 // Loads indexed CD-ROM register `reg`.
-uint8_t psemu_cdrom_drive_register_load(struct psemu_cdrom_drive* cdrom_drive,
+uint8_t psemu_cdrom_drive_register_load(const struct psemu_cdrom_drive* const cdrom_drive,
                                         const unsigned int reg)
 {
     assert(cdrom_drive != NULL);
@@ -218,19 +224,21 @@ uint8_t psemu_cdrom_drive_register_load(struct psemu_cdrom_drive* cdrom_drive,
                     return cdrom_drive->interrupt_flag;
 
                 default:
-                    __debugbreak();
-                    break;
+                    psemu_log("CD-ROM: Unknown indexed load: 0x1F801803.%d",
+                              cdrom_drive->status.index);
+                    return 0x00;
             }
             break;
 
         default:
-            __debugbreak();
-            break;
+            psemu_log("CD-ROM: Unknown register load: 0x1F80180%d",
+                      cdrom_drive->status.index);
+            return 0x00;
     }
 }
 
 // Stores `data` into indexed CD-ROM register `reg`.
-void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
+void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* const cdrom_drive,
                                       const unsigned int reg,
                                       const uint8_t data)
 {
@@ -394,7 +402,11 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             break;
 
                         case SubFunction:
-                            switch (psemu_fifo_dequeue(&cdrom_drive->parameter_fifo))
+                        {
+                            const uint8_t fn =
+                            psemu_fifo_dequeue(&cdrom_drive->parameter_fifo);
+                            
+                            switch (fn)
                             {
                                 // Get cdrom BIOS date/version (yy,mm,dd,ver)
                                 case GetVersion:
@@ -409,10 +421,12 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                                     break;
 
                                 default:
-                                    __debugbreak();
+                                    psemu_log("CD-ROM: Unknown sub-function "
+                                              "0x%02X", fn);
                                     break;
                             }
                             break;
+                        }
 
                         case GetID:
                             if (cdrom_drive->read_cb)
@@ -451,14 +465,16 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                             break;
 
                         default:
-                            __debugbreak();
+                            psemu_log("CD-ROM: Unknown command: 0x%02X\n",
+                                      data);
                             break;
                     }
                     psemu_fifo_reset(&cdrom_drive->parameter_fifo);
                     break;
 
                 default:
-                    __debugbreak();
+                    psemu_log("CD-ROM: Unknown indexed register write: "
+                              "0x1F801801.Index%d", cdrom_drive->status.index);
                     break;
             }
             break;
@@ -478,7 +494,8 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                     break;
 
                 default:
-                    __debugbreak();
+                    psemu_log("CD-ROM: Unknown indexed register write: "
+                              "0x1F801802.Index%d", cdrom_drive->status.index);
                     break;
             }
             break;
@@ -489,7 +506,9 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
             {
                 // 0x1F801803.Index0 - Request Register (W)
                 case 0:
-                    cdrom_drive->status.data_fifo_not_empty = data & 0x80;
+                    cdrom_drive->status.data_fifo_not_empty =
+                    (data & 0x80) != 0;
+                    
                     break;
 
                 // 0x1F801803.Index1 - Interrupt Flag Register (R/W)
@@ -515,13 +534,15 @@ void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
                     break;
 
                 default:
-                    __debugbreak();
+                    psemu_log("CD-ROM: Unknown indexed register write: "
+                              "0x1F801803.Index%d", cdrom_drive->status.index);
                     break;
             }
             break;
 
         default:
-            __debugbreak();
+            psemu_log("CD-ROM: Unknown register write 0x1F80180%d",
+                      cdrom_drive->status.index);
             break;
     }
 }

@@ -2,7 +2,7 @@
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
-// copyright noticeand this permission notice appear in all copies.
+// copyright notice and this permission notice appear in all copies.
 //
 // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 // WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
@@ -19,15 +19,12 @@ extern "C"
 {
 #endif // __cplusplus
 
-#include <stddef.h>
+// The function to call when it is time to output a log message. If `NULL` is
+// passed, log messages are disabled.
+void psemu_log_set_cb(void (*cb)(const char* const msg));
 
-// Calls `malloc()` to allocate `n` bytes and returns a pointer to the newly
-// allocated memory if allocation was successful, or calls `abort()` if the
-// system is out of memory.
-void* psemu_safe_malloc(const size_t n);
-
-// Deallocates the memory held by `ptr` and sets `ptr` to `NULL`.
-void psemu_safe_free(void* ptr);
+// Sends a message `msg` to the log callback function, if enabled.
+void psemu_log(const char* const msg, ...);
 
 #ifdef __cplusplus
 }

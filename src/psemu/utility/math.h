@@ -20,25 +20,11 @@ extern "C"
 #endif // __cplusplus
 
 // Returns `a` if it is less than `b`, or `b` otherwise.
-inline int psemu_min(const int a, const int b)
-{
-    if (a < b)
-    {
-        return a;
-    }
-    return b;
-}
+int psemu_min(const int a, const int b);
 
 // Returns `a` if it is greater than `b`, or `b` otherwise.
-inline int psemu_max(const int a, const int b)
-{
-    if (a > b)
-    {
-        return a;
-    }
-    return b;
-}
+int psemu_max(const int a, const int b);
 
 #ifdef __cplusplus
 }
-#endif // __cpluspluis
+#endif // __cplusplus

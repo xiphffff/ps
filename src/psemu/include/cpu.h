@@ -19,7 +19,7 @@ extern "C"
 {
 #endif // __cplusplus
 
-#include <stdint.h>
+#include "gte.h"
 
 // Instruction decoders that cannot fit into the `instruction` union
 #define PSEMU_CPU_DECODE_TARGET(instruction) (instruction & 0x03FFFFFF)
@@ -100,84 +100,11 @@ extern "C"
 // System control co-processor (COP0) instruction
 #define PSEMU_CPU_OP_RFE 0x10
 
-// Geometry Transformation Engine (GTE/COP2) instructions
-#define PSEMU_CPU_OP_NCLIP 0x06
-#define PSEMU_CPU_OP_NCDS 0x13
-#define PSEMU_CPU_OP_AVSZ3 0x2D
-#define PSEMU_CPU_OP_RTPT 0x30
-
 // System control co-processor (COP0) registers
 #define PSEMU_CPU_COP0_BadA 8
 #define PSEMU_CPU_COP0_SR 12
 #define PSEMU_CPU_COP0_Cause 13
 #define PSEMU_CPU_COP0_EPC 14
-
-// Geometry Transformation Engine (GTE/COP2) data registers
-#define PSEMU_CPU_COP2_VXY0 0
-#define PSEMU_CPU_COP2_VZ0 1
-#define PSEMU_CPU_COP2_VXY1 2
-#define PSEMU_CPU_COP2_VZ1 3
-#define PSEMU_CPU_COP2_VXY2 4
-#define PSEMU_CPU_COP2_VZ2 5
-#define PSEMU_CPU_COP2_RGB 6
-#define PSEMU_CPU_COP2_OTZ 7
-#define PSEMU_CPU_COP2_IR0 8
-#define PSEMU_CPU_COP2_IR1 9
-#define PSEMU_CPU_COP2_IR2 10
-#define PSEMU_CPU_COP2_IR3 11
-#define PSEMU_CPU_COP2_SXY0 12
-#define PSEMU_CPU_COP2_SXY1 13
-#define PSEMU_CPU_COP2_SXY2 14
-#define PSEMU_CPU_COP2_SXYP 15
-#define PSEMU_CPU_COP2_SZ0 16
-#define PSEMU_CPU_COP2_SZ1 17
-#define PSEMU_CPU_COP2_SZ2 18
-#define PSEMU_CPU_COP2_SZ3 19
-#define PSEMU_CPU_COP2_RGB0 20
-#define PSEMU_CPU_COP2_RGB1 21
-#define PSEMU_CPU_COP2_RGB2 22
-#define PSEMU_CPU_COP2_MAC0 24
-#define PSEMU_CPU_COP2_MAC1 25
-#define PSEMU_CPU_COP2_MAC2 26
-#define PSEMU_CPU_COP2_MAC3 27
-#define PSEMU_CPU_COP2_IRGB 28
-#define PSEMU_CPU_COP2_ORGB 29
-#define PSEMU_CPU_COP2_LZCS 30
-#define PSEMU_CPU_COP2_LZCR 31
-
-// Geometry Transformation Engine (GTE/COP2) control registers
-#define PSEMU_CPU_COP2_R11R12 0
-#define PSEMU_CPU_COP2_R13R21 1
-#define PSEMU_CPU_COP2_R22R23 2
-#define PSEMU_CPU_COP2_R31R32 3
-#define PSEMU_CPU_COP2_R33 4
-#define PSEMU_CPU_COP2_TRX 5
-#define PSEMU_CPU_COP2_TRY 6
-#define PSEMU_CPU_COP2_TRZ 7
-#define PSEMU_CPU_COP2_L11L12 8
-#define PSEMU_CPU_COP2_L13L21 9
-#define PSEMU_CPU_COP2_L22L23 10
-#define PSEMU_CPU_COP2_L31L32 11
-#define PSEMU_CPU_COP2_L33 12
-#define PSEMU_CPU_COP2_RBK 13
-#define PSEMU_CPU_COP2_GBK 14
-#define PSEMU_CPU_COP2_BBK 15
-#define PSEMU_CPU_COP2_LR1LR2 16
-#define PSEMU_CPU_COP2_LR3LG1 17
-#define PSEMU_CPU_COP2_LG2LG3 18
-#define PSEMU_CPU_COP2_LB1LB2 19
-#define PSEMU_CPU_COP2_LB3 20
-#define PSEMU_CPU_COP2_RFC 21
-#define PSEMU_CPU_COP2_GFC 22
-#define PSEMU_CPU_COP2_BFC 23
-#define PSEMU_CPU_COP2_OFX 24
-#define PSEMU_CPU_COP2_OFY 25
-#define PSEMU_CPU_COP2_H 26
-#define PSEMU_CPU_COP2_DQA 27
-#define PSEMU_CPU_COP2_DQB 28
-#define PSEMU_CPU_COP2_ZSF3 29
-#define PSEMU_CPU_COP2_ZSF4 30
-#define PSEMU_CPU_COP2_FLAG 31
 
 // Status register (SR) flags
 #define PSEMU_CPU_SR_IsC (1 << 16)
@@ -246,133 +173,8 @@ struct psemu_cpu
     // System control co-processor (COP0) registers
     uint32_t cop0[32];
 
-    // Geometry Transformation Engine (GTE/COP2) registers
-    struct
-    {
-#define DECLARE_WORD_STRUCT(name, lo, hi) \
-        union \
-        { \
-            struct \
-            { \
-                unsigned int lo : 16; \
-                unsigned int hi : 16; \
-            }; \
-            uint32_t word; \
-        } name; \
-
-#define DECLARE_HALFWORD_STRUCT(name, lo) \
-        union \
-        { \
-            struct \
-            { \
-                unsigned int lo : 16; \
-                unsigned int    : 16; \
-            }; \
-            uint32_t word; \
-        } name; \
-
-#define DECLARE_5BIT_STRUCT(name, b0, b1, b2) \
-        union \
-        { \
-            struct \
-            { \
-                unsigned int b0 : 5; \
-                unsigned int b1 : 5; \
-                unsigned int b2 : 5; \
-                unsigned int    : 17; \
-            }; \
-            uint32_t word; \
-        } name; \
-
-#define DECLARE_BYTE_STRUCT(name, b0, b1, b2, b3) \
-        union \
-        { \
-            struct \
-            { \
-                unsigned int b0 : 8; \
-                unsigned int b1 : 8; \
-                unsigned int b2 : 8; \
-                unsigned int b3 : 8; \
-            }; \
-            uint32_t word; \
-        } name; \
-
-        // Data registers
-        DECLARE_WORD_STRUCT(VXY0, x, y);          // 0
-        DECLARE_HALFWORD_STRUCT(VZ0, z);          // 1
-        DECLARE_WORD_STRUCT(VXY1, x, y);          // 2
-        DECLARE_HALFWORD_STRUCT(VZ1, z);          // 3
-        DECLARE_WORD_STRUCT(VXY2, x, y);          // 4
-        DECLARE_HALFWORD_STRUCT(VZ2, z);          // 5
-        DECLARE_BYTE_STRUCT(RGB, r, g, b, code);  // 6
-        DECLARE_HALFWORD_STRUCT(OTZ, OTZ);        // 7
-        DECLARE_WORD_STRUCT(IR0, IR0, sign);      // 8
-        DECLARE_WORD_STRUCT(IR1, IR1, sign);      // 9
-        DECLARE_WORD_STRUCT(IR2, IR2, sign);      // 10
-        DECLARE_WORD_STRUCT(IR3, IR3, sign);      // 11
-        DECLARE_WORD_STRUCT(SXY0, x, y);          // 12
-        DECLARE_WORD_STRUCT(SXY1, x, y);          // 13
-        DECLARE_WORD_STRUCT(SXY2, x, y);          // 14
-        DECLARE_WORD_STRUCT(SXYP, x, y);          // 15
-        DECLARE_HALFWORD_STRUCT(SZ0, z);          // 16
-        DECLARE_HALFWORD_STRUCT(SZ1, z);          // 17
-        DECLARE_HALFWORD_STRUCT(SZ2, z);          // 18
-        DECLARE_HALFWORD_STRUCT(SZ3, z);          // 19
-        DECLARE_BYTE_STRUCT(RGB0, r, g, b, code); // 20
-        DECLARE_BYTE_STRUCT(RGB1, r, g, b, code); // 21
-        DECLARE_BYTE_STRUCT(RGB2, r, g, b, code); // 22
-        uint32_t MAC0;                            // 24
-        uint32_t MAC1;                            // 25
-        uint32_t MAC2;                            // 26
-        uint32_t MAC3;                            // 27
-        DECLARE_5BIT_STRUCT(IRGB, r, g, b);       // 28
-        DECLARE_5BIT_STRUCT(ORGB, r, g, b);       // 29
-        uint32_t LZCS;                            // 30
-
-        union
-        {
-            struct
-            {
-                unsigned int LZCR : 6;
-                unsigned int : 26;
-            };
-            uint32_t word;
-        } LZCR; // 31
-
-        // Control registers
-        DECLARE_WORD_STRUCT(R11R12, r11, r12); // 0
-        DECLARE_WORD_STRUCT(R13R21, r13, r21); // 1
-        DECLARE_WORD_STRUCT(R22R23, r22, r23); // 2
-        DECLARE_WORD_STRUCT(R31R32, r31, r32); // 3
-        DECLARE_HALFWORD_STRUCT(R33, R33);     // 4
-        uint32_t TRX;                          // 5
-        uint32_t TRY;                          // 6
-        uint32_t TRZ;                          // 7
-        DECLARE_WORD_STRUCT(L11L12, l11, l12); // 8
-        DECLARE_WORD_STRUCT(L13L21, l13, l21); // 9
-        DECLARE_WORD_STRUCT(L22L23, l22, l23); // 10
-        DECLARE_WORD_STRUCT(L31L32, l31, l32); // 11
-        DECLARE_HALFWORD_STRUCT(L33, l33);     // 12
-        uint32_t RBK;                          // 13
-        uint32_t GBK;                          // 14
-        uint32_t BBK;                          // 15
-        DECLARE_WORD_STRUCT(LR1LR2, lr1, lr2); // 16
-        DECLARE_WORD_STRUCT(LR3LG1, lr3, lg1); // 17
-        DECLARE_WORD_STRUCT(LG2LG3, lg3, lg2); // 18
-        DECLARE_WORD_STRUCT(LB1LB2, lb1, lb2); // 19
-        DECLARE_HALFWORD_STRUCT(LB3, lb3);     // 20
-        uint32_t RFC;                          // 21
-        uint32_t GFC;                          // 22
-        uint32_t BFC;                          // 23
-        uint32_t OFX;                          // 24
-        uint32_t OFY;                          // 25
-        DECLARE_HALFWORD_STRUCT(H, H);         // 26
-        DECLARE_HALFWORD_STRUCT(DQA, DQA);     // 27
-        uint32_t DQB;                          // 28
-        DECLARE_HALFWORD_STRUCT(ZSF3, ZSF3);   // 29
-        DECLARE_HALFWORD_STRUCT(ZSF4, ZSF4);   // 30
-        uint32_t FLAG;                         // 31
-    } cop2;
+    // Geometry Transformation Engine (COP2/GTE) registers
+    struct psemu_cpu_gte cop2;
 };
 
 // Sets the system bus to use to `m_bus`.

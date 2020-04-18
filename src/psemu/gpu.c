@@ -14,6 +14,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include "debug.h"
 #include "gpu.h"
 #include "utility/fifo.h"
 #include "utility/memory.h"
@@ -30,7 +31,7 @@ sizeof(uint16_t) * PSEMU_GPU_VRAM_WIDTH * PSEMU_GPU_VRAM_HEIGHT;
 #define COLOR_DEPTH_15BPP 2
 
 // Defines the structure of the internal command state.
-struct
+static struct
 {
     // Draw flags
     struct
@@ -151,7 +152,7 @@ struct
 
     // Data received.
     uint32_t received_data;
-} static cmd_state;
+} cmd_state;
 
 // Returns a pixel from the CLUT.
 static uint16_t clut_lookup(const struct psemu_gpu* const gpu,
@@ -173,7 +174,9 @@ static uint16_t clut_lookup(const struct psemu_gpu* const gpu,
             return texel;
 
         default:
-            __debugbreak();
+            psemu_log("GPU: 8bpp CLUT lookup not implemented, results will be "
+                      "wrong");
+            return 0xBEE6;
     }
 }
 
@@ -256,12 +259,13 @@ static void draw_polygon(struct psemu_gpu* const gpu,
                             texel_x += (texcoord_x / 4);
                             break;
 
+                        case COLOR_DEPTH_8BPP:
+                            texel_x += (texcoord_x / 8);
+                            break;
+
                         case COLOR_DEPTH_15BPP:
                             texel_x += texcoord_x;
                             break;
-
-                        default:
-                            __debugbreak();
                     }
                     
                     const uint16_t texel =
@@ -868,6 +872,7 @@ void psemu_gpu_gp0(struct psemu_gpu* const gpu, const uint32_t cmd)
                     return;
 
                 default:
+                    psemu_log("Unknown GP0 packet: 0x%08X", cmd);
                     return;
             }
 

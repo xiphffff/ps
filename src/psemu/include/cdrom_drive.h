@@ -208,7 +208,7 @@ struct psemu_cdrom_drive
     // only ever be 0x800 (2048) or 0x924 (2340).
     unsigned int sector_size;
 
-    // Pointer to the current sector data
+    // Current sector data
     uint8_t sector_data[PSEMU_CDROM_SECTOR_SIZE];
 
     // The function to call when it is time to read a sector off of a CD-ROM.
@@ -218,24 +218,24 @@ struct psemu_cdrom_drive
 };
 
 // Initializes a CD-ROM drive `cdrom_drive`.
-void psemu_cdrom_drive_init(struct psemu_cdrom_drive* cdrom_drive);
+void psemu_cdrom_drive_init(struct psemu_cdrom_drive* const cdrom_drive);
 
 // Destroys all memory held by CD-ROM drive `cdrom_drive`.
-void psemu_cdrom_drive_fini(struct psemu_cdrom_drive* cdrom_drive);
+void psemu_cdrom_drive_fini(struct psemu_cdrom_drive* const cdrom_drive);
 
 // Resets the CD-ROM drive `cdrom_drive` to the startup state.
-void psemu_cdrom_drive_reset(struct psemu_cdrom_drive* cdrom_drive);
+void psemu_cdrom_drive_reset(struct psemu_cdrom_drive* const cdrom_drive);
 
 // Checks to see if interrupts needs to be fired.
-void psemu_cdrom_drive_step(struct psemu_cdrom_drive* cdrom_drive);
+void psemu_cdrom_drive_step(struct psemu_cdrom_drive* const cdrom_drive);
 
 // Stores `data` into register `reg` in CD-ROM drive `cdrom_drive`.
-void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* cdrom_drive,
+void psemu_cdrom_drive_register_store(struct psemu_cdrom_drive* const cdrom_drive,
                                       const unsigned int reg,
                                       const uint8_t data);
 
 // Loads data from CD-ROM drive `cdrom_drive`'s register `reg`.
-uint8_t psemu_cdrom_drive_register_load(struct psemu_cdrom_drive* cdrom_drive,
+uint8_t psemu_cdrom_drive_register_load(const struct psemu_cdrom_drive* const cdrom_drive,
                                         const unsigned int reg);
 
 #ifdef __cplusplus

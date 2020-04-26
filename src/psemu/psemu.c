@@ -86,3 +86,11 @@ void psemu_set_cdrom(struct psemu_system* const ps_emu,
 
     ps_emu->bus.cdrom_drive.read_cb = cb;
 }
+
+void psemu_set_user_param_cb(struct psemu_system* const ps_emu,
+							 void* user_param)
+{
+    assert(ps_emu != NULL);
+
+    ps_emu->bus.cdrom_drive.user_param = user_param;
+}

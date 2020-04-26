@@ -12,26 +12,28 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-#include <QApplication>
-#include <QSurfaceFormat>
-#include "pstest.h"
+#pragma once
 
-int main(int argc, char* argv[])
+#include <QFile>
+#include <QObject>
+
+// Forward declarations
+class Emulator;
+class MainWindow;
+class Renderer;
+
+class PSTest : public QObject
 {
-    QApplication qt_app(argc, argv);
+    Q_OBJECT
 
-    QSurfaceFormat format;
-    format.setDepthBufferSize(24);
-    format.setStencilBufferSize(8);
-    format.setVersion(4, 5);
-    format.setProfile(QSurfaceFormat::CoreProfile);
-    format.setOption(QSurfaceFormat::DebugContext);
+public:
+    PSTest() noexcept;
+    ~PSTest() noexcept;
 
-    QSurfaceFormat::setDefaultFormat(format);
+private:
+    QFile tty_log;
 
-    qt_app.setApplicationName("psemu debugging station");
-    qt_app.setApplicationVersion("1.0");
-
-    PSTest pstest;
-    return qt_app.exec();
-}
+    Emulator* emulator;
+    MainWindow* main_window;
+    Renderer* renderer;
+};

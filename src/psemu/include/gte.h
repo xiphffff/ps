@@ -209,6 +209,9 @@ struct psemu_cpu_gte
     int16_t ZSF3;                               // 29
     int16_t ZSF4;                               // 30
     uint32_t FLAG;                              // 31
+
+    // Current instruction (required for parameters to some GTE operations)
+    uint32_t instruction;
 };
 
 // Handles the `nclip` instruction.

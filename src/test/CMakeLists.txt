@@ -12,11 +12,20 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-find_package(glfw3 CONFIG REQUIRED)
-find_package(fmt CONFIG REQUIRED)
+find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
-set(SRCS disasm.cpp glad.c main.cpp)
-set(HDRS disasm.h glad.h khrplatform.h)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+set(SRCS disasm.cpp
+         emulator.cpp
+         main.cpp
+         main_window.cpp
+         pstest.cpp
+         renderer.cpp)
+
+set(HDRS disasm.h emulator.h main_window.h pstest.h renderer.h)
 
 add_executable(psemu_debug ${SRCS} ${HDRS})
 
@@ -25,5 +34,4 @@ set_target_properties(psemu_debug PROPERTIES
                       CXX_STANDARD_REQUIRED YES
                       CXX_EXTENSIONS ON)
 
-target_compile_definitions(psemu_debug PRIVATE _CRT_SECURE_NO_WARNINGS)
-target_link_libraries(psemu_debug PRIVATE psemu glfw fmt::fmt fmt::fmt-header-only dl)
+target_link_libraries(psemu_debug PRIVATE psemu Qt5::Widgets)

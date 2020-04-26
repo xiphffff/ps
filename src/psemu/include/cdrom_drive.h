@@ -24,7 +24,9 @@ extern "C"
 #include "../utility/fifo.h"
 
 typedef void (*psemu_cdrom_read_cb)
-(const unsigned int address, uint8_t* const sector_data);
+(void* user_param,
+ const unsigned int address,
+ uint8_t* const sector_data);
 
 // Received SECOND (or further) response to ReadS/ReadN (and Play+Report)
 #define PSEMU_CDROM_DRIVE_INT1 1
@@ -215,6 +217,9 @@ struct psemu_cdrom_drive
     // Setting this to a non `NULL` value signifies that a CD-ROM has been
     // "inserted". If it is `NULL`, there is no CD-ROM.
     psemu_cdrom_read_cb read_cb;
+
+    // See notes in `psemu_set_user_param_cb()`.
+    void* user_param;
 };
 
 // Initializes a CD-ROM drive `cdrom_drive`.

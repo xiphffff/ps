@@ -50,10 +50,10 @@ struct gte_vector
 
 // Clamps `value` to `limit` if `value` has exceeded `limit`, and sets FLAG bit
 // `bit` if so, and returns `value`.
-static unsigned int unsigned_lim(struct psemu_cpu_gte* const gte,
-                                 unsigned int value,
-                                 const unsigned int bit,
-                                 const unsigned int limit)
+static uint64_t unsigned_lim(struct psemu_cpu_gte* const gte,
+                             uint64_t value,
+                             const unsigned int bit,
+                             const unsigned int limit)
 {
     assert(gte != NULL);
     assert(bit <= 31U);
@@ -68,11 +68,11 @@ static unsigned int unsigned_lim(struct psemu_cpu_gte* const gte,
 
 // Clamps `value` to `lower_limit` or `upper_limit` if `value` exceeds or is
 // under either, and sets FLAG bit `bit`. Returns `value.`
-static signed int signed_lim(struct psemu_cpu_gte* const gte,
-                             signed int value,
-                             const unsigned int bit,
-                             const signed int lower_limit,
-                             const unsigned upper_limit)
+static int64_t signed_lim(struct psemu_cpu_gte* const gte,
+                          int64_t value,
+                          const unsigned int bit,
+                          const int64_t lower_limit,
+                          const int64_t upper_limit)
 {
     assert(gte != NULL);
     assert(bit <= 31U);
@@ -92,40 +92,63 @@ static signed int signed_lim(struct psemu_cpu_gte* const gte,
 
 // Clamps `value` in an unsigned or signed manner depending on the value of the
 // `lm` argument in the instruction.
-static int32_t lim(struct psemu_cpu_gte* const gte,
-                   int32_t value,
+static int64_t lim(struct psemu_cpu_gte* const gte,
+                   int64_t value,
                    const unsigned int bit)
 {
     assert(gte != NULL);
     assert(bit <= 31U);
 
+    if (gte->instruction & (1 << 10))
+    {
+        return unsigned_lim(gte, value, bit, 32767);
+    }
     return signed_lim(gte, value, bit, -32768, 32767);
 }
 
 // Handles perspective transformation.
 static void rtp(struct psemu_cpu_gte* const gte,
-                const struct gte_vector* const vec,
-                const bool last)
+                const struct gte_vector* const vec)
 {
     assert(gte != NULL);
     assert(vec != NULL);
 
-    int64_t SSX = ((gte->R11R12.r11 * vec->x) +
-                   (gte->R11R12.r12 * vec->y) +
-                   (gte->R13R21.r13 * vec->z) + gte->TRX);
+    const bool sf = (gte->instruction & (1 << 19)) != 0;
+
+    // MAC1 = (TRX*1000h + RT11*VX0 + RT12*VY0 + RT13*VZ0) SAR (sf*12)
+    gte->MAC1 = ((gte->R11R12.r11 * vec->x) +
+                 (gte->R11R12.r12 * vec->y) +
+                 (gte->R13R21.r13 * vec->z) + (gte->TRX * 0x1000)) >> (sf * 12);
  
-    int64_t SSY = ((gte->R13R21.r21 * vec->x) +
-                   (gte->R22R23.r22 * vec->y) +
-                   (gte->R22R23.r23 * vec->z) + gte->TRY);
+    // MAC2 = (TRY*1000h + RT21*VX0 + RT22*VY0 + RT23*VZ0) SAR (sf*12)
+    gte->MAC2 = ((gte->R13R21.r21 * vec->x) +
+                 (gte->R22R23.r22 * vec->y) +
+                 (gte->R22R23.r23 * vec->z) + (gte->TRY * 0x1000)) >> (sf * 12);
 
-    int64_t SSZ = ((gte->R31R32.r31 * vec->x) +
-                   (gte->R31R32.r32 * vec->y) +
-                   (gte->R33        * vec->z) + gte->TRZ);
+    // MAC3 = (TRZ*1000h + RT31*VX0 + RT32*VY0 + RT33*VZ0) SAR (sf*12)
+    gte->MAC3 = ((gte->R31R32.r31 * vec->x) +
+                 (gte->R31R32.r32 * vec->y) +
+                 (gte->R33        * vec->z) + (gte->TRZ * 0x1000)) >> (sf * 12);
 
+    // IR1 = MAC1 clamped to -32768..+32768
+    gte->IR1 = limA1S(gte, gte->MAC1);
+
+    // IR2 = MAC2 clamped to -32768..+32768
+    gte->IR2 = limA2S(gte, gte->MAC2);
+
+    // IR3 = MAC3 clamped to -32768..+32768
+    gte->IR3 = limA3S(gte, gte->MAC3);
+
+    // Before writing to the FIFOs, the older entries are moved one stage down.
     gte->SZ0 = gte->SZ1;
     gte->SZ1 = gte->SZ2;
     gte->SZ2 = gte->SZ3;
-    gte->SZ3 = limC(gte, SSZ);
+
+    // SZ FIFO clamped to 0..+65535
+    gte->SZ3 = limC(gte, gte->MAC3 >> ((1 - sf) * 12));
+
+    gte->SXY0.word = gte->SXY1.word;
+    gte->SXY1.word = gte->SXY2.word;
 
     // Unsigned Newton-Raphson (UNR) division table
     static const uint8_t division_table[257] =
@@ -155,7 +178,7 @@ static void rtp(struct psemu_cpu_gte* const gte,
 
     if (gte->H < (gte->SZ3 * 2))
     {
-        int z = __builtin_clz(gte->SZ3);
+        int z = __builtin_clz(gte->SZ3) & 0x0F;
         div_result = (gte->H << z);
         int d = (gte->SZ3 << z);
         uint8_t u = division_table[(d - 0x7FC0) >> 7] + 0x101;
@@ -166,100 +189,114 @@ static void rtp(struct psemu_cpu_gte* const gte,
     else
     {
         div_result = 0x1FFFF;
+
+        gte->FLAG |= (1 << 17);
+        gte->FLAG |= (1 << 31);
     }
 
-    int64_t SX = gte->OFX + (gte->IR1 * div_result);
-    int64_t SY = gte->OFY + (gte->IR2 * div_result);
-    int64_t P  = gte->DQB + (gte->DQA * div_result);
+    gte->MAC0 = ((gte->IR1 * div_result) + gte->OFX);
+    gte->SXY2.x = limD1(gte, gte->MAC0 >> 16);
 
-    gte->IR0 = limE(gte, P);
+    gte->MAC0 = ((gte->IR2 * div_result) + gte->OFY);
+    gte->SXY2.y = limD2(gte, gte->MAC0 >> 16);
 
-    gte->SXY0.x = gte->SXY1.x;
-    gte->SXY1.x = gte->SXY2.x;
-    gte->SXY2.x = limD1(gte, SX);
-
-    gte->SXY0.y = gte->SXY1.y;
-    gte->SXY1.y = gte->SXY2.y;
-    gte->SXY2.y = limD2(gte, SY);
-
-    if (last)
-    {
-        gte->IR1 = limA1S(gte, SSX);
-        gte->IR2 = limA2S(gte, SSY);
-        gte->IR3 = limA3S(gte, SSZ);
-
-        gte->MAC0 = P;
-        gte->MAC1 = SSX;
-        gte->MAC2 = SSY;
-        gte->MAC3 = SSZ;
-    }
+    gte->MAC0 = ((gte->DQA * div_result) + gte->DQB);
+    gte->IR0 = limE(gte, gte->MAC0 >> 12);
 }
 
 // Handles light source calculation.
 static void ncd(struct psemu_cpu_gte* const gte,
-                const struct gte_vector* const vec,
-                const bool last)
+                const struct gte_vector* const vec)
 {
     assert(gte != NULL);
     assert(vec != NULL);
 
-    const uint16_t LLM1 = limA1U(gte, (gte->L11L12.l11 * vec->x) +
-                                      (gte->L11L12.l12 * vec->y) +
-                                      (gte->L13L21.l13 * vec->z));
+    const bool sf = (gte->instruction & (1 << 19)) != 0;
 
-    const uint16_t LLM2 = limA2U(gte, (gte->L13L21.l21 * vec->x) +
-                                      (gte->L22L23.l22 * vec->y) +
-                                      (gte->L22L23.l23 * vec->z));
+    // [MAC1,MAC2,MAC3] = (LLM*V0) SAR (sf*12)
+    gte->MAC1 = ((gte->L11L12.l11 * vec->x) +
+                 (gte->L11L12.l12 * vec->y) +
+                 (gte->L13L21.l13 * vec->z)) >> (sf * 12);
 
-    const uint16_t LLM3 = limA3U(gte, (gte->L31L32.l31 * vec->x) +
-                                      (gte->L31L32.l32 * vec->y) +
-                                      (gte->L33        * vec->z));
+    gte->MAC2 = ((gte->L13L21.l21 * vec->x) +
+                 (gte->L22L23.l22 * vec->y) +
+                 (gte->L22L23.l23 * vec->z)) >> (sf * 12);
 
-    const uint16_t RRLT = limA1U(gte, (gte->LR1LR2.lr1 * LLM1) +
-                                      (gte->LR1LR2.lr2 * LLM2) +
-                                      (gte->LR3LG1.lr3 * LLM3) + gte->RBK) *
-                                      gte->RGB.r;
+    gte->MAC3 = ((gte->L31L32.l31 * vec->x) +
+                 (gte->L31L32.l32 * vec->y) +
+                 (gte->L33        * vec->z)) >> (sf * 12);
 
-    const uint16_t GGLT = limA2U(gte, (gte->LR3LG1.lg1 * LLM1) +
-                                      (gte->LG2LG3.lg2 * LLM2) +
-                                      (gte->LG2LG3.lg3 * LLM3) + gte->GBK) *
-                                      gte->RGB.g;
+    // IR1 = MAC1 clamped to 0..32767
+    gte->IR1 = limA1U(gte, gte->MAC1);
 
-    const uint16_t BBLT = limA3U(gte, (gte->LB1LB2.lb1 * LLM1) +
-                                      (gte->LB1LB2.lb2 * LLM2) +
-                                      (gte->LB3        * LLM3) + gte->BBK) *
-                                      gte->RGB.b;
+    // IR2 = MAC2 clamped to 0..32767
+    gte->IR2 = limA2U(gte, gte->MAC2);
 
-    const int32_t RR0 = RRLT + (gte->IR0 * limA1S(gte, (gte->RFC - RRLT)));
-    const int32_t GG0 = GGLT + (gte->IR0 * limA1S(gte, (gte->GFC - GGLT)));
-    const int32_t BB0 = BBLT + (gte->IR0 * limA1S(gte, (gte->BFC - BBLT)));
+    // IR3 = MAC3 clamped to 0..32767
+    gte->IR3 = limA3U(gte, gte->MAC3);
 
-    gte->RGB0.cd0 = gte->RGB1.cd1;
-    gte->RGB1.cd1 = gte->RGB2.cd2;
+    // [MAC1,MAC2,MAC3] = (BK*1000h + LCM*IR) SAR (sf*12)
+    gte->MAC1 = ((gte->LR1LR2.lr1 * gte->IR1) +
+                 (gte->LR1LR2.lr2 * gte->IR2) +
+                 (gte->LR3LG1.lr3 * gte->IR3) + gte->RBK * 0x1000) >> (sf * 12);
+
+    gte->MAC2 = ((gte->LR3LG1.lg1 * gte->IR1) +
+                 (gte->LG2LG3.lg2 * gte->IR2) +
+                 (gte->LG2LG3.lg3 * gte->IR3) + gte->GBK * 0x1000) >> (sf * 12);
+
+    gte->MAC3 = ((gte->LB1LB2.lb1 * gte->IR1) +
+                 (gte->LB1LB2.lb2 * gte->IR2) +
+                 (gte->LB3        * gte->IR3) + gte->BBK * 0x1000) >> (sf * 12);
+
+    // IR1 = MAC1 clamped to 0..32767
+    gte->IR1 = limA1U(gte, gte->MAC1);
+
+    // IR2 = MAC2 clamped to 0..32767
+    gte->IR2 = limA2U(gte, gte->MAC2);
+
+    // IR3 = MAC3 clamped to 0..32767
+    gte->IR3 = limA3U(gte, gte->MAC3);
+
+    // [MAC1,MAC2,MAC3] = [R*IR1,G*IR2,B*IR3] SHL 4
+    gte->MAC1 = (gte->RGB.r * gte->IR1) << 4;
+    gte->MAC2 = (gte->RGB.g * gte->IR2) << 4;
+    gte->MAC3 = (gte->RGB.b * gte->IR3) << 4;
+
+    // [MAC1,MAC2,MAC3] = MAC+(FC-MAC)*IR0
+    gte->MAC1 = ((gte->RFC << 12) - gte->MAC1) >> (sf * 12);
+    gte->MAC2 = ((gte->GFC << 12) - gte->MAC2) >> (sf * 12);
+    gte->MAC3 = ((gte->BFC << 12) - gte->MAC3) >> (sf * 12);
+
+    // IR1 = MAC1 clamped to 0..32767
+    gte->IR1 = limA1U(gte, gte->MAC1);
+
+    // IR2 = MAC2 clamped to 0..32767
+    gte->IR2 = limA2U(gte, gte->MAC2);
+
+    // IR3 = MAC3 clamped to 0..32767
+    gte->IR3 = limA3U(gte, gte->MAC3);
+
+    // [MAC1,MAC2,MAC3] SAR (sf*12)
+    gte->MAC1 = ((gte->IR1 * gte->IR0) + gte->MAC1) >> (sf * 12);
+    gte->MAC2 = ((gte->IR2 * gte->IR0) + gte->MAC2) >> (sf * 12);
+    gte->MAC3 = ((gte->IR3 * gte->IR0) + gte->MAC3) >> (sf * 12);
+
+    // IR1 = MAC1 clamped to 0..32767
+    gte->IR1 = limA1U(gte, gte->MAC1);
+
+    // IR2 = MAC2 clamped to 0..32767
+    gte->IR2 = limA2U(gte, gte->MAC2);
+
+    // IR3 = MAC3 clamped to 0..32767
+    gte->IR3 = limA3U(gte, gte->MAC3);
+
+    gte->RGB0.word = gte->RGB1.word;
+    gte->RGB1.word = gte->RGB2.word;
+
+    gte->RGB2.r2  = limB1(gte, gte->MAC1 >> 4);
+    gte->RGB2.g2  = limB2(gte, gte->MAC2 >> 4);
+    gte->RGB2.b2  = limB3(gte, gte->MAC3 >> 4);
     gte->RGB2.cd2 = gte->RGB.code;
-
-    gte->RGB0.r0 = gte->RGB1.r1;
-    gte->RGB1.r1 = gte->RGB2.r2;
-    gte->RGB2.r2 = limB1(gte, RR0);
-
-    gte->RGB0.g0 = gte->RGB1.g1;
-    gte->RGB1.g1 = gte->RGB2.g2;
-    gte->RGB2.g2 = limB2(gte, GG0);
-
-    gte->RGB0.b0 = gte->RGB1.b1;
-    gte->RGB1.b1 = gte->RGB2.b2;
-    gte->RGB2.b2 = limB3(gte, BB0);
-
-    if (last)
-    {
-        gte->IR1 = limA1U(gte, RR0);
-        gte->IR2 = limA2U(gte, GG0);
-        gte->IR3 = limA3U(gte, BB0);
-
-        gte->MAC1 = RR0;
-        gte->MAC2 = GG0;
-        gte->MAC3 = BB0;
-    }
 }
 
 // Handles the `nclip` instruction.
@@ -286,7 +323,7 @@ void psemu_cpu_gte_ncds(struct psemu_cpu_gte* const gte)
         .y  = gte->VXY0.y,
         .z  = gte->VZ0
     };
-    ncd(gte, &vec0, true);
+    ncd(gte, &vec0);
 }
 
 // Handles the `avsz3` instruction.
@@ -295,7 +332,7 @@ void psemu_cpu_gte_avsz3(struct psemu_cpu_gte* const gte)
     assert(gte != NULL);
 
     gte->MAC0 = gte->ZSF3 * (gte->SZ1 + gte->SZ2 + gte->SZ3);
-    gte->OTZ  = limC(gte, gte->MAC0);
+    gte->OTZ  = limC(gte, gte->MAC0 >> 12);
 }
 
 // Handles the `rtpt` instruction.
@@ -308,7 +345,6 @@ void psemu_cpu_gte_rtpt(struct psemu_cpu_gte* const gte)
         .x  = gte->VXY0.x,
         .y  = gte->VXY0.y,
         .z  = gte->VZ0,
-        .sz = &gte->SZ0
     };
 
     const struct gte_vector vec1 =
@@ -316,7 +352,6 @@ void psemu_cpu_gte_rtpt(struct psemu_cpu_gte* const gte)
         .x  = gte->VXY1.x,
         .y  = gte->VXY1.y,
         .z  = gte->VZ1,
-        .sz = &gte->SZ1
     };
 
     const struct gte_vector vec2 =
@@ -324,10 +359,9 @@ void psemu_cpu_gte_rtpt(struct psemu_cpu_gte* const gte)
         .x  = gte->VXY2.x,
         .y  = gte->VXY2.y,
         .z  = gte->VZ2,
-        .sz = &gte->SZ2
     };
 
-    rtp(gte, &vec0, false);
-    rtp(gte, &vec1, false);
-    rtp(gte, &vec2, true);
+    rtp(gte, &vec0);
+    rtp(gte, &vec1);
+    rtp(gte, &vec2);
 }

@@ -801,6 +801,8 @@ void psemu_cpu_step(struct psemu_cpu* const cpu)
                     break;
 
                 default:
+                    cpu->cop2.instruction = cpu->instruction.word;
+
                     switch (cpu->instruction.funct)
                     {
                         case PSEMU_CPU_OP_NCLIP:

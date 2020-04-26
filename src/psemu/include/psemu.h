@@ -53,6 +53,9 @@ void psemu_vblank(struct psemu_system* const ps_emu);
 void psemu_set_cdrom(struct psemu_system* const ps_emu,
 					 const psemu_cdrom_read_cb cb);
 
+void psemu_set_user_param_cb(struct psemu_system* const ps_emu,
+							 void* user_param);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

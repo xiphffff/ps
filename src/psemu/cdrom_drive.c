@@ -93,7 +93,8 @@ void psemu_cdrom_drive_init(struct psemu_cdrom_drive* cdrom_drive)
     psemu_fifo_init(&cdrom_drive->int3.response, 16);
     psemu_fifo_init(&cdrom_drive->int5.response, 16);
 
-    cdrom_drive->read_cb = NULL;
+    cdrom_drive->read_cb    = NULL;
+    cdrom_drive->user_param = NULL;
 }
 
 void psemu_cdrom_drive_fini(struct psemu_cdrom_drive* cdrom_drive)
@@ -155,7 +156,9 @@ void psemu_cdrom_drive_step(struct psemu_cdrom_drive* cdrom_drive)
 
             if (cdrom_drive->read_cb)
             {
-                cdrom_drive->read_cb(address + 24, cdrom_drive->sector_data);
+                cdrom_drive->read_cb(cdrom_drive->user_param,
+                                     address + 24,
+                                     cdrom_drive->sector_data);
             }
 
             push_response(&cdrom_drive->int1,
